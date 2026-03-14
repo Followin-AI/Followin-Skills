@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "plugins": {
+    "superpowers@superpowers-marketplace": [
+      {
+        "scope": "user",
+        "installPath": "/Users/jimyzwjyw/.claude/plugins/cache/superpowers-marketplace/superpowers/5.0.2",
+        "version": "5.0.2",
+        "installedAt": "2026-03-12T09:07:12.560Z",
+        "lastUpdated": "2026-03-12T09:07:12.560Z",
+        "gitCommitSha": "363923f74aa9cd7b470c0aaa73dee629a8bfdc90"
+      }
+    ]
+  },
+    "obsidian@kepano-obsidian-skills": [
+      {
+        "scope": "user",
+        "installPath": "/Users/jimyzwjyw/.claude/plugins/cache/kepano-obsidian-skills/obsidian/1.0.1",
+        "version": "1.0.1",
+        "installedAt": "2026-03-14T00:00:00.000Z",
+        "lastUpdated": "2026-03-14T00:00:00.000Z",
+        "gitCommitSha": "bb9ec95e1b59c3471bd6fd77a78a4042430bfac3"
+      }
+    ]
+  }
+}

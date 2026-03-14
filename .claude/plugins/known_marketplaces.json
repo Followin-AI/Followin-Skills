@@ -1,0 +1,34 @@
+{
+  "superpowers-dev": {
+    "source": {
+      "source": "git",
+      "url": "https://github.com/obra/superpowers.git"
+    },
+    "installLocation": "/Users/jimyzwjyw/.claude/plugins/marketplaces/superpowers-dev",
+    "lastUpdated": "2026-03-12T09:06:30.293Z"
+  },
+  "superpowers-marketplace": {
+    "source": {
+      "source": "github",
+      "repo": "obra/superpowers-marketplace"
+    },
+    "installLocation": "/Users/jimyzwjyw/.claude/plugins/marketplaces/superpowers-marketplace",
+    "lastUpdated": "2026-03-12T09:07:07.887Z"
+  },
+  "claude-plugins-official": {
+    "source": {
+      "source": "github",
+      "repo": "anthropics/claude-plugins-official"
+    },
+    "installLocation": "/Users/jimyzwjyw/.claude/plugins/marketplaces/claude-plugins-official",
+    "lastUpdated": "2026-03-14T06:25:44.922Z"
+  },
+  "kepano-obsidian-skills": {
+    "source": {
+      "source": "github",
+      "repo": "kepano/obsidian-skills"
+    },
+    "installLocation": "/Users/jimyzwjyw/.claude/plugins/marketplaces/kepano-obsidian-skills",
+    "lastUpdated": "2026-03-14T00:00:00.000Z"
+  }
+}
