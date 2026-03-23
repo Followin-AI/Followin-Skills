@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "trading-mcp": {
+      "type": "sse",
+      "url": "https://trading-mcp.followin.io/sse"
+    },
+    "openapi-mcp": {
+      "type": "sse",
+      "url": "https://openapi-mcp.followin.io/sse"
+    }
+  }
+}
