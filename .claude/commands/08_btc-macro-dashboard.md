@@ -1,9 +1,9 @@
 ---
-name: BTC宏观看盘
+name: BTC Macro Dashboard
 description: 评估BTC当前宏观环境，输出0-100综合评分和分层分析。当用户问"BTC宏观怎么样"、"宏观环境如何"、"现在几分"时触发。
 trigger: BTC宏观、BTC宏观看盘、BTC宏观评分、BTC宏观环境
 not_trigger: 策略信号、KOL、喊单、热点、TG频道、日报、代币舆情、黄金、行情、价格
-mcp: fred_get_series, fmp_batch_quote, WebSearch, WebFetch
+mcp: fred_get_series, finance_tool_quote, finance_tool_batch_quote_short, finance_tool_economic_calendar, crypto_realtime_price_batch, WebSearch, WebFetch
 ---
 
 # Role: BTC宏观环境分析师
@@ -21,14 +21,30 @@ mcp: fred_get_series, fmp_batch_quote, WebSearch, WebFetch
 本Skill使用以下数据源：
 
 **MCP接入：**
-1. **FRED MCP** — 宏观经济核心数据（流动性、利率、收益率、通胀、就业）
-2. **FMP MCP** — 实时市场行情（指数、汇率、大宗、加密）+ 国债收益率 + 经济日历
+1. **FRED MCP** (`fred_get_series`) — 宏观经济核心数据（流动性、利率、收益率、通胀、就业）
+   - ⚠️ `limit` 参数必须传 integer（如 `10`），不能传 string
+   - ⚠️ 返回值可能有 null（非交易日），跳过取最近非 null 值
+   - ⚠️ 可能间歇性返回 500 错误，降级用 `finance_tool_stable_request` path=`economic-indicators`
+2. **FMP MCP** — 实时市场行情 + 国债收益率 + 经济日历
+   - ✅ `finance_tool_quote`、`finance_tool_batch_quote_short`、`finance_tool_economic_calendar` 等工具 schema 已修复，可直接调用
+3. **BTC 实时价格** (`crypto_realtime_price_batch`) — BTC 当前价格，直接调用 `symbols: "BTC"`
+
+**FMP 直调工具对照表：**
+
+| 需求 | 工具 | 参数 | 注意事项 |
+|------|------|------|---------|
+| DXY 美元指数 | `finance_tool_batch_quote_short` | `symbols: "DXUSD"` | ⚠️ `finance_tool_quote` + DXUSD 返回 402，必须用 batch |
+| 纳斯达克(Composite) | `finance_tool_quote` | `symbol: "^IXIC"` | ⚠️ `^NDX` 返回 402；`^IXIC` 不能批量 |
+| VIX | `finance_tool_quote` | `symbol: "^VIX"` | ⚠️ 不能批量，会被静默过滤 |
+| 黄金报价 | `finance_tool_quote` | `symbol: "GCUSD"` | 也可放入 batch_quote_short |
+| 批量报价 | `finance_tool_batch_quote_short` | `symbols: "A,B,C"` | 逗号分隔 |
+| 经济日历 | `finance_tool_economic_calendar` | 无参数 | 返回全量，需后处理过滤 |
 
 **直接HTTP调取：**
-3. **DeFiLlama** — 稳定币总市值，通过 `GET https://stablecoins.llama.fi/stablecoins?includePrices=true` 直接调取，不走MCP
+4. **DeFiLlama** — 稳定币总市值，通过 `GET https://stablecoins.llama.fi/stablecoins?includePrices=true` 直接调取，不走MCP
 
 **Web检索兜底：**
-4. **Web检索** — FedWatch降息概率、BTC ETF资金流（无公开API的指标）
+5. **Web检索** — FedWatch降息概率、BTC ETF资金流（无公开API的指标）
 
 ---
 
@@ -120,8 +136,8 @@ BTC最底层的驱动力，方向判断以这一层为锚。
 
 **⑤ DXY美元指数趋势（权重 8%）**
 
-数据源：FMP — fmp_batch_quote（symbol: DXUSD）
-判断方式：当前价格相对20日均线的位置和均线方向
+数据源：`finance_tool_batch_quote_short` symbols=`"DXUSD"`（⚠️ `finance_tool_quote` + DXUSD 返回 402，必须用 batch）
+判断方式：当前价格相对20日均线的位置和均线方向（batch-quote-short 不含均线数据，需结合 FRED DTWEXBGS 辅助判断趋势）
 
 | 条件 | 得分 |
 |------|------|
@@ -133,7 +149,7 @@ BTC最底层的驱动力，方向判断以这一层为锚。
 
 **⑥ 纳斯达克趋势（权重 7%）**
 
-数据源：FMP — Index Quote（纳斯达克100）
+数据源：`finance_tool_quote` symbol=`"^IXIC"`（NASDAQ Composite，⚠️ `^NDX` 返回 402 Premium。备选：`QQQ` ETF 代理）
 
 | 条件 | 得分 |
 |------|------|
@@ -145,7 +161,7 @@ BTC最底层的驱动力，方向判断以这一层为锚。
 
 **⑦ VIX恐慌指数（权重 5%）**
 
-数据源：FRED — VIXCLS（日度收盘）或 FMP — Index Quote
+数据源：`finance_tool_quote` symbol=`"^VIX"`（实时，含 priceAvg200/priceAvg50）
 
 | 条件 | 得分 |
 |------|------|
@@ -181,7 +197,7 @@ BTC最底层的驱动力，方向判断以这一层为锚。
 
 **⑩ 黄金趋势（权重 2%）**
 
-数据源：FMP — Commodity Quote（GCUSD/XAUUSD）
+数据源：`finance_tool_quote` symbol=`"GCUSD"`
 评分范围缩减为 -1 到 +1（黄金和BTC关系不是简单同向/反向）
 
 | 条件 | 得分 |
@@ -228,7 +244,7 @@ BTC最底层的驱动力，方向判断以这一层为锚。
 
 **⑭ 通胀数据脉冲 CPI/PCE（权重 5%）**
 
-数据源：FRED — CPILFESL / PCEPILFE + FMP economics-calendar（获取预期值和实际值）
+数据源：FRED — CPILFESL + WebSearch 获取最新 CPI/PCE 实际 vs 预期（PCEPILFE 不再单独调 FRED，用 WebSearch 补充）
 
 | 条件 | 得分 |
 |------|------|
@@ -242,7 +258,7 @@ BTC最底层的驱动力，方向判断以这一层为锚。
 
 **⑮ 就业数据脉冲（权重 5%）**
 
-数据源：FRED — PAYEMS / UNRATE / ICSA + FMP economics-calendar
+数据源：FRED — PAYEMS / UNRATE（ICSA 已移除，就业评分只需非农+失业率）
 评分逻辑："金发女孩"模式——太强（Fed不敢降息）和太弱（衰退恐慌）都不利
 
 | 条件 | 得分 |
@@ -281,8 +297,14 @@ BTC最底层的驱动力，方向判断以这一层为锚。
 
 按优先级顺序拉取数据（确保核心数据先到手）：
 
-1. **FRED MCP**（第一层+第二层核心）：WALCL、WTREGEN、RRPONTSYD、DFEDTARU、M2SL、DFII10、T10Y2Y、DGS2、DGS10、VIXCLS、EFFR、CPILFESL、PCEPILFE、PAYEMS、UNRATE、ICSA
-2. **FMP MCP**（第二层行情）：DXY指数、纳斯达克100指数、黄金报价 + treasury-rates + economics-calendar（获取最近的CPI/非农预期vs实际）
+1. **FRED MCP**（第一层+第二层核心，共10个 series）：WALCL、WTREGEN、RRPONTSYD、DFEDTARU、M2SL、DFII10、T10Y2Y、CPILFESL、PAYEMS、UNRATE
+   - ✂️ 已移除：DGS2/DGS10（→T10Y2Y）、VIXCLS（→FMP ^VIX）、EFFR（→DFEDTARU）、ICSA（就业评分只用 PAYEMS/UNRATE）、PCEPILFE（→CPI 是市场主要通胀指标，PCE 用 WebSearch 补充）
+2. **FMP MCP**（第二层行情，共5个直调）：
+   - DXY + 黄金批量: `finance_tool_batch_quote_short` symbols=`"DXUSD,GCUSD"`（1次搞定2个）
+   - 纳斯达克: `finance_tool_quote` symbol=`"^IXIC"`（⚠️ ^NDX 返回 402；^IXIC 不能批量，会被静默过滤）
+   - VIX: `finance_tool_quote` symbol=`"^VIX"`（⚠️ ^VIX 不能批量，会被静默过滤）
+   - BTC: `crypto_realtime_price_batch` symbols=`"BTC"` 直接调用
+   - 经济日历: `finance_tool_economic_calendar`（无参数，返回全量需后处理）
 3. **DeFiLlama HTTP**（第三层）：`GET https://stablecoins.llama.fi/stablecoins?includePrices=true` 获取稳定币总市值
 4. **Web检索**（补充）：FedWatch降息概率、BTC ETF近期资金流
 

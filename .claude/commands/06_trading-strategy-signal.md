@@ -1,7 +1,7 @@
 ---
-name: 策略信号
+name: Trading Strategy & Signal
 description: 查看顶级交易员实盘持仓和KOL喊单策略的交叉验证信号。当用户问"市场怎么样"、"KOL怎么看[代币]"等模糊市场查询时也默认由本Skill处理。所有涉及"KOL喊单"的查询（如"今天KOL在喊单什么"、"KOL们在喊什么"）必须由本Skill处理，不得路由到其他Skill。本Skill不处理资金费率数据。
-trigger: 策略信号、大户持仓、鲸鱼仓位、实盘操作、KOL喊单、喊单、今天在喊什么、今天KOL们都在喊单什么、KOL们在喊什么、KOL怎么看、大V怎么看、谁在做多、谁在做空、能不能做、跟单、今天交易员在交易什么、交易员在做什么、今天大家在交易什么、大家在交易什么、今天大家都在交易什么
+trigger: 策略信号、大户持仓、鲸鱼仓位、实盘操作、KOL喊单、喊单、今天在喊什么、KOL怎么看、大V怎么看、谁在做多、谁在做空、能不能做、跟单、今天交易员在交易什么、交易员在做什么
 not_trigger: 资金费率、费率、轧空、解锁、上币、CPI、热点、TG、早报、代币详情、社群讨论、推特观点
 mcp: top_traders_live_24h, whale_trader_feeds, kol_call_orders_24h
 ---
@@ -29,13 +29,11 @@ mcp: top_traders_live_24h, whale_trader_feeds, kol_call_orders_24h
 
 > 实盘侧两个MCP统一处理，分析逻辑一致。Hyperliquid链上数据因仓位完全透明（精确的仓位大小、开仓价、清算价），数据精度高于CEX侧，在信念强度评估时可作为加分项。
 
-> **KOL喊单数据来源唯一性**：所有KOL喊单查询（"KOL在喊什么"、"今天有什么喊单"、"KOL怎么看XXX"）**只调用 `kol_call_orders_24h`**，不使用 openapi-mcp 的任何工具（包括 `tg_kol_feeds`、`open_feed_list_tag_opinions` 等）。TG频道的KOL讨论属于TG频道情报Skill的范畴，不在本Skill处理范围内。
-
 ### Skill边界
 
 本Skill只处理**交易员/KOL的持仓行为和策略观点**。以下查询不属于本Skill范围，不应触发：
 - 代币解锁、上币下架、宏观经济数据、量价异动、资金费率异动 → 属于情报中心Skill
-- 热点新闻、市场舆情、TG频道讨论、TG频道KOL观点 → 属于舆情类Skill
+- 热点新闻、市场舆情、TG频道讨论 → 属于舆情类Skill
 - 项目基本面、投融资、团队信息 → 属于项目研究类Skill
 
 **触发关键词**：策略、策略信号、大户、鲸鱼、实盘、KOL、喊单、谁在做多/做空、能不能做、仓位

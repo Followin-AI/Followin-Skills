@@ -1,9 +1,9 @@
 ---
-name: 黄金监控看盘
+name: Gold Macro Dashboard
 description: 评估黄金当前宏观环境，输出0-100综合评分和分层分析。当用户问"黄金宏观怎么样"、"黄金环境如何"、"黄金现在几分"时触发。
 trigger: 黄金宏观、黄金宏观看盘、黄金宏观评分、黄金宏观环境
 not_trigger: 策略信号、KOL、喊单、热点、TG频道、日报、代币舆情、BTC、比特币、行情、价格
-mcp: fred_get_series, fmp_batch_quote, WebSearch, WebFetch
+mcp: fred_get_series, finance_tool_quote, finance_tool_batch_quote_short, WebSearch, WebFetch
 ---
 
 # Role: 黄金宏观环境分析师
@@ -21,8 +21,21 @@ mcp: fred_get_series, fmp_batch_quote, WebSearch, WebFetch
 本Skill使用以下数据源：
 
 **MCP接入：**
-1. **FRED MCP** — 宏观经济核心数据（实际利率、通胀预期、收益率、信用利差、通胀、就业）
-2. **FMP MCP** — 实时市场行情（金价、银价、DXY、汇率）+ 国债收益率 + 经济日历 + COT持仓报告
+1. **FRED MCP** (`fred_get_series`) — 宏观经济核心数据（实际利率、通胀预期、收益率、信用利差、通胀、就业）
+   - ⚠️ `limit` 参数必须传 integer（如 `10`），不能传 string
+   - ⚠️ 返回值可能有 null（非交易日），跳过取最近非 null 值
+   - ⚠️ 可能间歇性返回 500 错误，降级用 `finance_tool_stable_request` path=`economic-indicators`
+2. **FMP MCP** — 实时市场行情 + 国债收益率 + 经济日历
+   - ✅ `finance_tool_quote`、`finance_tool_batch_quote_short` 等工具 schema 已修复，可直接调用
+
+**FMP 直调工具对照表：**
+
+| 需求 | 工具 | 参数 | 注意事项 |
+|------|------|------|---------|
+| 金/银/DXY/日元 批量 | `finance_tool_batch_quote_short` | `symbols: "GCUSD,SIUSD,DXUSD,USDJPY"` | 1次搞定4个 |
+| VIX | `finance_tool_quote` | `symbol: "^VIX"` | ⚠️ 不能批量，会被静默过滤 |
+| COT 报告 | Web检索 CFTC 持仓数据 | — | FMP COT 数据仅到2024年，过时不可用 |
+| 经济日历 | `finance_tool_economic_calendar` | 无参数 | 返回全量，需后处理过滤 |
 
 **Web检索兜底：**
 3. **Web检索** — FedWatch降息概率、央行月度购金、GLD ETF持仓量、上海金溢价（无公开API的指标）
@@ -142,7 +155,7 @@ mcp: fred_get_series, fmp_batch_quote, WebSearch, WebFetch
 
 **⑥ DXY美元指数趋势（权重 10%）**
 
-数据源：FMP — fmp_batch_quote（symbol: DXUSD）
+数据源：`finance_tool_batch_quote_short` symbols=`"DXUSD"`（⚠️ `finance_tool_quote` + DXUSD 返回 402，必须用 batch；不含均线数据，需结合 FRED DTWEXBGS 辅助判断趋势）
 
 | 条件 | 得分 |
 |------|------|
@@ -154,7 +167,7 @@ mcp: fred_get_series, fmp_batch_quote, WebSearch, WebFetch
 
 **⑦ USD/JPY趋势（权重 5%）**
 
-数据源：FMP — Forex Quote（USD/JPY）
+数据源：`finance_tool_quote` symbol=`"USDJPY"`
 日元急剧升值（USD/JPY大幅下跌）= 套利交易平仓 = 风险资产去杠杆。和BTC相反，黄金在carry trade unwind时通常受益或抗跌。
 
 | 条件 | 得分 |
@@ -171,7 +184,7 @@ mcp: fred_get_series, fmp_batch_quote, WebSearch, WebFetch
 
 **⑧ COT管理基金净持仓（权重 10%）**
 
-数据源：FMP — COT Report（COMEX黄金期货）
+数据源：Web检索 CFTC gold managed money net position（⚠️ FMP COT 数据仅到2024年，已过时不可用）
 管理基金（Managed Money）净多头头寸。极端值是强信号。
 
 > ⚠️ COT是**反向指标**：净多头极高 = 市场过热/超买 = 利空；净多头极低或净空头 = 超卖/反转信号 = 利多。
@@ -218,7 +231,7 @@ mcp: fred_get_series, fmp_batch_quote, WebSearch, WebFetch
 
 **⑪ VIX恐慌指数（权重 6%）**
 
-数据源：FRED — VIXCLS 或 FMP — Index Quote
+数据源：`finance_tool_quote` symbol=`"^VIX"`（实时，含 priceAvg200/priceAvg50）
 
 > ⚠️ **与BTC看盘方向相反**：VIX飙升 → 市场恐慌 → 避险资金流入黄金 → **利多**黄金。BTC看盘里VIX飙升是利空。
 
@@ -264,7 +277,7 @@ mcp: fred_get_series, fmp_batch_quote, WebSearch, WebFetch
 
 **⑭ 通胀数据脉冲 CPI/PCE（权重 3%）**
 
-数据源：FRED — CPILFESL / PCEPILFE + FMP economics-calendar
+数据源：FRED — CPILFESL + WebSearch 获取最新 CPI/PCE 实际 vs 预期
 
 | 条件 | 得分 |
 |------|------|
@@ -278,7 +291,7 @@ mcp: fred_get_series, fmp_batch_quote, WebSearch, WebFetch
 
 **⑮ 就业数据脉冲（权重 2%）**
 
-数据源：FRED — PAYEMS / UNRATE + FMP economics-calendar
+数据源：FRED — PAYEMS / UNRATE + WebSearch 获取最新就业数据 vs 预期
 
 | 条件 | 得分 |
 |------|------|
@@ -314,8 +327,12 @@ mcp: fred_get_series, fmp_batch_quote, WebSearch, WebFetch
 
 按优先级顺序拉取数据：
 
-1. **FRED MCP**（第一层核心）：DFII10、T10YIE、DFEDTARU、DGS2、DGS10、VIXCLS、BAMLH0A0HYM2、BAMLC0A0CM、CPILFESL、PCEPILFE、PAYEMS、UNRATE
-2. **FMP MCP**（第二层行情+第三层COT）：金价（GCUSD/XAUUSD）、银价（SIUSD/XAGUSD）、DXY指数、USD/JPY + treasury-rates + economics-calendar + COT Report（COMEX黄金）
+1. **FRED MCP**（第一层核心，共8个 series）：DFII10、T10YIE、DFEDTARU、DGS2、BAMLH0A0HYM2、CPILFESL、PAYEMS、UNRATE
+   - ✂️ 已移除：DGS10（→无独立指标）、VIXCLS（→FMP ^VIX）、BAMLC0A0CM（→无此评分指标）、PCEPILFE（→CPI 为主，PCE 用 WebSearch 补充）
+2. **FMP MCP**（第二层行情，共2个调用）：
+   - 金/银/DXY/日元批量: `finance_tool_batch_quote_short` symbols=`"GCUSD,SIUSD,DXUSD,USDJPY"`（1次搞定4个）
+   - VIX: `finance_tool_quote` symbol=`"^VIX"`（⚠️ ^VIX 不能批量，会被静默过滤）
+   - ⚠️ COT 数据不走 FMP（仅到2024年），改用 Web检索 CFTC 持仓
 3. **Web检索**（第三层+第四层补充）：FedWatch降息概率、GLD ETF持仓量、央行月度购金最新数据、上海金溢价
 
 ### 第二步：逐指标评分

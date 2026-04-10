@@ -1,5 +1,5 @@
 ---
-name: 代币舆情聚合
+name: Token Buzz & Views
 description: 查询某个具体代币的新闻资讯、深度文章、推特KOL观点和社群讨论。必须指定具体代币名称才能触发，如"BTC有什么新闻"、"ETH的KOL观点"。
 trigger: BTC新闻、ETH资讯、SOL观点、[代币名]+新闻、[代币名]+资讯、[代币名]+观点、[代币名]+社群讨论、[代币名]+文章、[代币名]+快讯
 not_trigger: 策略信号、大户、喊单、做多做空、解锁、资金费率、热点排名、TG频道、早报、市场怎么样、KOL怎么看、KOL观点、大V怎么看、KOL对[代币]怎么看
@@ -23,6 +23,8 @@ mcp: open_feed_list_tag_opinions, open_feed_list_tag
 
 - **open_feed_list_tag_opinions** — 输入代币名称/代号，返回推特KOL观点和社群讨论
 - **open_feed_list_tag** — 输入代币名称/代号，返回该代币相关的快讯和文章
+  - ⚠️ **`type` 参数实为必填**，不传则返回 4000 错误。可选值：`key_events`（重要事件）、`news`（快讯和文章）、`community_buzz`（社区讨论）
+  - 获取快讯和文章：调用 `type: "news"`，通过返回内容的 `style_group` 字段区分（`shortcontent` = 快讯，`longcontent` = 文章）
 
 ---
 

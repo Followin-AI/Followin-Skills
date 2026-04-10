@@ -1,5 +1,5 @@
 ---
-name: TG频道情报
+name: TG Channel Intel
 description: 查看Telegram频道里的KOL和社区在讨论什么话题，了解各频道的观点共识和分歧。支持按用户偏好筛选相关频道。
 trigger: TG、Telegram、频道、TG上在聊什么、频道讨论、TG舆情
 not_trigger: 策略、大户、解锁、资金费率、热点风向标、早报、代币详情、社群讨论
