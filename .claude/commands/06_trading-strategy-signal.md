@@ -1,8 +1,8 @@
 ---
 name: Trading Strategy & Signal
 description: 查看顶级交易员实盘持仓和KOL喊单策略的交叉验证信号。当用户问"市场怎么样"、"KOL怎么看[代币]"等模糊市场查询时也默认由本Skill处理。所有涉及"KOL喊单"的查询（如"今天KOL在喊单什么"、"KOL们在喊什么"）必须由本Skill处理，不得路由到其他Skill。本Skill不处理资金费率数据。
-trigger: 策略信号、大户持仓、鲸鱼仓位、实盘操作、KOL喊单、喊单、今天在喊什么、KOL怎么看、大V怎么看、谁在做多、谁在做空、能不能做、跟单、今天交易员在交易什么、交易员在做什么
-not_trigger: 资金费率、费率、轧空、解锁、上币、CPI、热点、TG、早报、代币详情、社群讨论、推特观点
+trigger: 策略信号、大户持仓、鲸鱼仓位、实盘操作、KOL喊单、喊单、今天在喊什么、KOL怎么看、大V怎么看、谁在做多、谁在做空、能不能做、跟单、今天交易员在交易什么、交易员在做什么、strategy signal、trader positions、whale positions、KOL calls、who's longing、who's shorting、can I trade、what are traders doing
+not_trigger: 资金费率、费率、轧空、解锁、上币、CPI、热点、TG、早报、代币详情、社群讨论、推特观点、funding rate、unlock、listing、trending、daily brief、morning brief、token news
 mcp: top_traders_live_24h, whale_trader_feeds, kol_call_orders_24h
 ---
 

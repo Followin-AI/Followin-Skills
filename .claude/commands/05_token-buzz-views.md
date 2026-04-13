@@ -1,8 +1,8 @@
 ---
 name: Token Buzz & Views
 description: 查询某个具体代币的新闻资讯、深度文章、推特KOL观点和社群讨论。必须指定具体代币名称才能触发，如"BTC有什么新闻"、"ETH的KOL观点"。
-trigger: BTC新闻、ETH资讯、SOL观点、[代币名]+新闻、[代币名]+资讯、[代币名]+观点、[代币名]+社群讨论、[代币名]+文章、[代币名]+快讯
-not_trigger: 策略信号、大户、喊单、做多做空、解锁、资金费率、热点排名、TG频道、早报、市场怎么样、KOL怎么看、KOL观点、大V怎么看、KOL对[代币]怎么看
+trigger: BTC新闻、ETH资讯、SOL观点、[代币名]+新闻、[代币名]+资讯、[代币名]+观点、[代币名]+社群讨论、[代币名]+文章、[代币名]+快讯、[token] news、[token] updates、what's happening with [token]、[token] articles、[token] discussion、any news on [token]
+not_trigger: 策略信号、大户、喊单、做多做空、解锁、资金费率、热点排名、TG频道、早报、市场怎么样、KOL怎么看、KOL观点、大V怎么看、KOL对[代币]怎么看、strategy signal、trader、KOL calls、long short、trending、morning brief
 special_trigger: 用户必须提到具体代币名称/代号（如BTC、ETH、SOL等），且意图是查看该代币的新闻、资讯、观点或讨论
 mcp: open_feed_list_tag_opinions, open_feed_list_tag
 ---

@@ -1,217 +1,345 @@
-# Claude Crypto Skills
+# Followin Skill User Guide
 
-13 个 Claude Code Skill，覆盖加密货币交易、宏观分析和市场情报 — 基于 Followin MCP 和 Premium MCP。
+13 Claude Code Skills for crypto trading, macro analysis, and market intelligence — powered by Followin MCP and Premium MCP.
 
-## 安装
+All skills support both **Chinese and English** triggers and output in the language you use.
 
-1. 将 `.mcp.json.example` 复制为 `.mcp.json`，填入你的 API Key
-2. 将 `.claude/commands/` 下的 Skill 文件复制到 `~/.claude/commands/` 目录
-3. 重启 Claude Code
+## Setup
 
----
-
-## Followin MCP — 加密市场资讯与舆情
-
-Followin MCP 接入 Followin 加密货币资讯平台，提供以下数据能力：
-
-- **热点风向标** — 当前热门话题 Top10，含热度值、关联代币、价格变动
-- **热门资讯流** — 热门快讯和热门文章排行
-- **首页信息流** — 最新快讯和深度文章，支持筛选重要内容
-- **代币维度内容** — 按代币查看重要事件、新闻、社区讨论
-- **代币 KOL 观点** — 按代币查看推特 KOL 的观点和分析
-- **日报精选** — 每日精选内容汇总
-- **关键词搜索** — 搜索平台上的文章、快讯、推文，支持按类型过滤和时间范围限定
-- **情报中心** — 结构化数据频道：代币解锁、宏观经济、上币监控、项目大事件、量价异动、资金异动
-
-基于这些能力，构建了 5 个 Skill：
-
-### 01 Followin Intel Center（情报中心）
-
-一站式查询市场事件数据：代币解锁、宏观经济数据、上币/下架公告、项目大事件、量价异动、资金费率。按你关心的维度精准过滤，不用翻完整个信息流。
-
-**怎么问：**
-- `本周有什么大额解锁`
-- `最近有哪些币上了交易所`
-- `资金费率异常的币有哪些`
-- `情报中心概览` — 6 个频道各取最重要的 1-2 条
-
-### 02 Breaking News Analysis（突发新闻分析）
-
-粘贴一条加密新闻，告诉你它影响哪些币、利多还是利空、影响有多大。适合看到消息后快速判断要不要行动。不依赖 MCP 数据，纯 AI 分析。
-
-**怎么问：**
-- 直接粘贴一段新闻，然后说 `分析一下这条新闻影响哪些币`
-- `这个消息利多还是利空`
-
-### 03 Trending News & Topics（热点舆情）
-
-现在市场在关注什么？从热点风向标和热门资讯流中提取当前最受关注的事件，跨源交叉验证，多平台共振的热点置顶。
-
-**怎么问：**
-- `今天有什么热点`
-- `市场在关注什么`
-- `昨夜有什么爆点`
-- `ETH最近有什么消息` — 聚焦到某个代币/话题
-
-### 04 Crypto Daily Brief（加密日报）
-
-生成一条可直接发布的每日加密市场简报。从热点风向标和 TG 日报精选中筛选过去 12 小时最重要的 8-10 条事件，口语化、有态度，1 分钟抓住焦点。
-
-**怎么问：**
-- `出个日报`
-- `加密早报`
-- `日报`
-
-> 想看宏观/美股早报？说 `宏观早报` 或 `美股日报`，会走另一个 Skill。
-
-### 05 Token Buzz & Views（代币舆情聚合）
-
-指定一个代币，一次性看完它的快讯、深度文章、推特 KOL 观点和社群讨论四个维度。适合想深入了解某个币最近发生了什么。
-
-**怎么问：**
-- `BTC有什么新闻`
-- `ETH最近什么情况`
-- `SOL社群在讨论什么` — 只看某个维度
-- `HYPE相关文章`
-
-> 想看 KOL 对某个币的交易策略判断？说 `KOL怎么看BTC`，会走策略信号 Skill。
+1. Copy `.mcp.json.example` to `.mcp.json` and fill in your API keys
+2. Copy skill files from `.claude/commands/` to `~/.claude/commands/`
+3. Copy skill definitions from `.claude/skills/` to `~/.claude/skills/`
+4. Restart Claude Code
 
 ---
 
-## Premium MCP — 交易策略与宏观分析
+## Followin MCP — Crypto News & Sentiment
 
-Premium MCP 聚合了多个专业数据源，提供以下数据能力：
+Followin MCP connects to the Followin crypto intelligence platform, providing:
 
-- **顶级交易员实盘** — 顶级合约交易员的实时持仓数据（方向、杠杆、仓位规模）
-- **链上巨鲸** — 链上可验证的巨鲸/知名交易员仓位（开仓价、清算价、精确仓位）
-- **KOL 喊单策略** — KOL 公开发布的交易策略（入场/目标/止损）
-- **TG 频道聚合** — 70+ 个 Telegram 频道的消息聚合，按 10 个分类（宏观研判、交易信号、实盘跟踪等）
-- **加密货币实时价格** — 批量获取加密货币 USD 实时价格
-- **宏观经济数据** — 美联储经济数据库，覆盖利率、通胀、就业、GDP、国债收益率等数百个序列
-- **金融市场数据** — 美股/ETF/指数/外汇/商品实时行情、财务报表（利润表/资产负债表/现金流）、财报 Beat/Miss、分析师预测、关键比率、内部人交易、经济日历、国债收益率、涨跌幅榜、股票筛选器等
-- **31 家财经媒体搜索** — 按关键词搜索 Reuters、Bloomberg、CNBC、WSJ、FT 等主流财经媒体的报道
-- **Twitter 数据** — 用户推文、搜索、关注关系、Space 等
+- **Trending Topics** — Top 10 hot topics with heat scores, related tokens, and price movements
+- **Trending Feed** — Popular news articles and tweets ranked by engagement
+- **Token-level Content** — Key events, news, and community buzz filtered by specific token
+- **Token KOL Opinions** — Twitter KOL views and analysis on specific tokens
+- **Daily Digest** — Curated daily content from multiple media/KOL/institutional sources
+- **Keyword Search** — Search articles, news flashes, and tweets with type filtering and time range
+- **Intel Center** — Structured data channels: token unlocks, macro data, listing/delisting, project events, volume anomalies, funding rates
 
-基于这些能力，构建了 8 个 Skill：
+Built on these capabilities, 5 skills:
 
-### 06 Trading Strategy & Signal（策略信号）
+### 01 Followin Intel Center
 
-三个数据源交叉验证：CEX 交易员实盘仓位 + Hyperliquid 链上巨鲸 + KOL 公开喊单。核心原则：真金白银的仓位永远比嘴上喊单可信。
+One-stop query for market event data: token unlocks, macro economic releases, exchange listing/delisting announcements, project events, volume anomalies, and funding rates. Filter precisely by the dimension you care about.
 
-**怎么问：**
-- `SOL能不能做` — 三源交叉验证，最完整
-- `现在有什么机会`
-- `KOL怎么看ETH` — 只看 KOL 喊单
-- `大户在做什么` — 只看实盘仓位
-- `鲸鱼今天在建仓什么`
+**How to ask:**
+- `Any large token unlocks this week`
+- `What coins got listed recently`
+- `Which tokens have abnormal funding rates`
+- `Intel center overview` — top 1-2 items from each of the 6 channels
 
-### 07 TG Channel Intel（TG 频道情报）
+**6 data channels:**
 
-从 70+ 个 Telegram 频道中提取市场情报，按话题聚类、提炼观点、识别共识和分歧。频道按质量分级（高/中），高质量频道观点优先展示。支持中文、英文、韩语、越南语四种语言的频道，比如用户问`今天韩语频道在聊什么`
+| Channel | What it covers |
+|---------|---------------|
+| Token Unlock | Unlock dates, amounts, % of market cap, risk level |
+| Macro | CPI/PPI/rates releases, policy moves, trade policy |
+| Listing/Delisting | Exchange listing & delisting announcements |
+| Project Events | Security incidents, protocol updates, corporate moves |
+| Volume Anomaly | Volume spike multiples, alert prices, abnormal moves |
+| Funding Rate | Funding rate data, short squeeze risk, sector breakdown |
 
-**10 个频道分类：** 宏观研判、市场结构、项目研究、叙事追踪、交易信号、实盘跟踪、链上数据、Meme 打新、跨市场、资讯聚合
+### 02 Breaking News Analysis
 
-**按用户画像自动路由：**
+Paste a crypto news headline or article, get back which tokens are affected, whether it's bullish or bearish, how strong the impact is, and for how long. No MCP dependency — pure AI analysis with optional web search verification.
 
-| 你是谁 | 怎么问 | 会看哪些频道 |
-| --- | --- | --- |
-| 二级交易者 | `做交易的频道在说什么` | 交易信号、实盘跟踪、市场结构 |
-| 关注宏观的 | `宏观怎么看` | 宏观研判、跨市场 |
-| 追信息流的 | `TG上有什么最新动态` | 资讯聚合、叙事追踪 |
-| 研究项目的 | `最近有什么项目值得看` | 项目研究 |
-| 看链上数据的 | `链上有什么动静` | 链上数据 |
-| Meme 玩家 | `有什么新Meme` | Meme 打新 |
-| 不确定 / 全都要 | `TG上在聊什么` | 全部分类 |
+**How to ask:**
+- Paste a news snippet + `Analyze this news`
+- `Analyze news impact`
+- `Is this bullish or bearish`
 
-也可以聚焦到某个标的：`TG上怎么看BTC`
+**Two modes:**
+- **Flash mode** — short news (1-3 sentences): quick bull/bear call with key targets
+- **Deep mode** — long article or explicit request: full causal chain, second-order effects, historical parallels
 
-### 08 BTC Macro Dashboard（BTC 宏观看盘）
+Every bull/bear call includes a **counter-argument** — what conditions would invalidate the thesis.
 
-基于全球流动性、货币政策、市场环境、加密原生资金流和经济数据，给出 BTC 当前宏观环境的 0-100 综合评分。50 分中性，高于 50 偏多，低于 50 偏空。
+### 03 Trending News & Topics
 
-> ⚠️ 重度调用：需要拉取多个宏观序列 + 市场行情 + 经济日历，MCP 调用次数较多，不建议高频触发。
+What is the market paying attention to right now? Cross-references the trending topic rankings with trending articles/tweets to find **multi-platform resonance** — topics that appear in both sources get top priority.
 
-**怎么问：**
-- `BTC宏观`
-- `BTC宏观看盘`
-- `BTC宏观环境怎么样`
+**How to ask:**
+- `What's hot today`
+- `Trending news today`
+- `Hot topics today`
+- `What's the market focused on`
 
-### 09 Gold Macro Dashboard（黄金监控看盘）
+**Two modes:**
+- **Overview** (default) — full landscape of current hot events
+- **Focused** — specify a token or topic: `Any news on ETH`, `What's happening in the AI sector`
 
-基于实际利率、货币政策、美元汇率、央行购金、避险情绪等，给出黄金当前宏观环境的 0-100 综合评分。
+Events are ranked by importance (macro/regulatory > sector-wide > single project), with resonance topics always on top.
 
-> ⚠️ 重度调用：需要拉取多个宏观序列 + 市场行情 + Web 检索，MCP 调用次数较多，不建议高频触发。
+### 04 Crypto Daily Brief
 
-**怎么问：**
-- `黄金宏观`
-- `黄金宏观看盘`
-- `黄金宏观环境怎么样`
+Generates a ready-to-publish daily crypto market briefing. Pulls from trending topics + daily digest sources, filters past 12 hours, selects 8-10 most important events, cross-validates, and outputs in a punchy editorial style.
 
-### 10 Macro Morning Brief（宏观早报）
+**How to ask:**
+- `Crypto daily`
+- `Crypto morning brief`
+- `Give me a daily brief`
 
-每日宏观财经早报：国债收益率全期限、VIX、原油、美元、经济日历、媒体热点、涨跌榜，一份报告掌握开盘前的宏观全貌。
+**Key rules:**
+- Item #1 is always BTC price action in editorial tone (not cold data)
+- At least 2-3 macro/AI items guaranteed (won't be crowded out by altcoin noise)
+- ~1/3 of items include a one-line editorial comment
+- Altcoins outside top 10 by market cap limited to 2-3 items max
 
-> ⚠️ 重度调用：聚合多源市场数据 + 经济日历 + 多轮新闻搜索，MCP 调用次数较多，建议每日早盘时段使用。
+> Want macro/US stock morning brief instead? Say `morning brief` or `US stock daily` — that routes to Skill 10.
 
-**怎么问：**
-- `宏观早报`
-- `美股日报`
-- `morning brief`
+### 05 Token Buzz & Views
 
-### 11 US Stock Earnings Report（美股财报分析）
+Specify a token, get a 4-dimension snapshot: news flashes, in-depth articles, Twitter KOL opinions, and community discussions — all in one query.
 
-单只个股的财报三维分析：利润表 + EPS Beat/Miss + 分析师预测 + 关键比率 + 媒体情绪 + 宏观背景。适合财报季快速过一只股票的最新季报。
+**How to ask:**
+- `Any news on BTC`
+- `What's happening with ETH`
+- `SOL community discussion` — single dimension only
+- `HYPE articles`
 
-> ⚠️ 重度调用：单股需拉取财务报表 + 分析师数据 + 媒体报道 + 宏观背景，MCP 调用次数较多。
-
-**怎么问：**
-- `帮我看AAPL财报`
-- `TSLA earnings`
-- `英伟达财报分析`
-
-### 12 Macro Analyzer（宏观指标影响）
-
-某个宏观指标发布后，对哪些板块和 ETF 有什么影响？从 FRED 数据趋势 → 板块 ETF 实际表现 → 媒体解读，全链路验证。内置 20 个常用指标的映射。
-
-**怎么问：**
-- `CPI影响`
-- `非农解读`
-- `利率影响`
-- `关税分析`
-- `GDP解读`
-
-### 13 US Stock Divergence Scan（美股背离扫描）
-
-批量扫描美股市场中价格、内部人交易和媒体报道之间的不一致。四种信号：
-
-- **Silent Buy** — 内部人大额买入但媒体没报道
-- **Sentiment Mismatch** — 股价走势和媒体情绪方向相反
-- **Unreported Drop** — 大市值股暴跌但无人报道
-- **Unreported Surge** — 显著涨幅但无人关注
-
-> ⚠️ 重度调用：需对多只候选标的逐个做市值过滤 + 媒体交叉验证，MCP 调用次数最多的 Skill 之一，不建议高频触发。
-
-**怎么问：**
-- `美股背离扫描`
-- `有什么异常信号`
-- `美股静默异动`
+> Want KOL trading strategy views on a token? Say `What are KOL calls on BTC` — that routes to Skill 06 (Trading Strategy).
 
 ---
 
-## 快速对照表
+## Premium MCP — Trading Strategy & Macro Analysis
 
-| 我想知道... | 说 |
-|---|---|
-| 今天加密市场发生了什么 | `出个日报` |
-| 现在市场在关注什么 | `今天有什么热点` |
-| BTC/ETH/SOL 最近什么情况 | `BTC有什么新闻` |
-| 大户和 KOL 在做什么方向 | `策略信号` 或 `SOL能不能做` |
-| TG 频道在讨论什么 | `TG上在聊什么` |
-| 本周有什么解锁/上币 | `本周有什么解锁` |
-| 这条新闻影响什么币 | 粘贴新闻 + `分析一下` |
-| BTC 宏观环境打几分 | `BTC宏观` |
-| 黄金宏观环境打几分 | `黄金宏观` |
-| 今天美股/宏观有什么动态 | `宏观早报` |
-| 某只美股财报怎么样 | `帮我看AAPL财报` |
-| CPI 出来了影响什么 | `CPI影响` |
-| 美股有什么异常信号 | `美股背离扫描` |
+Premium MCP aggregates professional data sources:
+
+- **Top Trader Positions** — Real-time CEX contract trader positions (direction, leverage, size)
+- **On-chain Whales** — Hyperliquid on-chain verifiable whale positions (entry price, liquidation price, exact size)
+- **KOL Call Orders** — KOL publicly shared trading strategies (entry/target/stop)
+- **TG Channel Aggregation** — 70+ Telegram channels across 10 categories
+- **Crypto Real-time Prices** — Batch USD prices for crypto assets
+- **FRED Macro Data** — Federal Reserve economic database (rates, inflation, employment, GDP, yields)
+- **Financial Market Data** — US stock/ETF/index/forex/commodity quotes, financial statements, earnings Beat/Miss, analyst estimates, key ratios, insider trading, economic calendar, treasury yields, gainers/losers
+- **31 Financial Media Search** — Keyword search across Reuters, Bloomberg, CNBC, WSJ, FT and more
+- **Twitter Data** — User tweets, search, follow relationships, Spaces
+
+Built on these capabilities, 8 skills:
+
+### 06 Trading Strategy & Signal
+
+Three data sources cross-validated: CEX trader real positions + Hyperliquid on-chain whales + KOL public calls. Core principle: **money talks louder than tweets** — real positions always outweigh verbal calls.
+
+**How to ask:**
+- `Can I trade SOL` — full 3-source cross-validation
+- `What are traders doing` — overview of all active positions
+- `What are KOL calls on ETH` — KOL calls only
+- `Whale positions` — on-chain positions only
+- `Who's longing` / `Who's shorting`
+
+**Signal classification:**
+| Signal Type | Meaning | Confidence |
+|-------------|---------|------------|
+| Resonance | Traders + KOL same direction | Highest |
+| Trader-only | Traders positioned, KOL silent | High |
+| Contradiction | Traders vs KOL opposite directions | Caution (trust traders) |
+| KOL-only | KOL calling, no trader follow-through | Lower |
+
+### 07 TG Channel Intel
+
+Extracts intelligence from 70+ Telegram channels, clusters by topic, distills views, identifies consensus and disagreements. Channels are quality-graded (high/medium), with high-quality channel views shown first. Supports Chinese, English, Korean, and Vietnamese language channels.
+
+**10 channel categories:** Macro Analysis, Market Structure, Project Research, Narrative Tracking, Trading Signals, Live Trading, On-chain Data, Meme/New Launches, Cross-market, News Aggregation
+
+**How to ask:**
+- `What's TG talking about` — full overview
+- `TG discussion` / `TG intel`
+- `What are Telegram channels saying about BTC` — focused on a token
+- `What are trading channels saying` — filtered by category
+
+**Auto-routing by user profile:**
+
+| You are... | Say | Channels queried |
+|---|---|---|
+| Contract trader | `What are trading channels saying` | Trading Signals, Live Trading, Market Structure |
+| Macro focused | `TG macro views` | Macro Analysis, Cross-market |
+| Info tracker | `TG latest updates` | News Aggregation, Narrative Tracking |
+| Project researcher | `Any projects worth looking at on TG` | Project Research |
+| On-chain analyst | `Any on-chain activity on TG` | On-chain Data |
+| Meme trader | `Any new memes on TG` | Meme/New Launches |
+| Everything | `What's TG talking about` | All categories |
+
+### 08 BTC Macro Dashboard
+
+Quantitative 0-100 macro environment score for BTC based on 15 indicators across 4 layers: global liquidity (35%), market environment (30%), crypto-native capital flows (25%), and economic data pulse (10%). Score of 50 is neutral; above 50 bullish, below 50 bearish.
+
+**4-layer scoring:**
+- **Layer 1 — Liquidity Direction (35%):** Net liquidity trend, Fed policy, FedWatch probabilities, M2 trend
+- **Layer 2 — Market Environment (30%):** DXY, Nasdaq, VIX, real rates (TIPS), yield curve, gold
+- **Layer 3 — Crypto-native Capital (25%):** BTC spot ETF flows, stablecoin market cap trend
+- **Layer 4 — Economic Data Pulse (10%):** CPI/PCE surprise, employment surprise
+
+Includes **contradiction detection** — flags when different layers point in opposite directions.
+
+**How to ask:**
+- `BTC macro` / `BTC macro dashboard`
+- `BTC macro score` — quick score only
+- `How is BTC macro`
+
+> Heavy MCP usage: pulls 10+ FRED series, multiple market quotes, DeFiLlama API, and web searches. Not recommended for high-frequency use.
+
+### 09 Gold Macro Dashboard
+
+Quantitative 0-100 macro environment score for gold based on 15 indicators across 5 layers: real rates & monetary policy (40%), USD & FX (15%), central bank buying & physical demand (25%), safe-haven demand (15%), and economic data pulse (5%).
+
+**Key difference from BTC dashboard:**
+- Gold's #1 driver is **real interest rates** (TIPS yield), not liquidity
+- **VIX scoring is reversed**: VIX spike = bullish for gold (safe haven), bearish for BTC (risk-off)
+- **Central bank buying** is a structural factor unique to gold (not in BTC dashboard)
+- **COT positioning is a contrarian indicator**: extreme net longs = bearish (overcrowded)
+
+**How to ask:**
+- `Gold macro` / `Gold macro dashboard`
+- `Gold macro score` — quick score only
+- `How is gold macro`
+
+> Heavy MCP usage: pulls 8+ FRED series, market quotes, and web searches for FedWatch/COT/ETF/central bank data. Not recommended for high-frequency use.
+
+### 10 Macro Morning Brief
+
+Daily macro financial morning briefing: full-spectrum treasury yields, VIX, crude oil, USD index, economic calendar, media hot topics, market gainers/losers — one report to grasp the macro landscape before market open.
+
+**How to ask:**
+- `Morning brief` / `Morning briefing`
+- `Macro morning brief`
+- `US stock daily` / `Macro daily`
+- `Financial morning brief`
+
+**Report sections:**
+1. Macro Environment table (10Y/2Y yields, spread, VIX, Brent crude, USD index)
+2. Economic Calendar (US events, filtered from full global data)
+3. Top 3 Media Hot Topics (with sentiment and representative articles)
+4. Watchlist Movers (configurable via `watchlist` parameter)
+5. Market Gainers/Losers (filtered for market cap > $500M)
+6. Sentiment Distribution and overall market mood
+
+> Heavy MCP usage: 8-9 parallel data pulls + multi-round news searches. Best used once during pre-market hours.
+
+### 11 US Stock Earnings Report
+
+Three-dimensional single-stock earnings analysis: financial Beat/Miss + media sentiment + macro backdrop. Covers income statement trends, Adjusted vs GAAP EPS, analyst forward estimates, key ratios, price momentum, and 14-day media coverage.
+
+**How to ask:**
+- `AAPL earnings` / `TSLA earnings report`
+- `Show me NVDA earnings`
+- `Earnings analysis MSFT`
+
+**Key features:**
+- **Beat/Miss uses Adjusted EPS** from the `earnings` endpoint (not GAAP)
+- **Trend table shows both** Adjusted EPS and GAAP EPS side by side
+- **Forward PEG** calculated from analyst estimates
+- **Price momentum** across 7 timeframes (1D to 1Y)
+- **Media sentiment** from 31 financial media sources (Claude-inferred)
+- **Macro cross-check** based on sector (e.g., Tech gets 10Y yield + VIX)
+
+> Heavy MCP usage: 7+ parallel data calls per stock. Use during earnings season for quick single-stock reviews.
+
+### 12 Macro Analyzer
+
+When a macro indicator drops, what sectors and ETFs are affected? Full chain: FRED data trend -> sector ETF actual performance -> media interpretation. Built-in mappings for 20+ common indicators.
+
+**How to ask:**
+- `CPI impact` / `NFP impact`
+- `Rate impact` / `GDP impact`
+- `Tariff impact`
+- `Macro analysis` / `Indicator analysis`
+
+**Built-in indicator mappings:**
+
+| Indicator | FRED Series | Bullish Sectors | Bearish Sectors | Key ETFs |
+|-----------|-------------|-----------------|-----------------|----------|
+| CPI | CPIAUCSL | Energy, Materials, Real Estate | Technology, Consumer Disc. | XLE, XLB, XLK, XLY, TIP |
+| Non-Farm Payrolls | PAYEMS | Consumer Disc., Financials | Utilities, Real Estate | XLY, XLF, XLU, XLRE |
+| Fed Rate | FEDFUNDS | Financials | Real Estate, Utilities, Tech | XLF, XLRE, XLU, XLK |
+| 10Y Yield | DGS10 | Financials | Tech, Real Estate, Utilities | XLF, XLK, XLRE, TLT |
+| WTI Crude | DCOILWTICO | Energy | Airlines, Transportation | XLE, JETS, USO |
+| Unemployment | UNRATE | Staples, Utilities | Consumer Disc., Financials | XLP, XLU, XLY, XLF |
+| GDP | GDPC1 | Industrials, Consumer Disc. | Utilities | SPY, QQQ, IWM |
+
+**Two verification modes:**
+- **Real-time** (data < 7 days old): ETF moves reflect market's reaction to actual data
+- **Expectation** (data > 7 days old): ETF moves reflect market pricing next release
+
+### 13 US Stock Divergence Scan
+
+Batch scans the US stock market for inconsistencies between price action, insider trading, and media coverage. Surfaces signals that most investors miss.
+
+**4 signal types:**
+
+| Signal | What it detects | Threshold |
+|--------|----------------|-----------|
+| **Silent Buy** | Insider purchase > $100K + media coverage <= 2 articles | Any market cap |
+| **Sentiment Mismatch** | Price direction opposite to media sentiment | Market cap > $1B, price change > 5% |
+| **Unreported Drop** | Large-cap crash with almost no media coverage | Market cap > $1B, drop > 8%, articles <= 3 |
+| **Unreported Surge** | Significant rally with almost no media coverage | Market cap > $500M, gain > 20%, articles <= 2 |
+
+**How to ask:**
+- `Divergence scan` / `US stock divergence scan`
+- `Silent moves` / `Silent buy`
+- `Anomaly signals`
+- `Unreported drop` / `Unreported surge`
+
+**Process:** Pulls gainers/losers + insider trading -> filters by market cap -> cross-checks with 31 financial media sources -> flags divergences. Stocks with multiple signals flagged prominently.
+
+> Heaviest MCP usage of all skills: requires market cap filtering for each candidate + individual news searches. Not recommended for frequent use.
+
+---
+
+## Quick Reference
+
+| I want to know... | Say (English) | Say (Chinese) | Skill |
+|---|---|---|---|
+| What happened in crypto today | `Crypto daily` | `出个日报` | 04 |
+| What's the market focused on | `What's hot today` | `今天有什么热点` | 03 |
+| News about a specific token | `Any news on BTC` | `BTC有什么新闻` | 05 |
+| What traders & KOLs are doing | `What are traders doing` | `策略信号` | 06 |
+| What TG channels are saying | `What's TG talking about` | `TG上在聊什么` | 07 |
+| Token unlocks / listings this week | `Any token unlocks this week` | `本周有什么解锁` | 01 |
+| Impact of a breaking news | Paste news + `Analyze this` | 粘贴新闻 + `分析一下` | 02 |
+| BTC macro environment score | `BTC macro` | `BTC宏观` | 08 |
+| Gold macro environment score | `Gold macro` | `黄金宏观` | 09 |
+| Daily macro/US stock briefing | `Morning brief` | `宏观早报` | 10 |
+| Single stock earnings review | `AAPL earnings` | `AAPL财报` | 11 |
+| Impact of a macro data release | `CPI impact` | `CPI影响` | 12 |
+| Unusual signals in US stocks | `Divergence scan` | `美股背离扫描` | 13 |
+
+---
+
+## Skill Routing Guide
+
+Some requests sound similar but route to different skills. Here's how routing works:
+
+| You say | Routes to | Why |
+|---------|-----------|-----|
+| `Any news on ETH` | 05 Token Buzz | Asking for news about a specific token |
+| `What are KOL calls on ETH` | 06 Trading Strategy | Asking for trading strategy/direction |
+| `What's hot today` | 03 Trending News | Asking for market-wide hot events |
+| `Crypto daily` | 04 Crypto Daily Brief | Generating a daily briefing |
+| `Morning brief` | 10 Macro Morning Brief | Macro/US stock morning briefing |
+| `TG views on BTC` | 07 TG Channel Intel | Explicitly mentions TG/Telegram |
+| `CPI impact` | 12 Macro Analyzer | Analyzing a specific macro indicator |
+| `Divergence scan` | 13 Divergence Scan | Scanning for price/media divergences |
+| `AAPL earnings` | 11 Earnings Report | Single stock earnings analysis |
+
+---
+
+## Technical Notes
+
+**MCP tool behaviors confirmed through testing:**
+- `finance_tool_quote` with `^VIX` and `^IXIC` — cannot be batched, must call individually
+- `finance_tool_batch_quote_short` — use for `DXUSD` (quote returns 402), supports comma-separated symbols
+- `finance_tool_stable_request` — required for `profile`, `analyst-estimates`, `stock-price-change` (schema not fixed)
+- `finance_tool_insider_trading_search` — the only working insider trading endpoint; `stable_request` path `insider-trading` returns 404
+- `fred_get_series` — `limit` must be integer (not string); use `sort_order: "desc"` for latest data first
+- `search_finance_news` — does not support compound keywords; search each concept separately; `users` must be array type
+- `finance_tool_economic_calendar` — returns ~2.4MB of global data; needs post-processing to filter US events

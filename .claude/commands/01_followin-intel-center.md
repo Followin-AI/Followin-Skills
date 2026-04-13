@@ -1,8 +1,8 @@
 ---
 name: Followin Intel Center
 description: 查询代币解锁日历、宏观经济数据、交易所上币下架公告、项目重大事件、量价异动信号、资金费率数据。
-trigger: 情报中心、代币解锁、解锁日历、CPI、PPI、利率、美联储、上币公告、下架、量价异动、放量、资金费率、轧空、安全事件、协议被黑
-not_trigger: 策略、大户、KOL喊单、热点、TG、早报、代币详情、社群讨论
+trigger: 情报中心、代币解锁、解锁日历、CPI、PPI、利率、美联储、上币公告、下架、量价异动、放量、资金费率、轧空、安全事件、协议被黑、intel center、token unlock、unlock schedule、listing、delisting、funding rate、price anomaly
+not_trigger: 策略、大户、KOL喊单、热点、TG、早报、代币详情、社群讨论、strategy、trader、KOL calls、trending、daily brief、morning brief、CPI impact、NFP impact、rate impact、GDP impact、tariff impact、macro impact、macro analysis、indicator analysis
 mcp: open_channel_feeds (code: token_unlock, macro, listing_delisting, altcoin_update, quant_signal, fund_movement)
 ---
 

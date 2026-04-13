@@ -1,8 +1,8 @@
 ---
 name: Crypto Daily Brief
 description: 生成每日加密市场简报。触发词：日报、加密日报、加密早报、出个日报、出个早报。宏观日报/美股日报/宏观早报/美股早报走 morning-brief，不在本 Skill 范围内。
-trigger: 日报、加密日报、加密早报、每日简报、市场焦点、1分钟、出个日报、出个早报
-not_trigger: 策略、大户、解锁、资金费率、热点、TG、代币详情、社群讨论、爆点、昨夜有什么爆点、今天有什么消息、市场怎么样、KOL怎么看、宏观日报、宏观早报、美股日报、美股早报、morning brief
+trigger: 日报、加密日报、加密早报、每日简报、市场焦点、1分钟、出个日报、出个早报、crypto daily、crypto morning brief
+not_trigger: 策略、大户、解锁、资金费率、热点、TG、代币详情、社群讨论、爆点、昨夜有什么爆点、今天有什么消息、市场怎么样、KOL怎么看、宏观日报、宏观早报、美股日报、美股早报、morning brief、macro morning brief、US stock daily、strategy、trader
 mcp: followin_trending_topic, Followin日报源
 ---
 

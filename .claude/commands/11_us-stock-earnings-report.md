@@ -1,8 +1,8 @@
 ---
 name: US Stock Earnings Report
 description: 单股财报三维分析（财务Beat/Miss + 媒体情绪 + 宏观背景）。必须指定具体股票代码或公司名才触发，如"帮我看AAPL财报"、"TSLA earnings"、"英伟达财报分析"。泛问"今天有哪些财报"走情报中心，不在本Skill范围。
-trigger: 帮我看XX财报、XX财报分析、XX财报速查、XX earnings、XX earnings report、[股票代码]财报、[公司名]财报
-not_trigger: 策略信号、KOL、喊单、热点、日报、背离扫描、divergence
+trigger: 帮我看XX财报、XX财报分析、XX财报速查、XX earnings、XX earnings report、[股票代码]财报、[公司名]财报、[ticker] earnings、earnings report、earnings analysis、show me [ticker] earnings、look at [ticker] earnings
+not_trigger: 策略信号、KOL、喊单、热点、日报、背离扫描、divergence、strategy、KOL calls、trending、daily brief、divergence scan、morning brief
 mcp: finance_tool_income_statement, finance_tool_earnings, finance_tool_ratios_ttm, finance_tool_quote, finance_tool_stable_request, search_finance_news, fred_get_series
 args: ticker
 ---

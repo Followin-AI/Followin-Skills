@@ -1,8 +1,8 @@
 ---
 name: Breaking News Analysis
 description: 用户提供一条加密货币相关新闻或事件，分析该新闻影响哪些代币标的，判断利多还是利空。
-trigger: 这条新闻、分析这个消息、影响哪些币、利多利空、关联标的、新闻分析
-not_trigger: 策略、大户、解锁、热点、TG、早报、代币详情、社群讨论、资金费率
+trigger: 这条新闻、分析这个消息、影响哪些币、利多利空、关联标的、新闻分析、analyze this news、analyze news impact
+not_trigger: 策略、大户、解锁、热点、TG、早报、代币详情、社群讨论、资金费率、strategy、trader、unlock、trending、daily brief、morning brief
 special_trigger: 用户粘贴了一段新闻/消息文本并要求分析影响
 tools: Web检索（推荐）、推特数据检索（可选）、代币行情检索（可选）— 均需用户自行配置
 ---

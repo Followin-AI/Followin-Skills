@@ -1,8 +1,8 @@
 ---
 name: Macro Analyzer
 description: 宏观数据影响分析 — 从指标变动到板块影响的全链路。必须同时包含"指标名"+"影响/解读/分析"才触发，如"CPI出来了对市场有什么影响"、"非农解读"、"利率影响哪些板块"。纯数据查询（"CPI是多少"）走情报中心，综合日报走morning-brief，BTC/黄金宏观走各自看盘Skill。
-trigger: 宏观指标影响、宏观指标解读、宏观指标分析、宏观数据影响、宏观数据解读、宏观数据分析、CPI影响、CPI解读、CPI分析、非农影响、非农解读、非农分析、利率影响、利率解读、GDP影响、GDP解读、关税影响、关税分析
-not_trigger: 策略信号、KOL、喊单、热点、日报、BTC宏观、黄金宏观、财报、earnings、宏观日报、宏观早报、美股早报、CPI是多少、利率是多少
+trigger: 宏观指标影响、宏观指标解读、宏观指标分析、宏观数据影响、宏观数据解读、宏观数据分析、CPI影响、CPI解读、CPI分析、非农影响、非农解读、非农分析、利率影响、利率解读、GDP影响、GDP解读、关税影响、关税分析、macro impact、macro analysis、CPI impact、NFP impact、rate impact、GDP impact、tariff impact、indicator analysis
+not_trigger: 策略信号、KOL、喊单、热点、日报、BTC宏观、黄金宏观、财报、earnings、宏观日报、宏观早报、美股早报、CPI是多少、利率是多少、strategy、KOL calls、trending、daily brief、BTC macro、gold macro、earnings report、macro morning brief
 mcp: fred_get_series, finance_tool_batch_quote_short, finance_tool_quote, search_finance_news
 args: indicator
 ---

@@ -1,8 +1,8 @@
 ---
 name: Gold Macro Dashboard
 description: 评估黄金当前宏观环境，输出0-100综合评分和分层分析。当用户问"黄金宏观怎么样"、"黄金环境如何"、"黄金现在几分"时触发。
-trigger: 黄金宏观、黄金宏观看盘、黄金宏观评分、黄金宏观环境
-not_trigger: 策略信号、KOL、喊单、热点、TG频道、日报、代币舆情、BTC、比特币、行情、价格
+trigger: 黄金宏观、黄金宏观看盘、黄金宏观评分、黄金宏观环境、gold macro、gold macro dashboard、gold macro score、gold macro environment、how is gold macro
+not_trigger: 策略信号、KOL、喊单、热点、TG频道、日报、代币舆情、BTC、比特币、行情、价格、strategy、KOL calls、trending、TG channels、daily brief、bitcoin、token news
 mcp: fred_get_series, finance_tool_quote, finance_tool_batch_quote_short, WebSearch, WebFetch
 ---
 

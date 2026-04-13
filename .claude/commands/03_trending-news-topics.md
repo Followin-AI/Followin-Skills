@@ -1,8 +1,8 @@
 ---
 name: Trending News & Topics
 description: 查看当前市场发生了什么事、有什么消息、什么话题最受关注。适用于"今天有什么消息"、"最近有什么热点"、"昨夜有什么爆点"等查询。关注事件本身，不关注某个具体代币的详细信息。
-trigger: 热点、舆情、市场在关注什么、什么话题最火、热门事件、风向标、今天有什么消息、爆点、昨夜有什么爆点
-not_trigger: 策略、大户、解锁、资金费率、TG、早报、日报、代币详情、社群讨论、KOL观点、市场怎么样、KOL怎么看
+trigger: 热点、舆情、市场在关注什么、什么话题最火、热门事件、风向标、今天有什么消息、爆点、昨夜有什么爆点、what's hot、trending news today、hot topics today
+not_trigger: 策略、大户、解锁、资金费率、TG、早报、日报、代币详情、社群讨论、KOL观点、市场怎么样、KOL怎么看、strategy、trader、unlock、funding rate、daily brief、morning brief
 mcp: open_trending_topic_ranks, open_feed_list_trending
 ---
 
