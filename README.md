@@ -13,94 +13,27 @@ The package has two layers:
 
 ## Setup
 
-Setup has two parts: **install the skill files** (your AI tool reads them as slash commands or prompts) and **configure the MCP servers** (the data backend). The npm package now handles **both** in one command — just have your Followin API key ready.
-
-### Quickstart — one command does both
-
 ```bash
 npx @followin/skills setup
 ```
 
-That will:
-1. Copy the 13 skill files into your client's commands directory
-2. Prompt for your **Followin API key** (or read `$FOLLOWIN_API_KEY` / `--api-key`)
-3. Merge `followin-mcp` and `premium-mcp` into your client's MCP config (preserving any servers you already have)
-4. Validate the connection to both servers
-5. Tell you to restart your client
+Paste your Followin API key when prompted, then restart your client. Done — the 13 skill files are copied and both MCP servers (`followin-mcp` + `premium-mcp`) are configured and validated.
 
-Defaults to **Claude Code (global)**. To target a different client:
+Other clients (default is Claude Code global):
 
 ```bash
 npx @followin/skills setup --client claude-desktop
-npx @followin/skills setup --client cursor
-npx @followin/skills setup --client windsurf
-npx @followin/skills setup --client claude-code-project   # current dir
-npx @followin/skills setup --client opencode              # skills only — no MCP injection
+# also: cursor · windsurf · claude-code-project · opencode
 ```
 
-Run `npx @followin/skills clients` to see every preset and where it writes. Works on macOS, Linux, and Windows with Node.js 16+.
+Run `npx @followin/skills clients` to see every preset. Requires Node.js 16+ (macOS / Linux / Windows). The API key is stored in plaintext in the client config (chmod 600) — don't commit that file.
 
-> **API key safety:** the key is written in plaintext into the client config file (the same way every MCP host stores it). The CLI sets the file to `chmod 600` after writing. Don't commit that file to git.
+<details>
+<summary><b>Manual install</b> — for clients without a preset (Cline, Continue.dev, …) or if you'd rather edit the JSON yourself</summary>
 
-### Manual / advanced installs
+**Skill files** — `npx @followin/skills path` prints the source dir, or use `install --target ~/your/dir`. For Cursor / Windsurf / Cline / Continue.dev the `.md` files don't drop in directly; copy each body into your tool's native rule format. (You can also skip the skill scaffolding entirely — once the MCPs are connected the model can answer most queries with the tools alone.)
 
-If you'd rather do the two halves separately, or your client isn't in the preset list:
-
-#### Step 1 — Install skill files only
-
-```bash
-# Claude Code (default)
-npx @followin/skills install
-
-# Claude Code, project-local
-npx @followin/skills install --client claude-code-project
-
-# OpenCode / OpenClaw
-npx @followin/skills install --client opencode
-
-# Any other directory
-npx @followin/skills install --target ~/path/to/your/skills/
-```
-
-Upgrade with the same command; remove with `uninstall`.
-
-#### Cursor / Windsurf / Cline / Continue.dev / other tools
-
-These tools use their own rule/command formats, so the skill files won't drop in directly. Two ways to bring the skills over:
-
-**(a) Adapt to native format.** Get the source location with:
-```bash
-npx @followin/skills path
-# prints: /path/to/.../node_modules/@followin/skills/.claude/commands
-```
-Then open each `.md`, copy the instructions from the body, and paste into your tool's command/rule format:
-- **Cursor** → `.cursor/rules/*.mdc` (frontmatter: `description`, `globs`, `alwaysApply`)
-- **Windsurf** → `.windsurf/rules/*.md` or `.windsurfrules`
-- **Cline** → "Custom Instructions" in settings (one big block, or per-task)
-- **Continue.dev** → `slashCommands` in `config.yaml`
-
-**(b) Use as on-demand system prompt.** Once the MCPs are connected, paste the relevant skill body as a one-shot prompt: *"Behave like the BTC Macro Dashboard skill: \<paste skill content\>"*. Works in any tool with sufficient context window.
-
-The Followin/Premium MCPs do all the heavy data lifting, so even without the skill scaffolding the model can answer most queries directly once it has the tools — the skill files mainly provide structured prompts, output formatting, and routing logic.
-
-#### Step 2 — Configure MCP servers only
-
-```bash
-npx @followin/skills configure --client claude-desktop
-```
-
-Same prompts and same JSON merging as `setup`, but skips the skill-file copy. Add `--no-validate` if you want to skip the connection check.
-
-#### Manual MCP config
-
-Both servers are SSE-based and hosted by Followin. **You only need an API key** — contact the Followin team to get one. The server URLs are public:
-
-| Server | URL |
-|---|---|
-| **Followin MCP** | `https://mcp.followin.io/sse` |
-| **Premium MCP** | `https://premium-mcp.followin.io/sse` |
-
-All these clients use the same JSON shape. Replace `YOUR_API_KEY_HERE` with your key and paste into the appropriate config file:
+**MCP config** — paste this into your client's MCP config file, replacing `YOUR_API_KEY_HERE`:
 
 ```json
 {
@@ -108,41 +41,29 @@ All these clients use the same JSON shape. Replace `YOUR_API_KEY_HERE` with your
     "followin-mcp": {
       "type": "sse",
       "url": "https://mcp.followin.io/sse?api_key=YOUR_API_KEY_HERE",
-      "headers": {
-        "X-API-Key": "YOUR_API_KEY_HERE"
-      }
+      "headers": { "X-API-Key": "YOUR_API_KEY_HERE" }
     },
     "premium-mcp": {
       "type": "sse",
       "url": "https://premium-mcp.followin.io/sse?api_key=YOUR_API_KEY_HERE",
-      "headers": {
-        "X-API-Key": "YOUR_API_KEY_HERE"
-      }
+      "headers": { "X-API-Key": "YOUR_API_KEY_HERE" }
     }
   }
 }
 ```
 
-#### Where the config file lives
-
-| Client | Config file location |
+| Client | Config file |
 |---|---|
-| **Claude Code** | `~/.claude/settings.json` or project-level `.mcp.json` |
-| **Claude Desktop** | `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) / `%APPDATA%\Claude\claude_desktop_config.json` (Windows) |
-| **Cursor** | `~/.cursor/mcp.json` (or Settings → Features → MCP Servers) |
-| **Windsurf** | `~/.codeium/windsurf/mcp_config.json` |
-| **Cline** (VS Code) | Cline panel → MCP Servers (gear icon) — paste the same JSON |
-| **Continue.dev** | `~/.continue/config.yaml` — convert the JSON to the YAML `mcpServers:` shape |
-| **OpenCode / OpenClaw** | client config file (check your distribution's docs) |
-| Any other MCP host | wherever your client reads MCP server definitions |
+| Claude Code | `~/.claude/settings.json` (or project `.mcp.json`) |
+| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` · `%APPDATA%\Claude\claude_desktop_config.json` |
+| Cursor | `~/.cursor/mcp.json` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| Cline | Cline panel → MCP Servers (gear icon) |
+| Continue.dev | `~/.continue/config.yaml` (convert JSON to YAML) |
 
-> **Note:** The API key is sent twice (once as a query param `?api_key=...` and once as a header `X-API-Key`) for compatibility across clients — some MCP hosts strip query params, others strip headers. Including both ensures it works everywhere.
+The API key is sent both as `?api_key=` and `X-API-Key` for cross-client compatibility. Restart your client after editing.
 
-The repo also ships a ready-to-edit `.mcp.json.example` you can copy as `.mcp.json` for project-level configs.
-
-### Step 3 — Restart your client
-
-Most clients cache MCP servers and slash commands at startup. Restart after configuration.
+</details>
 
 ---
 

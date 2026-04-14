@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] - 2026-04-14
+
+### Changed
+- README: drastically simplify the Setup section — lead with the one-liner `npx @followin/skills setup`, collapse the manual install / config-file table / JSON snippet into a single `<details>` block
+
+---
+
 ## [1.2.0] - 2026-04-14
 
 One-command install. `npx @followin/skills setup` now copies the skill files **and** writes the MCP server config in a single step — users only need to paste their Followin API key when prompted.
