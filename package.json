@@ -1,0 +1,42 @@
+{
+  "name": "@followin/skills",
+  "version": "1.0.0",
+  "description": "13 Claude Code skills for crypto trading, macro analysis, and US stock intelligence. Requires Followin MCP and Premium MCP.",
+  "bin": {
+    "followin-skills": "bin/cli.js"
+  },
+  "scripts": {
+    "postinstall": "node bin/cli.js postinstall"
+  },
+  "files": [
+    "bin/",
+    ".claude/commands/",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "claude-skills",
+    "crypto",
+    "trading",
+    "macro",
+    "mcp",
+    "followin"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Followin-AI/Followin-Skills.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Followin-AI/Followin-Skills/issues"
+  },
+  "homepage": "https://github.com/Followin-AI/Followin-Skills#readme",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16"
+  }
+}

@@ -6,10 +6,21 @@ All skills support both **Chinese and English** triggers and output in the langu
 
 ## Setup
 
+### Option A — npm (recommended)
+
+```bash
+npx @followin/skills install
+```
+
+This copies all 13 skill files into `~/.claude/commands/`. Upgrade with the same command; remove with `npx @followin/skills uninstall`.
+
+You still need to configure the two MCP servers (Followin MCP, Premium MCP) in your Claude Code settings — the npm package only ships the skill definitions, not the MCP endpoints.
+
+### Option B — manual
+
 1. Copy `.mcp.json.example` to `.mcp.json` and fill in your API keys
 2. Copy skill files from `.claude/commands/` to `~/.claude/commands/`
-3. Copy skill definitions from `.claude/skills/` to `~/.claude/skills/`
-4. Restart Claude Code
+3. Restart Claude Code
 
 ---
 
