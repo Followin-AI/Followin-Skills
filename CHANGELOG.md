@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.1] - 2026-04-14
+
+### Changed
+- README: publish the public MCP server URLs (`mcp.followin.io`, `premium-mcp.followin.io`) directly so users only need an API key — no more "contact the team for URLs"
+- README: add a copy-paste-ready JSON config snippet that works across Claude Code, Claude Desktop, Cursor, Windsurf, and Cline
+
+---
+
 ## [1.1.0] - 2026-04-14
 
 Multi-platform install support. The npm package is now useful beyond Claude Code: install to OpenCode/OpenClaw with a preset, to any directory with `--target`, or get the source path with `path` to adapt skills for Cursor/Windsurf/Cline/Continue.dev manually.

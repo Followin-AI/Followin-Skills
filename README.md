@@ -58,22 +58,54 @@ The Followin/Premium MCPs do all the heavy data lifting, so even without the ski
 
 ### Step 2 — Configure the MCP servers
 
-Both `followin-mcp` and `premium-mcp` are SSE-based remote servers. Contact the Followin team for the server URLs and API keys.
+Both servers are SSE-based and hosted by Followin. **You only need an API key** — contact the Followin team to get one. The server URLs are public:
 
-Common MCP config locations by client:
+| Server | URL |
+|---|---|
+| **Followin MCP** (news / intel center) | `https://mcp.followin.io/sse` |
+| **Premium MCP** (FMP + FRED + Twitter + TG) | `https://premium-mcp.followin.io/sse` |
 
-| Client | MCP config location |
+#### Config snippet (Claude Code, Claude Desktop, Cursor, Windsurf, Cline)
+
+These clients all use the same JSON shape. Replace `YOUR_API_KEY_HERE` with your key and paste into the appropriate config file:
+
+```json
+{
+  "mcpServers": {
+    "followin-mcp": {
+      "type": "sse",
+      "url": "https://mcp.followin.io/sse?api_key=YOUR_API_KEY_HERE",
+      "headers": {
+        "X-API-Key": "YOUR_API_KEY_HERE"
+      }
+    },
+    "premium-mcp": {
+      "type": "sse",
+      "url": "https://premium-mcp.followin.io/sse?api_key=YOUR_API_KEY_HERE",
+      "headers": {
+        "X-API-Key": "YOUR_API_KEY_HERE"
+      }
+    }
+  }
+}
+```
+
+#### Where the config file lives
+
+| Client | Config file location |
 |---|---|
 | **Claude Code** | `~/.claude/settings.json` or project-level `.mcp.json` |
 | **Claude Desktop** | `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) / `%APPDATA%\Claude\claude_desktop_config.json` (Windows) |
-| **Cursor** | Settings → Features → MCP Servers (or `~/.cursor/mcp.json`) |
+| **Cursor** | `~/.cursor/mcp.json` (or Settings → Features → MCP Servers) |
 | **Windsurf** | `~/.codeium/windsurf/mcp_config.json` |
-| **Cline** (VS Code) | Cline panel → MCP Servers (gear icon) |
-| **Continue.dev** | `~/.continue/config.yaml` under `mcpServers` |
+| **Cline** (VS Code) | Cline panel → MCP Servers (gear icon) — paste the same JSON |
+| **Continue.dev** | `~/.continue/config.yaml` — convert the JSON to the YAML `mcpServers:` shape |
 | **OpenCode / OpenClaw** | client config file (check your distribution's docs) |
 | Any other MCP host | wherever your client reads MCP server definitions |
 
-The exact JSON snippet varies by client — refer to your client's MCP documentation.
+> **Note:** The API key is sent twice (once as a query param `?api_key=...` and once as a header `X-API-Key`) for compatibility across clients — some MCP hosts strip query params, others strip headers. Including both ensures it works everywhere.
+
+The repo also ships a ready-to-edit `.mcp.json.example` you can copy as `.mcp.json` for project-level configs.
 
 ### Step 3 — Restart your client
 
