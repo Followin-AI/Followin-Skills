@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Followin Crypto Skills are documented in this file.
+All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -11,16 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On-chain data skill (Glassnode / CryptoQuant integration)
 - Polymarket API integration to replace web search for FedWatch probabilities
 - Deribit options data skill for implied expectations layer
-- npm package distribution for easier install/upgrade
 
 ---
 
 ## [1.0.0] - 2026-04-13
 
-First stable public release. 13 production-ready skills covering crypto trading, macro analysis, and US stock intelligence, with full bilingual (Chinese / English) support.
+First stable public release. 13 production-ready skills covering crypto trading, macro analysis, and US stock intelligence, with full bilingual (Chinese / English) support. Published to npm as `@followin/skills`.
 
 ### Added
 - **Bilingual trigger support** — all 13 skills accept both Chinese and English trigger phrases (e.g., `BTC macro` = `BTC宏观`)
+- **npm package distribution** — install via `npx @followin/skills install`
 - **Comprehensive Skill User Guide** — README rewritten as a bilingual reference doc
 - **Skill Routing Guide** — clarifies how similar-sounding requests route to different skills
 - **Quick Reference table** — side-by-side EN / CN trigger phrases for all skills
@@ -31,6 +31,7 @@ First stable public release. 13 production-ready skills covering crypto trading,
 
 ### Changed
 - `not_trigger` fields expanded with English equivalents to prevent routing collisions
+- Repository moved from `Apatheticco/Followin-crypto-skills` to `Followin-AI/Followin-Skills`
 
 ---
 
