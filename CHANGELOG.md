@@ -14,6 +14,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-04-14
+
+Multi-platform install support. The npm package is now useful beyond Claude Code: install to OpenCode/OpenClaw with a preset, to any directory with `--target`, or get the source path with `path` to adapt skills for Cursor/Windsurf/Cline/Continue.dev manually.
+
+### Added
+- `--client` flag on `install` / `uninstall` with presets: `claude-code` (default), `claude-code-project`, `opencode`
+- `--target DIR` flag for explicit target directory (any path on any OS)
+- `path` command — prints the bundled skill source dir, useful for `cp $(npx @followin/skills path)/*.md ...` workflows
+- `clients` command — lists all available `--client` presets
+- Multi-platform Setup section in README covering Claude Code, Claude Desktop, Cursor, Windsurf, Cline, Continue.dev, OpenCode, OpenClaw
+- Better CLI help output and error messages
+
+### Changed
+- README restructured: skill install and MCP setup are now separate steps with a clear "what's portable" preamble
+- Default install destination still `~/.claude/commands/`, behavior unchanged for existing users
+
+---
+
 ## [1.0.0] - 2026-04-13
 
 First stable public release. 13 production-ready skills covering crypto trading, macro analysis, and US stock intelligence, with full bilingual (Chinese / English) support. Published to npm as `@followin/skills`.

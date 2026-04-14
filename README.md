@@ -1,26 +1,83 @@
 # Followin Skill User Guide
 
-13 Claude Code Skills for crypto trading, macro analysis, and market intelligence — powered by Followin MCP and Premium MCP.
+13 AI agent skills for crypto trading, macro analysis, and market intelligence — powered by **Followin MCP** and **Premium MCP**.
 
 All skills support both **Chinese and English** triggers and output in the language you use.
 
+## What's portable across AI tools
+
+The package has two layers:
+
+1. **MCP servers** (Followin MCP + Premium MCP) — these provide the underlying data and tools, and work in **any MCP-compatible AI client**: Claude Code, Claude Desktop, Cursor, Windsurf, Cline, Continue.dev, OpenCode, OpenClaw, and so on.
+2. **Skill files** (the 13 markdown files in `.claude/commands/`) — written in Claude Code's slash-command format. They drop in directly to Claude Code and other clients that read the same format. For tools that use a different rule/command format, the markdown bodies are still fully portable — just paste the relevant fields into your tool's native format.
+
 ## Setup
 
-### Option A — npm (recommended)
+Setup has two parts: **install the skill files** (your AI tool reads them as slash commands or prompts) and **configure the MCP servers** (the data backend). The npm package handles the first part on any OS; the second part is a one-time client-side config.
+
+### Step 1 — Install skill files
+
+#### Quick path (Claude Code, OpenCode, OpenClaw)
 
 ```bash
+# Claude Code (default)
 npx @followin/skills install
+
+# Claude Code, project-local
+npx @followin/skills install --client claude-code-project
+
+# OpenCode / OpenClaw
+npx @followin/skills install --client opencode
+
+# Any other directory
+npx @followin/skills install --target ~/path/to/your/skills/
 ```
 
-This copies all 13 skill files into `~/.claude/commands/`. Upgrade with the same command; remove with `npx @followin/skills uninstall`.
+Run `npx @followin/skills clients` to see all built-in presets, or `npx @followin/skills` for the full CLI help. Upgrade with the same command; remove with `uninstall`.
 
-You still need to configure the two MCP servers (Followin MCP, Premium MCP) in your Claude Code settings — the npm package only ships the skill definitions, not the MCP endpoints.
+Works on macOS, Linux, and Windows — all you need is Node.js 16+.
 
-### Option B — manual
+#### Cursor / Windsurf / Cline / Continue.dev / other tools
 
-1. Copy `.mcp.json.example` to `.mcp.json` and fill in your API keys
-2. Copy skill files from `.claude/commands/` to `~/.claude/commands/`
-3. Restart Claude Code
+These tools use their own rule/command formats, so the skill files won't drop in directly. Two ways to bring the skills over:
+
+**(a) Adapt to native format.** Get the source location with:
+```bash
+npx @followin/skills path
+# prints: /path/to/.../node_modules/@followin/skills/.claude/commands
+```
+Then open each `.md`, copy the instructions from the body, and paste into your tool's command/rule format:
+- **Cursor** → `.cursor/rules/*.mdc` (frontmatter: `description`, `globs`, `alwaysApply`)
+- **Windsurf** → `.windsurf/rules/*.md` or `.windsurfrules`
+- **Cline** → "Custom Instructions" in settings (one big block, or per-task)
+- **Continue.dev** → `slashCommands` in `config.yaml`
+
+**(b) Use as on-demand system prompt.** Once the MCPs are connected, paste the relevant skill body as a one-shot prompt: *"Behave like the BTC Macro Dashboard skill: \<paste skill content\>"*. Works in any tool with sufficient context window.
+
+The Followin/Premium MCPs do all the heavy data lifting, so even without the skill scaffolding the model can answer most queries directly once it has the tools — the skill files mainly provide structured prompts, output formatting, and routing logic.
+
+### Step 2 — Configure the MCP servers
+
+Both `followin-mcp` and `premium-mcp` are SSE-based remote servers. Contact the Followin team for the server URLs and API keys.
+
+Common MCP config locations by client:
+
+| Client | MCP config location |
+|---|---|
+| **Claude Code** | `~/.claude/settings.json` or project-level `.mcp.json` |
+| **Claude Desktop** | `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) / `%APPDATA%\Claude\claude_desktop_config.json` (Windows) |
+| **Cursor** | Settings → Features → MCP Servers (or `~/.cursor/mcp.json`) |
+| **Windsurf** | `~/.codeium/windsurf/mcp_config.json` |
+| **Cline** (VS Code) | Cline panel → MCP Servers (gear icon) |
+| **Continue.dev** | `~/.continue/config.yaml` under `mcpServers` |
+| **OpenCode / OpenClaw** | client config file (check your distribution's docs) |
+| Any other MCP host | wherever your client reads MCP server definitions |
+
+The exact JSON snippet varies by client — refer to your client's MCP documentation.
+
+### Step 3 — Restart your client
+
+Most clients cache MCP servers and slash commands at startup. Restart after configuration.
 
 ---
 
