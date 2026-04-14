@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.2] - 2026-04-14
+
+### Changed
+- README: simplify MCP server table — drop the parenthetical capability descriptions next to the server names
+
+---
+
 ## [1.1.1] - 2026-04-14
 
 ### Changed

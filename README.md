@@ -62,8 +62,8 @@ Both servers are SSE-based and hosted by Followin. **You only need an API key** 
 
 | Server | URL |
 |---|---|
-| **Followin MCP** (news / intel center) | `https://mcp.followin.io/sse` |
-| **Premium MCP** (FMP + FRED + Twitter + TG) | `https://premium-mcp.followin.io/sse` |
+| **Followin MCP** | `https://mcp.followin.io/sse` |
+| **Premium MCP** | `https://premium-mcp.followin.io/sse` |
 
 #### Config snippet (Claude Code, Claude Desktop, Cursor, Windsurf, Cline)
 
