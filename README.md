@@ -17,14 +17,19 @@ The package has two layers:
 npx @followin/skills setup
 ```
 
-Paste your Followin API key when prompted, then restart your client. Done — the 13 skill files are copied and both MCP servers (`followin-mcp` + `premium-mcp`) are configured and validated.
+Paste your Followin API key when prompted, then restart your client. Done — the 13 skill files are installed and both MCP servers (`followin-mcp` + `premium-mcp`) are configured and validated.
 
 Other clients (default is Claude Code global):
 
 ```bash
-npx @followin/skills setup --client claude-desktop
-# also: cursor · windsurf · claude-code-project · opencode
+npx @followin/skills setup --client cursor          # run from your project dir
+npx @followin/skills setup --client windsurf        # run from your project dir
+npx @followin/skills setup --client claude-desktop  # MCP only
+npx @followin/skills setup --client claude-code-project
+npx @followin/skills setup --client opencode        # skills only, no MCP
 ```
+
+Cursor and Windsurf get the **rules auto-converted** into their native formats (`.cursor/rules/*.mdc` and `.windsurf/rules/*.md`) — run `setup` from inside the project directory where you want them. Claude Desktop is MCP-only because there's no stable filesystem path for skills there yet.
 
 Run `npx @followin/skills clients` to see every preset. Requires Node.js 16+ (macOS / Linux / Windows). The API key is stored in plaintext in the client config (chmod 600) — don't commit that file.
 

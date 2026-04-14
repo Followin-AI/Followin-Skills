@@ -62,16 +62,20 @@ const CLIENTS = {
     mcpFormat: 'standard',
   },
   'cursor': {
-    description: 'Cursor',
-    skillsDir: null,
+    description: 'Cursor (rules in current dir + global MCP)',
+    skillsDir: path.join(process.cwd(), '.cursor', 'rules'),
+    skillsFormat: 'cursor',
     mcpConfig: path.join(os.homedir(), '.cursor', 'mcp.json'),
     mcpFormat: 'standard',
+    note: 'Rules are project-local — run `setup` from inside the project directory you want them in.',
   },
   'windsurf': {
-    description: 'Windsurf',
-    skillsDir: null,
+    description: 'Windsurf (rules in current dir + global MCP)',
+    skillsDir: path.join(process.cwd(), '.windsurf', 'rules'),
+    skillsFormat: 'windsurf',
     mcpConfig: path.join(os.homedir(), '.codeium', 'windsurf', 'mcp_config.json'),
     mcpFormat: 'standard',
+    note: 'Rules are project-local — run `setup` from inside the project directory you want them in.',
   },
   'opencode': {
     description: 'OpenCode / OpenClaw',
@@ -135,7 +139,68 @@ function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-function copySkills(targetDir) {
+// ---------- Skill format conversion ----------
+//
+// Skill files ship in Claude Code slash-command format (YAML frontmatter +
+// markdown body). Other clients use slightly different frontmatter shapes
+// for their rule/command files. These helpers convert on the fly so `setup`
+// can drop skills directly into Cursor / Windsurf rule directories.
+
+function parseFrontmatter(content) {
+  if (!content.startsWith('---\n')) return { meta: {}, body: content };
+  const end = content.indexOf('\n---\n', 4);
+  if (end === -1) return { meta: {}, body: content };
+  const fmText = content.slice(4, end);
+  const body = content.slice(end + 5);
+  const meta = {};
+  for (const line of fmText.split('\n')) {
+    const idx = line.indexOf(':');
+    if (idx <= 0) continue;
+    const key = line.slice(0, idx).trim();
+    let val = line.slice(idx + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    meta[key] = val;
+  }
+  return { meta, body };
+}
+
+// JSON encoding is always a valid YAML 1.2 flow scalar — handles quotes,
+// newlines, Chinese punctuation, special chars, the lot.
+function yamlString(s) {
+  return JSON.stringify(s);
+}
+
+function buildDescription(meta) {
+  let desc = meta.description || meta.name || '';
+  if (meta.trigger) desc += ` Triggers: ${meta.trigger}`;
+  if (desc.length > 800) desc = desc.slice(0, 797) + '...';
+  return desc;
+}
+
+function convertSkillContent(content, format) {
+  if (!format || format === 'claude-code') return content;
+  const { meta, body } = parseFrontmatter(content);
+  const desc = buildDescription(meta);
+
+  if (format === 'cursor') {
+    // .mdc format: description + alwaysApply: false → model picks based on description
+    return `---\ndescription: ${yamlString(desc)}\nalwaysApply: false\n---\n${body}`;
+  }
+  if (format === 'windsurf') {
+    // Windsurf rules: trigger=model_decision means agent decides per description
+    return `---\ntrigger: model_decision\ndescription: ${yamlString(desc)}\n---\n${body}`;
+  }
+  return content;
+}
+
+function targetFileName(srcName, format) {
+  if (format === 'cursor') return srcName.replace(/\.md$/, '.mdc');
+  return srcName;
+}
+
+function copySkills(targetDir, format) {
   if (path.resolve(targetDir) === path.resolve(SOURCE_DIR)) {
     console.error('Error: target dir is the same as the source dir. Aborting.');
     process.exit(1);
@@ -145,10 +210,17 @@ function copySkills(targetDir) {
   let added = 0;
   let updated = 0;
   for (const f of files) {
-    const dest = path.join(targetDir, f);
+    const srcPath = path.join(SOURCE_DIR, f);
+    const destName = targetFileName(f, format);
+    const dest = path.join(targetDir, destName);
     const existed = fs.existsSync(dest);
-    fs.copyFileSync(path.join(SOURCE_DIR, f), dest);
-    console.log(`  [${existed ? 'updated' : 'added  '}] ${f}`);
+    if (!format || format === 'claude-code') {
+      fs.copyFileSync(srcPath, dest);
+    } else {
+      const content = fs.readFileSync(srcPath, 'utf8');
+      fs.writeFileSync(dest, convertSkillContent(content, format));
+    }
+    console.log(`  [${existed ? 'updated' : 'added  '}] ${destName}`);
     if (existed) updated++;
     else added++;
   }
@@ -303,14 +375,18 @@ async function setup(args) {
 
   // 1. Skill files
   if (!args.noSkills && client.skillsDir) {
-    console.log(`Step 1/3 — installing skill files to ${client.skillsDir}`);
     const targetDir = args.target ? path.resolve(args.target) : client.skillsDir;
-    const result = copySkills(targetDir);
+    const fmtLabel = client.skillsFormat && client.skillsFormat !== 'claude-code'
+      ? ` (${client.skillsFormat} format)`
+      : '';
+    console.log(`Step 1/3 — installing skill files to ${targetDir}${fmtLabel}`);
+    const result = copySkills(targetDir, client.skillsFormat);
     console.log(`  ${result.total} skills (${result.added} new, ${result.updated} updated)`);
+    if (client.note) console.log(`  note: ${client.note}`);
     console.log('');
   } else if (!args.noSkills && !client.skillsDir) {
-    console.log(`Step 1/3 — skill files: skipped (${name} does not read .md skill files directly)`);
-    console.log('  See README "(b) Use as on-demand system prompt" section.');
+    console.log(`Step 1/3 — skill files: skipped (${name} does not have a stable file-based skill format yet)`);
+    console.log('  Once MCP is configured, the agent can answer most queries with the tools alone.');
     console.log('');
   }
 
@@ -369,7 +445,7 @@ function install(args) {
   }
   const targetDir = args.target ? path.resolve(args.target) : client.skillsDir;
   const label = args.target ? args.target : (args.client || DEFAULT_CLIENT);
-  const result = copySkills(targetDir);
+  const result = copySkills(targetDir, client.skillsFormat);
   console.log('');
   console.log(`Installed ${result.total} skills (${result.added} new, ${result.updated} updated)`);
   console.log(`  target : ${targetDir}`);
@@ -426,13 +502,15 @@ function uninstall(args) {
     console.log(`Target dir does not exist: ${targetDir}`);
     return;
   }
+  const format = client.skillsFormat;
   const files = listSkillFiles();
   let removed = 0;
   for (const f of files) {
-    const dest = path.join(targetDir, f);
+    const destName = targetFileName(f, format);
+    const dest = path.join(targetDir, destName);
     if (fs.existsSync(dest)) {
       fs.unlinkSync(dest);
-      console.log(`  [removed] ${f}`);
+      console.log(`  [removed] ${destName}`);
       removed++;
     }
   }
@@ -459,7 +537,10 @@ function clients() {
     const skills = c.skillsDir ? 'skills' : '     ';
     const mcp = c.mcpConfig ? 'mcp' : '   ';
     console.log(`  ${name.padEnd(maxName)}  [${skills} ${mcp}]  ${c.description}${isDefault}`);
-    if (c.skillsDir) console.log(`  ${' '.repeat(maxName)}    skills -> ${c.skillsDir}`);
+    if (c.skillsDir) {
+      const fmt = c.skillsFormat && c.skillsFormat !== 'claude-code' ? ` [${c.skillsFormat}]` : '';
+      console.log(`  ${' '.repeat(maxName)}    skills${fmt} -> ${c.skillsDir}`);
+    }
     if (c.mcpConfig) console.log(`  ${' '.repeat(maxName)}    mcp    -> ${c.mcpConfig}`);
   }
   console.log('');

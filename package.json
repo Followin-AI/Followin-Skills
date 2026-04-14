@@ -1,6 +1,6 @@
 {
   "name": "@followin/skills",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "13 Claude Code skills for crypto trading, macro analysis, and US stock intelligence. Requires Followin MCP and Premium MCP.",
   "bin": {
     "followin-skills": "bin/cli.js"

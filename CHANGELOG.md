@@ -14,6 +14,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-04-14
+
+`setup` is now actually one-click on Cursor and Windsurf too — the CLI converts skill files on the fly into each client's native rule format.
+
+### Added
+- **Cursor auto-install** — `setup --client cursor` now writes `.cursor/rules/*.mdc` files (project-local) in addition to the global MCP config. Each `.md` is converted to Cursor `.mdc` format with `description` (skill description + triggers) and `alwaysApply: false`.
+- **Windsurf auto-install** — `setup --client windsurf` now writes `.windsurf/rules/*.md` files (project-local). Each is converted with `trigger: model_decision` + `description` so the agent picks rules based on the description.
+- Skill format converter handles Chinese punctuation, quotes, and special chars by emitting JSON-encoded YAML scalars.
+- `clients` listing now shows the skill format used (e.g. `skills [cursor]`).
+
+### Changed
+- `cursor` and `windsurf` presets now include `skillsDir` pointing at `<cwd>/.cursor/rules` and `<cwd>/.windsurf/rules`. Run `setup` from inside the project where you want the rules — global rules / settings-stored rules are not auto-installed (the clients store those in opaque app databases, not files).
+- `claude-desktop` preset still configures MCP only — Anthropic's filesystem-based Skills format is still in beta and the path varies by version, so we don't ship a fragile auto-write for it.
+
+---
+
 ## [1.2.1] - 2026-04-14
 
 ### Changed
