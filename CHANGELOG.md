@@ -14,6 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-04-14
+
+One-command install. `npx @followin/skills setup` now copies the skill files **and** writes the MCP server config in a single step — users only need to paste their Followin API key when prompted.
+
+### Added
+- **`setup` command** — one-stop install: copies skill files, prompts for the API key (hidden TTY input), merges `followin-mcp` + `premium-mcp` into the client's MCP config without clobbering existing entries, and validates the connection
+- **`configure` command** — MCP config only (skip the skill-file copy)
+- **`--api-key, -k KEY`** flag and **`FOLLOWIN_API_KEY`** env var for non-interactive installs (CI, dotfile bootstraps)
+- **`--no-validate`** flag to skip the post-config connection check
+- **`--no-skills` / `--no-mcp`** flags for `setup` to run only one half
+- **New client presets** with auto MCP config: `claude-desktop`, `cursor`, `windsurf` — each writes to the correct platform-specific config path
+- Connection validator using Node's built-in `https` module (6s timeout) — no extra dependencies
+- Plaintext API key files are written with `chmod 600` (owner-only)
+
+### Changed
+- README quickstart now leads with `npx @followin/skills setup` as the recommended one-command install; manual install / configure are demoted to an "advanced" subsection
+- `clients` command now shows which features (`skills` / `mcp`) each preset supports and the exact paths it will write
+- CLI help output updated with the new commands and flags
+
+---
+
 ## [1.1.2] - 2026-04-14
 
 ### Changed

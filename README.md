@@ -13,11 +13,40 @@ The package has two layers:
 
 ## Setup
 
-Setup has two parts: **install the skill files** (your AI tool reads them as slash commands or prompts) and **configure the MCP servers** (the data backend). The npm package handles the first part on any OS; the second part is a one-time client-side config.
+Setup has two parts: **install the skill files** (your AI tool reads them as slash commands or prompts) and **configure the MCP servers** (the data backend). The npm package now handles **both** in one command — just have your Followin API key ready.
 
-### Step 1 — Install skill files
+### Quickstart — one command does both
 
-#### Quick path (Claude Code, OpenCode, OpenClaw)
+```bash
+npx @followin/skills setup
+```
+
+That will:
+1. Copy the 13 skill files into your client's commands directory
+2. Prompt for your **Followin API key** (or read `$FOLLOWIN_API_KEY` / `--api-key`)
+3. Merge `followin-mcp` and `premium-mcp` into your client's MCP config (preserving any servers you already have)
+4. Validate the connection to both servers
+5. Tell you to restart your client
+
+Defaults to **Claude Code (global)**. To target a different client:
+
+```bash
+npx @followin/skills setup --client claude-desktop
+npx @followin/skills setup --client cursor
+npx @followin/skills setup --client windsurf
+npx @followin/skills setup --client claude-code-project   # current dir
+npx @followin/skills setup --client opencode              # skills only — no MCP injection
+```
+
+Run `npx @followin/skills clients` to see every preset and where it writes. Works on macOS, Linux, and Windows with Node.js 16+.
+
+> **API key safety:** the key is written in plaintext into the client config file (the same way every MCP host stores it). The CLI sets the file to `chmod 600` after writing. Don't commit that file to git.
+
+### Manual / advanced installs
+
+If you'd rather do the two halves separately, or your client isn't in the preset list:
+
+#### Step 1 — Install skill files only
 
 ```bash
 # Claude Code (default)
@@ -33,9 +62,7 @@ npx @followin/skills install --client opencode
 npx @followin/skills install --target ~/path/to/your/skills/
 ```
 
-Run `npx @followin/skills clients` to see all built-in presets, or `npx @followin/skills` for the full CLI help. Upgrade with the same command; remove with `uninstall`.
-
-Works on macOS, Linux, and Windows — all you need is Node.js 16+.
+Upgrade with the same command; remove with `uninstall`.
 
 #### Cursor / Windsurf / Cline / Continue.dev / other tools
 
@@ -56,7 +83,15 @@ Then open each `.md`, copy the instructions from the body, and paste into your t
 
 The Followin/Premium MCPs do all the heavy data lifting, so even without the skill scaffolding the model can answer most queries directly once it has the tools — the skill files mainly provide structured prompts, output formatting, and routing logic.
 
-### Step 2 — Configure the MCP servers
+#### Step 2 — Configure MCP servers only
+
+```bash
+npx @followin/skills configure --client claude-desktop
+```
+
+Same prompts and same JSON merging as `setup`, but skips the skill-file copy. Add `--no-validate` if you want to skip the connection check.
+
+#### Manual MCP config
 
 Both servers are SSE-based and hosted by Followin. **You only need an API key** — contact the Followin team to get one. The server URLs are public:
 
@@ -65,9 +100,7 @@ Both servers are SSE-based and hosted by Followin. **You only need an API key** 
 | **Followin MCP** | `https://mcp.followin.io/sse` |
 | **Premium MCP** | `https://premium-mcp.followin.io/sse` |
 
-#### Config snippet (Claude Code, Claude Desktop, Cursor, Windsurf, Cline)
-
-These clients all use the same JSON shape. Replace `YOUR_API_KEY_HERE` with your key and paste into the appropriate config file:
+All these clients use the same JSON shape. Replace `YOUR_API_KEY_HERE` with your key and paste into the appropriate config file:
 
 ```json
 {
