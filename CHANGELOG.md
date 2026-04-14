@@ -14,101 +14,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.0] - 2026-04-14
+## [1.0.0] - 2026-04-14
 
-`setup` is now actually one-click on Cursor and Windsurf too — the CLI converts skill files on the fly into each client's native rule format.
+First stable public release of `@followin/skills` — 13 production-ready Claude skills for crypto trading, macro analysis, and US stock intelligence, plus a one-command installer that auto-configures Followin MCP and Premium MCP across multiple AI clients.
 
-### Added
-- **Cursor auto-install** — `setup --client cursor` now writes `.cursor/rules/*.mdc` files (project-local) in addition to the global MCP config. Each `.md` is converted to Cursor `.mdc` format with `description` (skill description + triggers) and `alwaysApply: false`.
-- **Windsurf auto-install** — `setup --client windsurf` now writes `.windsurf/rules/*.md` files (project-local). Each is converted with `trigger: model_decision` + `description` so the agent picks rules based on the description.
-- Skill format converter handles Chinese punctuation, quotes, and special chars by emitting JSON-encoded YAML scalars.
-- `clients` listing now shows the skill format used (e.g. `skills [cursor]`).
+> **Note on versioning**: an earlier set of 1.x.x iterations (1.0.0 → 1.3.0) was published on the same day while the installer story was being shaped. Those versions were unpublished from npm and consolidated into this single 1.0.0 release. The pre-1.0 history below (0.1.0 → 0.3.0) reflects the original skill-by-skill development.
 
-### Changed
-- `cursor` and `windsurf` presets now include `skillsDir` pointing at `<cwd>/.cursor/rules` and `<cwd>/.windsurf/rules`. Run `setup` from inside the project where you want the rules — global rules / settings-stored rules are not auto-installed (the clients store those in opaque app databases, not files).
-- `claude-desktop` preset still configures MCP only — Anthropic's filesystem-based Skills format is still in beta and the path varies by version, so we don't ship a fragile auto-write for it.
+### Skills (13)
 
----
+**5 Followin MCP skills** — crypto news & sentiment:
+- `01_followin-intel-center` — token unlocks / macro / listings / events / volume / funding
+- `02_breaking-news` — news impact analysis (bull/bear + counter-argument)
+- `03_trending-news-topics` — multi-platform hot topic resonance
+- `04_crypto-daily-brief` — ready-to-publish daily crypto briefing
+- `05_token-buzz-views` — per-token 4-dimension snapshot (news / articles / KOL / community)
 
-## [1.2.1] - 2026-04-14
+**8 Premium MCP skills** — trading & macro:
+- `06_trading-strategy-signal` — CEX traders + on-chain whales + KOL calls cross-validation
+- `07_tg-channel-intel` — 70+ Telegram channels across 10 categories
+- `08_btc-macro-dashboard` — 0-100 BTC macro score, 4 layers, 15 indicators
+- `09_gold-macro-dashboard` — 0-100 gold macro score, 5 layers, 15 indicators
+- `10_macro-morning-brief` — daily US pre-open macro briefing
+- `11_us-stock-earnings-report` — single-stock earnings (Beat/Miss + media + macro)
+- `12_macro-analyzer` — macro indicator impact analysis with 20+ built-in mappings
+- `13_us-stock-divergence-scan` — price / insider / media divergence scanning
 
-### Changed
-- README: drastically simplify the Setup section — lead with the one-liner `npx @followin/skills setup`, collapse the manual install / config-file table / JSON snippet into a single `<details>` block
+All skills support both **Chinese and English** triggers and output in the user's input language. `not_trigger` fields prevent routing collisions across similar-sounding queries.
 
----
+### One-command installer
 
-## [1.2.0] - 2026-04-14
+```bash
+npx @followin/skills setup
+```
 
-One-command install. `npx @followin/skills setup` now copies the skill files **and** writes the MCP server config in a single step — users only need to paste their Followin API key when prompted.
+Copies the 13 skill files, prompts for the Followin API key (hidden TTY input), merges `followin-mcp` + `premium-mcp` into the target client's MCP config (preserving existing entries), and validates the connection — all in one step.
 
-### Added
-- **`setup` command** — one-stop install: copies skill files, prompts for the API key (hidden TTY input), merges `followin-mcp` + `premium-mcp` into the client's MCP config without clobbering existing entries, and validates the connection
-- **`configure` command** — MCP config only (skip the skill-file copy)
-- **`--api-key, -k KEY`** flag and **`FOLLOWIN_API_KEY`** env var for non-interactive installs (CI, dotfile bootstraps)
-- **`--no-validate`** flag to skip the post-config connection check
-- **`--no-skills` / `--no-mcp`** flags for `setup` to run only one half
-- **New client presets** with auto MCP config: `claude-desktop`, `cursor`, `windsurf` — each writes to the correct platform-specific config path
-- Connection validator using Node's built-in `https` module (6s timeout) — no extra dependencies
-- Plaintext API key files are written with `chmod 600` (owner-only)
+**Supported clients:**
 
-### Changed
-- README quickstart now leads with `npx @followin/skills setup` as the recommended one-command install; manual install / configure are demoted to an "advanced" subsection
-- `clients` command now shows which features (`skills` / `mcp`) each preset supports and the exact paths it will write
-- CLI help output updated with the new commands and flags
+| Client | Skills | MCP auto-config |
+|---|---|---|
+| Claude Code (global) — default | ✅ `~/.claude/commands` | ✅ `~/.claude/settings.json` |
+| Claude Code (project-local) | ✅ `<cwd>/.claude/commands` | ✅ `<cwd>/.mcp.json` |
+| Cursor | ✅ `<cwd>/.cursor/rules/*.mdc` (auto-converted) | ✅ `~/.cursor/mcp.json` |
+| Windsurf | ✅ `<cwd>/.windsurf/rules/*.md` (auto-converted) | ✅ `~/.codeium/windsurf/mcp_config.json` |
+| Claude Desktop | — (no stable filesystem skill format yet) | ✅ `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) / `%APPDATA%\Claude\...` (Windows) |
+| OpenCode / OpenClaw | ✅ `~/.config/opencode/command` | — |
 
----
+For Cursor and Windsurf the CLI converts each Claude Code skill file on the fly into the target client's native rule format (Cursor `.mdc` with `description` + `alwaysApply: false`; Windsurf `.md` with `trigger: model_decision` + `description`). Frontmatter conversion uses JSON-encoded YAML scalars to handle Chinese punctuation, quotes, and special chars cleanly.
 
-## [1.1.2] - 2026-04-14
+### CLI commands
 
-### Changed
-- README: simplify MCP server table — drop the parenthetical capability descriptions next to the server names
+- `setup` — one-stop install (skills + MCP + validation)
+- `install` — copy skill files only
+- `configure` — write MCP config only
+- `uninstall` — remove bundled skills from a target dir
+- `list` — show bundled skills
+- `path` — print the source dir of bundled skill files (useful for `cp $(npx @followin/skills path)/*.md ~/wherever/`)
+- `clients` — show all available client presets and the paths they write
 
----
+### Flags
 
-## [1.1.1] - 2026-04-14
+- `--client, -c NAME` — target client (default: `claude-code`)
+- `--target, -t DIR` — override skill install dir
+- `--api-key, -k KEY` — pass API key non-interactively (also via `FOLLOWIN_API_KEY` env var)
+- `--no-validate` — skip the post-config connection check
+- `--no-skills` / `--no-mcp` — `setup` half-flow toggles
 
-### Changed
-- README: publish the public MCP server URLs (`mcp.followin.io`, `premium-mcp.followin.io`) directly so users only need an API key — no more "contact the team for URLs"
-- README: add a copy-paste-ready JSON config snippet that works across Claude Code, Claude Desktop, Cursor, Windsurf, and Cline
+### MCP servers
 
----
+Both servers are SSE-based and hosted by Followin. **Public URLs:**
+- Followin MCP: `https://mcp.followin.io/sse`
+- Premium MCP: `https://premium-mcp.followin.io/sse`
 
-## [1.1.0] - 2026-04-14
+The API key is sent both as `?api_key=` query param and `X-API-Key` header for cross-client compatibility (some MCP hosts strip query params, others strip headers). Configuration files containing the key are written with `chmod 600` (owner-only).
 
-Multi-platform install support. The npm package is now useful beyond Claude Code: install to OpenCode/OpenClaw with a preset, to any directory with `--target`, or get the source path with `path` to adapt skills for Cursor/Windsurf/Cline/Continue.dev manually.
+**Followin MCP** provides: trending topics, trending feed, token-level content, KOL opinions, daily digest, keyword search, intel center (6 structured data channels).
 
-### Added
-- `--client` flag on `install` / `uninstall` with presets: `claude-code` (default), `claude-code-project`, `opencode`
-- `--target DIR` flag for explicit target directory (any path on any OS)
-- `path` command — prints the bundled skill source dir, useful for `cp $(npx @followin/skills path)/*.md ...` workflows
-- `clients` command — lists all available `--client` presets
-- Multi-platform Setup section in README covering Claude Code, Claude Desktop, Cursor, Windsurf, Cline, Continue.dev, OpenCode, OpenClaw
-- Better CLI help output and error messages
+**Premium MCP** provides: top trader positions, on-chain whales, KOL call orders, TG channel aggregation (70+ channels), crypto realtime prices, FRED macro data, financial market data (US stocks / ETFs / forex / commodities / financials / earnings / insider trading / economic calendar / treasury yields), 31 financial media search, Twitter data.
 
-### Changed
-- README restructured: skill install and MCP setup are now separate steps with a clear "what's portable" preamble
-- Default install destination still `~/.claude/commands/`, behavior unchanged for existing users
+### Documentation
 
----
+- Comprehensive bilingual Skill User Guide in README
+- Skill Routing Guide — how similar-sounding requests route to different skills
+- Quick Reference table — side-by-side EN / CN trigger phrases
+- Scoring layer details for Skill 08 (BTC Macro) and Skill 09 (Gold Macro)
+- Indicator mapping table for Skill 12 (Macro Analyzer)
+- Signal threshold table for Skill 13 (Divergence Scan)
+- Technical Notes documenting confirmed MCP tool behaviors
 
-## [1.0.0] - 2026-04-13
+### Distribution
 
-First stable public release. 13 production-ready skills covering crypto trading, macro analysis, and US stock intelligence, with full bilingual (Chinese / English) support. Published to npm as `@followin/skills`.
-
-### Added
-- **Bilingual trigger support** — all 13 skills accept both Chinese and English trigger phrases (e.g., `BTC macro` = `BTC宏观`)
-- **npm package distribution** — install via `npx @followin/skills install`
-- **Comprehensive Skill User Guide** — README rewritten as a bilingual reference doc
-- **Skill Routing Guide** — clarifies how similar-sounding requests route to different skills
-- **Quick Reference table** — side-by-side EN / CN trigger phrases for all skills
-- **Scoring layer details** for Skill 08 (BTC Macro) and Skill 09 (Gold Macro) — 4/5-layer weights and contradiction detection
-- **Indicator mapping table** for Skill 12 (Macro Analyzer) — 7 major indicators with FRED series / bullish sectors / bearish sectors / key ETFs
-- **Signal threshold table** for Skill 13 (Divergence Scan) — exact market cap, move size, and article count thresholds
-- **Technical Notes** section documenting confirmed MCP tool behaviors (e.g., `^VIX` cannot be batched, `DXUSD` needs batch endpoint, FRED `sort_order` requirement)
-
-### Changed
-- `not_trigger` fields expanded with English equivalents to prevent routing collisions
-- Repository moved from `Apatheticco/Followin-crypto-skills` to `Followin-AI/Followin-Skills`
+- Published to npm as `@followin/skills` (scoped public package)
+- Repository: `Followin-AI/Followin-Skills` on GitHub (moved from `Apatheticco/Followin-crypto-skills`)
+- Zero runtime dependencies — pure Node.js (built-ins only)
+- Requires Node.js 16+ — works on macOS, Linux, Windows
 
 ---
 
