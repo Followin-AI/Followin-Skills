@@ -44,9 +44,16 @@ function claudeDesktopConfigPath() {
 
 const CLIENTS = {
   'claude-code-project': {
-    description: 'Claude Code (current project only, recommended)',
+    description: 'Claude Code (skills project-local, MCP global, recommended)',
     skillsDir: path.join(process.cwd(), '.claude', 'commands'),
-    mcpConfig: path.join(process.cwd(), '.mcp.json'),
+    // Skills are project-local (self-contained, easy to uninstall), but MCP
+    // config goes to the real global file so the servers are available in
+    // every Claude Code session — matching the Cursor/Windsurf convention
+    // of "rules here, MCP everywhere". The 1.5.0 decision to put MCP in
+    // <cwd>/.mcp.json was reverted in 1.6.0 because the underlying reason
+    // (global install being broken) was actually a wrong-config-file bug,
+    // which was fixed separately in 1.5.1.
+    mcpConfig: path.join(os.homedir(), '.claude.json'),
     mcpFormat: 'standard',
   },
   'claude-code': {
@@ -82,11 +89,20 @@ const CLIENTS = {
     mcpFormat: 'standard',
     note: 'Rules are project-local — run `setup` from inside the project directory you want them in.',
   },
+  'opencode-project': {
+    description: 'OpenCode / OpenClaw (skills project-local, MCP global, recommended)',
+    skillsDir: path.join(process.cwd(), '.opencode', 'commands'),
+    mcpConfig: path.join(os.homedir(), '.config', 'opencode', 'opencode.json'),
+    mcpFormat: 'opencode',
+  },
   'opencode': {
-    description: 'OpenCode / OpenClaw',
-    skillsDir: path.join(os.homedir(), '.config', 'opencode', 'command'),
-    mcpConfig: null,
-    mcpFormat: null,
+    description: 'OpenCode / OpenClaw (global — all projects)',
+    // OpenCode uses plural `commands/` for slash-command files; earlier
+    // releases of this CLI used singular `command/` which silently did
+    // nothing. Fixed in 1.6.0.
+    skillsDir: path.join(os.homedir(), '.config', 'opencode', 'commands'),
+    mcpConfig: path.join(os.homedir(), '.config', 'opencode', 'opencode.json'),
+    mcpFormat: 'opencode',
   },
 };
 
@@ -257,6 +273,19 @@ function buildMcpEntry(url, apiKey) {
   };
 }
 
+// OpenCode uses a different shape: top-level `mcp` key, entry type `remote`,
+// and an explicit `enabled: true` flag. Otherwise equivalent.
+function buildOpenCodeMcpEntry(url, apiKey) {
+  return {
+    type: 'remote',
+    url: `${url}?api_key=${encodeURIComponent(apiKey)}`,
+    enabled: true,
+    headers: {
+      'X-API-Key': apiKey,
+    },
+  };
+}
+
 function writeMcpConfig(client, apiKey) {
   if (!client.mcpConfig) {
     return { skipped: true, reason: 'client does not support automatic MCP config' };
@@ -264,13 +293,16 @@ function writeMcpConfig(client, apiKey) {
   const file = client.mcpConfig;
   ensureDir(path.dirname(file));
   const config = readJsonOrEmpty(file);
-  if (!config.mcpServers || typeof config.mcpServers !== 'object') {
-    config.mcpServers = {};
+  const format = client.mcpFormat || 'standard';
+  const topKey = format === 'opencode' ? 'mcp' : 'mcpServers';
+  const build = format === 'opencode' ? buildOpenCodeMcpEntry : buildMcpEntry;
+  if (!config[topKey] || typeof config[topKey] !== 'object') {
+    config[topKey] = {};
   }
-  const hadFollowin = !!config.mcpServers['followin-mcp'];
-  const hadPremium = !!config.mcpServers['premium-mcp'];
-  config.mcpServers['followin-mcp'] = buildMcpEntry(FOLLOWIN_MCP_URL, apiKey);
-  config.mcpServers['premium-mcp'] = buildMcpEntry(PREMIUM_MCP_URL, apiKey);
+  const hadFollowin = !!config[topKey]['followin-mcp'];
+  const hadPremium = !!config[topKey]['premium-mcp'];
+  config[topKey]['followin-mcp'] = build(FOLLOWIN_MCP_URL, apiKey);
+  config[topKey]['premium-mcp'] = build(PREMIUM_MCP_URL, apiKey);
   fs.writeFileSync(file, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
   try {
     fs.chmodSync(file, 0o600);
@@ -378,9 +410,10 @@ async function setup(args) {
   console.log(`Setting up @followin/skills for: ${client.description}`);
   if (!args.client && name === 'claude-code-project') {
     console.log('');
-    console.log(`  Installing into the current directory: ${process.cwd()}`);
-    console.log('  Skills and MCP will only be active when you run Claude Code from here.');
-    console.log('  For an all-projects install instead, re-run with: --client claude-code');
+    console.log(`  Skill files → ${path.join(process.cwd(), '.claude', 'commands')} (project-local)`);
+    console.log(`  MCP config  → ${path.join(os.homedir(), '.claude.json')} (global, all projects)`);
+    console.log('  Skills only activate from this directory; MCP servers are available everywhere.');
+    console.log('  For a fully global install (skills too), re-run with: --client claude-code');
   }
   console.log('');
 

@@ -21,7 +21,7 @@ npx @followin/skills setup
 
 Paste your Followin API key when prompted, then restart your client. Done — the 13 skill files are installed and both MCP servers (`followin-mcp` + `premium-mcp`) are configured and validated.
 
-> **Default is project-local.** `npx @followin/skills setup` installs into the current directory (`<cwd>/.claude/commands/` + `<cwd>/.mcp.json`), so the install is self-contained and only active when you run Claude Code from that directory. For an all-projects install, pass `--client claude-code` to write to `~/.claude/` instead.
+> **Default layout (1.6.0+): skills project-local, MCP global.** `npx @followin/skills setup` writes skill files to `<cwd>/.claude/commands/` (only active in this project) and MCP config to `~/.claude.json` (available in every Claude Code session). Configure your API key once, use the MCP servers everywhere. For a fully global install (skills too), pass `--client claude-code`.
 
 Other clients:
 
@@ -30,7 +30,8 @@ npx @followin/skills setup --client claude-code     # all Claude Code projects (
 npx @followin/skills setup --client cursor          # run from your project dir
 npx @followin/skills setup --client windsurf        # run from your project dir
 npx @followin/skills setup --client claude-desktop  # MCP only
-npx @followin/skills setup --client opencode        # skills only, no MCP
+npx @followin/skills setup --client opencode-project # OpenCode / OpenClaw (skills local, MCP global)
+npx @followin/skills setup --client opencode        # OpenCode / OpenClaw (global)
 ```
 
 Cursor and Windsurf get the **rules auto-converted** into their native formats (`.cursor/rules/*.mdc` and `.windsurf/rules/*.md`) — run `setup` from inside the project directory where you want them. Claude Desktop is MCP-only because there's no stable filesystem path for skills there yet.
@@ -63,7 +64,7 @@ Run `npx @followin/skills clients` to see every preset. Requires Node.js 16+ (ma
 
 | Client | Config file |
 |---|---|
-| Claude Code | `~/.claude/settings.json` (or project `.mcp.json`) |
+| Claude Code | `~/.claude.json` (global) or `<cwd>/.mcp.json` (project-local) |
 | Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` · `%APPDATA%\Claude\claude_desktop_config.json` |
 | Cursor | `~/.cursor/mcp.json` |
 | Windsurf | `~/.codeium/windsurf/mcp_config.json` |

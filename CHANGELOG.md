@@ -14,6 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.0] - 2026-04-15
+
+### Changed
+- **Default install layout is now mixed: skills project-local, MCP global.** The `claude-code-project` preset (still the default for `npx @followin/skills setup` with no `--client` flag) now writes skill files to `<cwd>/.claude/commands/` as before, but writes MCP config to `~/.claude.json` so both Followin MCP servers are available in every Claude Code session regardless of which directory you launch from. This matches the Cursor/Windsurf convention of "rules here, MCP everywhere" and means you only need to configure your API key once per machine.
+- Setup output now prints both destinations (skills dir + MCP config path) on the default path so the split is obvious.
+
+### Added
+- **OpenCode / OpenClaw MCP auto-config.** `--client opencode` now writes `followin-mcp` and `premium-mcp` to `~/.config/opencode/opencode.json` under the top-level `mcp` key using OpenCode's `type: "remote"` entry shape. Previous versions only copied skill files and left MCP setup to the user.
+- **New `opencode-project` preset** — skills project-local in `<cwd>/.opencode/commands/`, MCP global, mirroring `claude-code-project`.
+
+### Fixed
+- **OpenCode skills directory corrected from `command/` to `commands/`.** Earlier releases wrote slash-command files to the singular `command/` directory, which OpenCode does not read — so the installer appeared to succeed but no skills were actually available. Global `--client opencode` installs on 1.4.0–1.5.1 should re-run setup on 1.6.0.
+
+### Why the 1.5.0 MCP-project-local default was reverted
+
+1.5.0 moved MCP config from `~/.claude.json` to `<cwd>/.mcp.json` partly as a workaround for the global-install failure reported by a user — but 1.5.1 established that the real cause was a wrong-config-file bug (`~/.claude/settings.json` vs `~/.claude.json`), not anything wrong with the global path itself. With that bug fixed, the original reason to avoid the global MCP location is gone. For most users, "configure once, use everywhere" is what they expect — and project-local MCP means re-entering the API key in every new project directory. 1.6.0 keeps skills project-local (so they stay self-contained and easy to uninstall) but sends MCP back to the global file.
+
+Users who prefer the old fully project-local layout can still write MCP to `<cwd>/.mcp.json` manually, or use `--client claude-code-project` on 1.5.x.
+
+---
+
 ## [1.5.1] - 2026-04-15
 
 ### Fixed
