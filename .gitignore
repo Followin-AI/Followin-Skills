@@ -1,2 +1,39 @@
+# macOS
 .DS_Store
+
+# Secrets — never commit
 .mcp.json
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Node
+node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tgz
+
+# Claude Code local state (user's installed plugins, marketplaces, caches)
+.claude/plugins/
+.claude/settings.local.json
+.claude/statsig/
+.claude/shell-snapshots/
+.claude/todos/
+
+# Data dumps (ad-hoc analysis artifacts, never in main repo)
+*.tweets.json
+followin_io_*.json
+*.dump.json
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
