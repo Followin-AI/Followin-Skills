@@ -21,13 +21,15 @@ npx @followin/skills setup
 
 Paste your Followin API key when prompted, then restart your client. Done — the 13 skill files are installed and both MCP servers (`followin-mcp` + `premium-mcp`) are configured and validated.
 
-Other clients (default is Claude Code global):
+> **Default is project-local.** `npx @followin/skills setup` installs into the current directory (`<cwd>/.claude/commands/` + `<cwd>/.mcp.json`), so the install is self-contained and only active when you run Claude Code from that directory. For an all-projects install, pass `--client claude-code` to write to `~/.claude/` instead.
+
+Other clients:
 
 ```bash
+npx @followin/skills setup --client claude-code     # all Claude Code projects (global)
 npx @followin/skills setup --client cursor          # run from your project dir
 npx @followin/skills setup --client windsurf        # run from your project dir
 npx @followin/skills setup --client claude-desktop  # MCP only
-npx @followin/skills setup --client claude-code-project
 npx @followin/skills setup --client opencode        # skills only, no MCP
 ```
 

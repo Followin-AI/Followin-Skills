@@ -43,16 +43,16 @@ function claudeDesktopConfigPath() {
 }
 
 const CLIENTS = {
-  'claude-code': {
-    description: 'Claude Code CLI (global)',
-    skillsDir: path.join(os.homedir(), '.claude', 'commands'),
-    mcpConfig: path.join(os.homedir(), '.claude', 'settings.json'),
-    mcpFormat: 'standard',
-  },
   'claude-code-project': {
-    description: 'Claude Code (project-local)',
+    description: 'Claude Code (current project only, recommended)',
     skillsDir: path.join(process.cwd(), '.claude', 'commands'),
     mcpConfig: path.join(process.cwd(), '.mcp.json'),
+    mcpFormat: 'standard',
+  },
+  'claude-code': {
+    description: 'Claude Code CLI (global — all projects)',
+    skillsDir: path.join(os.homedir(), '.claude', 'commands'),
+    mcpConfig: path.join(os.homedir(), '.claude', 'settings.json'),
     mcpFormat: 'standard',
   },
   'claude-desktop': {
@@ -85,7 +85,7 @@ const CLIENTS = {
   },
 };
 
-const DEFAULT_CLIENT = 'claude-code';
+const DEFAULT_CLIENT = 'claude-code-project';
 
 // ---------- Args ----------
 function parseArgs(argv) {
@@ -371,6 +371,12 @@ function formatValidationResult(name, result) {
 async function setup(args) {
   const { name, client } = resolveClient(args);
   console.log(`Setting up @followin/skills for: ${client.description}`);
+  if (!args.client && name === 'claude-code-project') {
+    console.log('');
+    console.log(`  Installing into the current directory: ${process.cwd()}`);
+    console.log('  Skills and MCP will only be active when you run Claude Code from here.');
+    console.log('  For an all-projects install instead, re-run with: --client claude-code');
+  }
   console.log('');
 
   // 1. Skill files
@@ -577,7 +583,7 @@ function usage(exitCode = 0) {
   console.log('  clients     Show available clients and what they support');
   console.log('');
   console.log('Options:');
-  console.log('  --client, -c NAME    Target client (default: claude-code)');
+  console.log('  --client, -c NAME    Target client (default: claude-code-project)');
   console.log('  --target, -t DIR     Override skill install dir');
   console.log('  --api-key, -k KEY    Followin API key (also: $FOLLOWIN_API_KEY)');
   console.log('  --no-validate        Skip MCP connection check after configure');
@@ -585,7 +591,8 @@ function usage(exitCode = 0) {
   console.log('  --no-mcp             setup: skip MCP config');
   console.log('');
   console.log('Examples:');
-  console.log('  npx @followin/skills setup');
+  console.log('  npx @followin/skills setup                              # current project only (default)');
+  console.log('  npx @followin/skills setup --client claude-code         # all Claude Code projects (global)');
   console.log('  npx @followin/skills setup --client cursor --api-key sk_xxx');
   console.log('  npx @followin/skills install --client opencode');
   console.log('  npx @followin/skills configure --client claude-desktop');

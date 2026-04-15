@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-04-15
+
+### Changed
+- **Default installer target is now project-local (`claude-code-project`)** instead of global (`claude-code`). Running `npx @followin/skills setup` with no `--client` flag now writes skills to `<cwd>/.claude/commands/` and MCP config to `<cwd>/.mcp.json`, so the install is self-contained in the project directory you run it from.
+- The old global behavior is still available explicitly via `--client claude-code`.
+- `setup` now prints the target directory and an explanation when the default is used, so it's clear where things are being installed and how to opt into the global install instead.
+- Usage help and examples updated to reflect the new default.
+
+### Why
+
+Project-local default avoids polluting `~/.claude/settings.json` with shared global state across unrelated workflows, makes multi-project / multi-key setups straightforward, and is much easier to uninstall (delete the directory). For users who want skills available in every Claude Code session, `--client claude-code` is a one-flag opt-in.
+
+---
+
 ## [1.4.0] - 2026-04-15
 
 First stable public release of `@followin/skills` — 13 production-ready Claude skills for crypto trading, macro analysis, and US stock intelligence, plus a one-command installer that auto-configures Followin MCP and Premium MCP across multiple AI clients.

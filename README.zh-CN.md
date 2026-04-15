@@ -21,13 +21,15 @@ npx @followin/skills setup
 
 按提示粘贴你的 Followin API key,然后重启客户端。完成 —— 13 个 skill 文件已安装,两个 MCP 服务器(`followin-mcp` + `premium-mcp`)已配置并通过连接验证。
 
-其它客户端(默认是 Claude Code 全局):
+> **默认是项目级安装**。`npx @followin/skills setup` 会把 skill 和 MCP 配置写到当前目录(`<cwd>/.claude/commands/` + `<cwd>/.mcp.json`),安装内容完全收敛在项目目录里,只在从该目录启动 Claude Code 时生效。如果需要对所有项目全局生效,加 `--client claude-code` 写到 `~/.claude/`。
+
+其它客户端:
 
 ```bash
+npx @followin/skills setup --client claude-code     # 所有 Claude Code 项目(全局)
 npx @followin/skills setup --client cursor          # 在你的项目目录下运行
 npx @followin/skills setup --client windsurf        # 在你的项目目录下运行
 npx @followin/skills setup --client claude-desktop  # 仅 MCP
-npx @followin/skills setup --client claude-code-project
 npx @followin/skills setup --client opencode        # 仅 skill,不配 MCP
 ```
 
