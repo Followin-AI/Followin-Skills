@@ -14,6 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.1] - 2026-04-15
+
+### Fixed
+- **`--client claude-code` (global install) now writes to the correct config file.** Previous versions wrote `mcpServers` into `~/.claude/settings.json`, which Claude Code silently ignores for MCP — `settings.json` only holds plugin/marketplace state. Claude Code's real global MCP config lives in `~/.claude.json`. Users who ran `npx @followin/skills setup --client claude-code` on 1.4.0 or 1.5.0 got a successful-looking install whose MCP servers never actually connected. 1.5.1 writes to `~/.claude.json` so the global preset works end-to-end.
+
+### Why this was missed
+
+The project-local preset (`claude-code-project`, now the 1.5.0 default) writes to `<cwd>/.mcp.json` which IS the right location — so project-local installs always worked. The bug only affected the explicit `--client claude-code` global path, and was masked in local testing because `~/.claude.json` happened to already have the Followin MCP entries from a prior manual setup. Verified against a clean account after a user-reported failure.
+
+### Migration
+
+If you installed with `--client claude-code` on 1.4.0 or 1.5.0 and the MCPs never showed up in Claude Code, re-run:
+
+```
+npx @followin/skills@latest setup --client claude-code
+```
+
+Then (optional cleanup) remove the dead `mcpServers` block from `~/.claude/settings.json` — it has never had any effect and can be deleted safely.
+
+---
+
 ## [1.5.0] - 2026-04-15
 
 ### Changed

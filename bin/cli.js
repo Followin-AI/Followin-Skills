@@ -52,7 +52,12 @@ const CLIENTS = {
   'claude-code': {
     description: 'Claude Code CLI (global — all projects)',
     skillsDir: path.join(os.homedir(), '.claude', 'commands'),
-    mcpConfig: path.join(os.homedir(), '.claude', 'settings.json'),
+    // Claude Code's real global MCP config lives in ~/.claude.json, NOT
+    // ~/.claude/settings.json. settings.json holds plugin/marketplace state
+    // and silently ignores any mcpServers written there — previous versions
+    // of this CLI wrote to the wrong file, so `--client claude-code` installs
+    // from < 1.5.1 never actually connected.
+    mcpConfig: path.join(os.homedir(), '.claude.json'),
     mcpFormat: 'standard',
   },
   'claude-desktop': {
