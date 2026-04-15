@@ -14,11 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2026-04-14
+## [1.4.0] - 2026-04-15
 
 First stable public release of `@followin/skills` — 13 production-ready Claude skills for crypto trading, macro analysis, and US stock intelligence, plus a one-command installer that auto-configures Followin MCP and Premium MCP across multiple AI clients.
 
-> **Note on versioning**: an earlier set of 1.x.x iterations (1.0.0 → 1.3.0) was published on the same day while the installer story was being shaped. Those versions were unpublished from npm and consolidated into this single 1.0.0 release. The pre-1.0 history below (0.1.0 → 0.3.0) reflects the original skill-by-skill development.
+> **Note on versioning**: an earlier set of 1.x.x iterations (1.0.0 → 1.3.0) was published on npm while the installer story was being shaped, then fully unpublished. Per npm policy, unpublished version numbers are permanently retired and cannot be reused even after the 24-hour cooldown — so this consolidated stable release starts at **1.4.0**, the first unburned minor version. Nothing in the 1.0.0 → 1.3.0 line remains on npm; treat 1.4.0 as the effective v1 starting point. The pre-1.0 history below (0.1.0 → 0.3.0) reflects the original skill-by-skill development.
 
 ### Skills (13)
 
