@@ -12,6 +12,7 @@
     "bin/",
     ".claude/commands/",
     "README.md",
+    "README.zh-CN.md",
     "CHANGELOG.md"
   ],
   "keywords": [

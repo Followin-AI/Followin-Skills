@@ -1,5 +1,7 @@
 # Followin Skill User Guide
 
+**English** | [简体中文](./README.zh-CN.md)
+
 13 AI agent skills for crypto trading, macro analysis, and market intelligence — powered by **Followin MCP** and **Premium MCP**.
 
 All skills support both **Chinese and English** triggers and output in the language you use.
