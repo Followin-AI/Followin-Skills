@@ -12,11 +12,11 @@
 
 | # | Skill 文件 | 一句话定位 | 触发示例 |
 |---|---|---|---|
-| **14** | [`multi-agent-stock-analysis_v2`](./14_multi-agent-stock-analysis_v2.md) | **21 个 AI Agent** 协同决策 | "帮我全面分析 NVDA" |
-| **11** | [`us-stock-earnings-report_v2`](./11_us-stock-earnings-report_v2.md) | 美股财报三维分析（财务 + 媒体 + 宏观）| "看下 AAPL 财报" |
-| **13** | [`us-stock-divergence-scan_v2`](./13_us-stock-divergence-scan_v2.md) | 信号背离扫描（价格 × 内部人 × 媒体）| "背离扫描" / "内部人悄悄买入" |
-| **08** | [`btc-macro-dashboard_v2`](./08_btc-macro-dashboard_v2.md) | BTC 宏观 0-100 评分 | "BTC 现在几分" |
-| **09** | [`gold-macro-dashboard_v2`](./09_gold-macro-dashboard_v2.md) | 黄金宏观 0-100 评分 | "黄金宏观怎么样" |
+| **01** | [`multi-agent-stock-analysis`](./01_multi-agent-stock-analysis.md) | **21 个 AI Agent** 协同决策 | "帮我全面分析 NVDA" |
+| **02** | [`us-stock-earnings-report`](./02_us-stock-earnings-report.md) | 美股财报三维分析（财务 + 媒体 + 宏观）| "看下 AAPL 财报" |
+| **03** | [`us-stock-divergence-scan`](./03_us-stock-divergence-scan.md) | 信号背离扫描（价格 × 内部人 × 媒体）| "背离扫描" / "内部人悄悄买入" |
+| **04** | [`btc-macro-dashboard`](./04_btc-macro-dashboard.md) | BTC 宏观 0-100 评分 | "BTC 现在几分" |
+| **05** | [`gold-macro-dashboard`](./05_gold-macro-dashboard.md) | 黄金宏观 0-100 评分 | "黄金宏观怎么样" |
 
 ---
 
@@ -39,7 +39,7 @@
 
 ## 🎯 5 个 Skill 详细介绍
 
-### 🥇 14. Multi-Agent Stock Analysis（最炸）
+### 🥇 01. Multi-Agent Stock Analysis（最炸）
 
 **21 个 Agent 架构**（对标 ai-hedge-fund）：
 
@@ -75,7 +75,7 @@
 
 ---
 
-### 🥇 11. US Stock Earnings Report
+### 🥇 02. US Stock Earnings Report
 
 **核心差异化**：**1 次调用拿全 12 块** fundamentals 真聚合
 - 三表（利润表 / 资产负债表 / 现金流）4 季度历史
@@ -91,7 +91,7 @@
 
 ---
 
-### 🥇 13. US Stock Divergence Scan
+### 🥇 03. US Stock Divergence Scan
 
 **4 种背离信号**：
 
@@ -111,7 +111,7 @@
 
 ---
 
-### 🥈 08. BTC Macro Dashboard
+### 🥈 04. BTC Macro Dashboard
 
 **4 层加权 0-100 评分**：
 
@@ -128,7 +128,7 @@
 
 ---
 
-### 🥈 09. Gold Macro Dashboard
+### 🥈 05. Gold Macro Dashboard
 
 **与 BTC Dashboard 同结构，黄金特殊逻辑**：
 
@@ -244,11 +244,11 @@ claude mcp add followin https://mcp.followin.io/v2/sse \
 
 | 你说 | 自动触发 |
 |---|---|
-| "帮我全面分析 NVDA" | → Skill 14 Multi-Agent |
-| "AAPL 财报怎么样" | → Skill 11 Earnings |
-| "今天有没有内部人悄悄买入" | → Skill 13 Divergence Scan |
-| "BTC 宏观环境怎么样" | → Skill 08 BTC Dashboard |
-| "黄金现在几分" | → Skill 09 Gold Dashboard |
+| "帮我全面分析 NVDA" | → Skill 01 Multi-Agent |
+| "AAPL 财报怎么样" | → Skill 02 Earnings |
+| "今天有没有内部人悄悄买入" | → Skill 03 Divergence Scan |
+| "BTC 宏观环境怎么样" | → Skill 04 BTC Dashboard |
+| "黄金现在几分" | → Skill 05 Gold Dashboard |
 
 ---
 
