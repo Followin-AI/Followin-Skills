@@ -1,15 +1,15 @@
 ---
-name: US Stock Divergence Scan (v2 — FollowX MCP)
+name: US Stock Divergence Scan (v2 — Followin MCP)
 description: 信号背离扫描 — 发现价格、内部人交易与媒体报道之间的不一致。触发词必须明确指向"背离/静默异动/内部人买入"场景，如"背离扫描"、"有没有没新闻却大涨的"、"内部人悄悄买入"。泛问"有什么异常"走热点舆情，个股异动走代币舆情聚合。
 trigger: 美股背离扫描、美股价格背离、美股背离信号、美股静默异动、美股无新闻异动、美股内部人买入、美股内部人悄悄买、美股没新闻大涨、美股没新闻大跌、美股silent moves、美股silent buy、US stock divergence scan、divergence scan、silent moves、silent buy、anomaly signals、unreported drop、unreported surge
 not_trigger: 策略信号、KOL、喊单、热点、日报、财报、earnings、今天有什么消息、市场在关注什么、strategy、KOL calls、trending、daily brief、earnings report、what's hot、market focus
-mcp: mcp__followx__metrics, mcp__followx__news, mcp__followx__signal
+mcp: mcp__followin__metrics, mcp__followin__news, mcp__followin__signal
 args: scope, days
 ---
 
 # /divergence-scan-v2
 
-信号背离扫描 — 发现价格、内部人交易与媒体报道之间的不一致（FollowX MCP 版）
+信号背离扫描 — 发现价格、内部人交易与媒体报道之间的不一致（Followin MCP 版）
 
 ## 参数
 
@@ -29,7 +29,7 @@ args: scope, days
 
 本Skill 聚焦**多标的批量扫描价格/内部人/媒体背离信号**。
 
-## 数据层 — FollowX MCP 三工具映射
+## 数据层 — Followin MCP 三工具映射
 
 > 🔒 **本 Skill 全程只查美股（tradfi），所有 `metrics()` 调用必须带 `asset_type="tradfi"`**
 > 不带的话同名 ticker 会被错路由到 crypto 山寨币（实测 AMN→0.00479 USDT / WEST→0.00541 USDT），数据完全错位。
@@ -44,7 +44,7 @@ args: scope, days
 | 媒体交叉验证 | `news()` | `query="[companyName 2 词]"`, `time_range="1w"`, **`asset_type="tradfi"`** |
 
 > **关键变化（vs v1）**：
-> - 6 个老工具 → 3 个 FollowX 工具
+> - 6 个老工具 → 3 个 Followin 工具
 > - 删除 `stable_request` 兜底（profile / stock-price-change 都直接走 metrics）
 > - 删除 31 家媒体 users 列表
 > - insider 走 `signal()` 而不是 `insider_trading_search`（已实测 AAPL/NVDA 真实数据）
@@ -272,7 +272,7 @@ Unreported Surge:  Δ > +20% && mktCap > $500M && articles ≤ 2
 - 情绪判断标注为"Claude 推断"
 - 背离信号不是交易建议，是"值得进一步研究"的线索
 
-## 注意事项（v2 — FollowX MCP）
+## 注意事项（v2 — Followin MCP）
 
 - 🔒 **本 Skill 全程美股，所有 metrics/signal/news 调用必须带 `asset_type="tradfi"`** —— 实测 AMN/WEST 等 ticker 不带会错路由到 crypto 山寨币（AMN→0.00479 USDT / WEST→0.00541 USDT）
 - **mover 榜（sort_by）只返回 7 个字段**，**marketCap 缺失**，必须 keywords 二次调用补全

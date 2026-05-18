@@ -1,15 +1,15 @@
 ---
-name: Multi-Agent Stock Analysis (v2 — FollowX MCP)
+name: Multi-Agent Stock Analysis (v2 — Followin MCP)
 description: 多Agent美股深度分析 — 19位虚拟分析师（8位传奇投资者+5位现代大师+6位量化分析师）独立打分，风控经理约束仓位，组合经理LLM综合决策。对标ai-hedge-fund架构。必须指定具体股票代码，如"帮我全面分析AAPL"、"多维度看TSLA"、"NVDA值不值得买"。
 trigger: 多维度分析、多角度分析、全面分析、深度分析、值不值得买、能不能买、该不该买、综合分析、multi-agent分析、AI分析、投资分析、全方位分析、帮我分析一下XX、XX怎么样、XX能买吗、multi-agent analysis、full analysis、comprehensive analysis、should I buy、deep dive、stock analysis、investment analysis
 not_trigger: 策略信号、KOL、喊单、热点、日报、背离扫描、财报速查、宏观指标、BTC宏观、黄金宏观、strategy、KOL calls、trending、daily brief、divergence、earnings report、macro、morning brief
-mcp: mcp__followx__metrics, mcp__followx__news, mcp__followx__signal
+mcp: mcp__followin__metrics, mcp__followin__news, mcp__followin__signal
 args: ticker
 ---
 
 # /multi-agent-stock-analysis-v2 $ARGUMENTS
 
-多 Agent 美股深度分析 — 19 位分析师独立研判 + 风控 + 组合 = **21 Agents**（FollowX MCP 版）
+多 Agent 美股深度分析 — 19 位分析师独立研判 + 风控 + 组合 = **21 Agents**（Followin MCP 版）
 
 ## 架构（保留 v1）
 
@@ -33,7 +33,7 @@ args: ticker
                           ⑳ 风控经理 → ㉑ 组合经理（LLM 综合决策）
 ```
 
-## 数据层 — FollowX MCP 三工具（22 → 5-6 路）
+## 数据层 — Followin MCP 三工具（22 → 5-6 路）
 
 🔒 所有美股调用必须带 `asset_type="tradfi"`（除 BTC/ETH 等 crypto symbol）
 
@@ -48,7 +48,7 @@ args: ticker
 | FRED VIX / DGS10 | `metrics(keywords=["^VIX","DGS10"])` |
 
 > **关键变化（vs v1）**：
-> - 22 个老调用 → 6 个 FollowX 调用（**-73%**）
+> - 22 个老调用 → 6 个 Followin 调用（**-73%**）
 > - 删除 31 家媒体 users / schema 修复 caveat / FRED limit integer 等
 > - **insider 自动 fanout 政客**（v2 新增维度，影响 Group A 的 Burry / Group C 的 Sentiment）
 
@@ -184,7 +184,7 @@ SMA(200) = 简单 200 日均线
 | 维度 | v1 | v2 | 节省 |
 |---|---|---|---|
 | MCP 调用次数 | 22 | **6** | **-73%** |
-| 工具种类 | 18 个 finance_tool_* + search_news + fred | 3 个 FollowX | **-83%** |
+| 工具种类 | 18 个 finance_tool_* + search_news + fred | 3 个 Followin | **-83%** |
 | schema caveat | 8 条 | 0 条 | -100% |
 | 用户列表维护 | 31 家媒体 | 自动 | -100% |
 | 政客交易 | 不可用 | ✅ 自动 fanout | +∞ |

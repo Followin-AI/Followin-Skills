@@ -1,6 +1,6 @@
 # Followin MCP — Skills v2 (Flagship Bundle)
 
-> 基于 **FollowX MCP** 的 5 个旗舰 Skill —— 覆盖美股深度分析、宏观看盘、信号背离扫描
+> 基于 **Followin MCP** 的 5 个旗舰 Skill —— 覆盖美股深度分析、宏观看盘、信号背离扫描
 
 完整产品介绍 + 接入文档详见仓库根目录 [`USER_GUIDE.md`](../USER_GUIDE.md)。
 
@@ -8,7 +8,7 @@
 
 ## 📦 这个 Bundle 包含什么
 
-5 个开箱即用的 Skill，**全部基于 FollowX MCP 协议**，在 Claude / Cursor / Windsurf 等 AI 客户端中通过自然语言即可触发：
+5 个开箱即用的 Skill，**全部基于 Followin MCP 协议**，在 Claude / Cursor / Windsurf 等 AI 客户端中通过自然语言即可触发：
 
 | # | Skill 文件 | 一句话定位 | 触发示例 |
 |---|---|---|---|
@@ -20,16 +20,16 @@
 
 ---
 
-## 🛠 依赖：FollowX MCP 4 工具
+## 🛠 依赖：Followin MCP 4 工具
 
-5 个 Skill 全部基于 **FollowX MCP** 协议，调用以下 4 个工具：
+5 个 Skill 全部基于 **Followin MCP** 协议，调用以下 4 个工具：
 
 | 工具 | 能力 |
 |---|---|
-| **`mcp__followx__metrics`** | 行情 / 宏观指标 / 美股财报（12 块真聚合）/ 技术指标 / 经济日历 |
-| **`mcp__followx__news`** | 多源新闻 + Trending + TG 频道聚合（**自动按 10 类主题分类**）|
-| **`mcp__followx__signal`** | KOL 喊单 / 顶级交易员实盘 / 链上鲸鱼 / 内部人 + 政客交易 fanout |
-| **`mcp__followx__twitter`** | 15+ Twitter 子工具（高级搜索 / 用户档案 / 关系图谱 / 地区趋势 / 线程上下文）|
+| **`mcp__followin__metrics`** | 行情 / 宏观指标 / 美股财报（12 块真聚合）/ 技术指标 / 经济日历 |
+| **`mcp__followin__news`** | 多源新闻 + Trending + TG 频道聚合（**自动按 10 类主题分类**）|
+| **`mcp__followin__signal`** | KOL 喊单 / 顶级交易员实盘 / 链上鲸鱼 / 内部人 + 政客交易 fanout |
+| **`mcp__followin__twitter`** | 15+ Twitter 子工具（高级搜索 / 用户档案 / 关系图谱 / 地区趋势 / 线程上下文）|
 
 **TG 频道智能分类（10 类）**：交易信号 / 实盘跟踪 / 市场结构 / 宏观研判 / 跨市场 / 资讯聚合 / 叙事追踪 / 项目研究 / 链上数据 / Meme 打新
 
@@ -186,7 +186,7 @@ cp skills-v2/*.md ~/.claude/commands/
 ```json
 {
   "mcpServers": {
-    "followx": {
+    "followin": {
       "type": "sse",
       "url": "https://mcp.followin.io/v2/sse",
       "headers": {
@@ -201,7 +201,7 @@ cp skills-v2/*.md ~/.claude/commands/
 
 **Claude Code（命令行）**：
 ```bash
-claude mcp add followx https://mcp.followin.io/v2/sse \
+claude mcp add followin https://mcp.followin.io/v2/sse \
   --scope user \
   --transport sse \
   --header "x-api-key: YOUR_API_KEY_HERE"
@@ -254,7 +254,7 @@ claude mcp add followx https://mcp.followin.io/v2/sse \
 
 ## 📅 版本
 
-- **v2.0**（2026-05-13）：从老 MCP（premium-mcp）迁移到 FollowX MCP，调用次数减少 60-80%，删除 schema caveat 和媒体 users 列表
+- **v2.0**（2026-05-13）：从老 MCP（premium-mcp）迁移到 Followin MCP，调用次数减少 60-80%，删除 schema caveat 和媒体 users 列表
 
 每个 Skill 文件头 frontmatter 含详细元信息（trigger / not_trigger / mcp / args）。
 

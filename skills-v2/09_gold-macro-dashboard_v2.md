@@ -1,9 +1,9 @@
 ---
-name: Gold Macro Dashboard (v2 — FollowX MCP)
+name: Gold Macro Dashboard (v2 — Followin MCP)
 description: 评估黄金当前宏观环境，输出0-100综合评分和分层分析。当用户问"黄金宏观怎么样"、"黄金环境如何"、"黄金现在几分"时触发。
 trigger: 黄金宏观、黄金宏观看盘、黄金宏观评分、黄金宏观环境、gold macro、gold macro dashboard、gold macro score、gold macro environment、how is gold macro
 not_trigger: 策略信号、KOL、喊单、热点、TG频道、日报、代币舆情、BTC、比特币、行情、价格、strategy、KOL calls、trending、TG channels、daily brief、bitcoin、token news
-mcp: mcp__followx__metrics, WebSearch, WebFetch
+mcp: mcp__followin__metrics, WebSearch, WebFetch
 ---
 
 # Role: 黄金宏观环境分析师 (v2)
@@ -18,8 +18,8 @@ mcp: mcp__followx__metrics, WebSearch, WebFetch
 
 ## 数据源（v2 简化）
 
-### MCP — FollowX 单工具
-全部宏观/行情走 `mcp__followx__metrics`：
+### MCP — Followin 单工具
+全部宏观/行情走 `mcp__followin__metrics`：
 
 | 用途 | 调用 |
 |------|------|
@@ -195,7 +195,7 @@ WebSearch:
 - **`metrics()` 字典未命中走 fred_search_fallback 时只返元数据**，改用 `keywords=["<series_id>"]` 兜底（实测验证）
 - **VIX 评分方向跟 BTC 看盘相反**（黄金避险逻辑：VIX 高 = 利多）
 - **通胀脉冲对黄金是正向**（通胀热 → 实际利率受压 → 利多金）
-- **第三层央行购金/GLD/上海金溢价仍需 Web 兜底**，FollowX 暂未覆盖
+- **第三层央行购金/GLD/上海金溢价仍需 Web 兜底**，Followin 暂未覆盖
 - **避免高并发**：单批 ≤ 4 防 SSE session 挂
 
 ## 输出约束（同 v1）

@@ -1,9 +1,9 @@
 ---
-name: BTC Macro Dashboard (v2 — FollowX MCP)
+name: BTC Macro Dashboard (v2 — Followin MCP)
 description: 评估BTC当前宏观环境，输出0-100综合评分和分层分析。当用户问"BTC宏观怎么样"、"宏观环境如何"、"现在几分"时触发。
 trigger: BTC宏观、BTC宏观看盘、BTC宏观评分、BTC宏观环境、BTC macro、BTC macro dashboard、BTC macro score、BTC macro environment、how is BTC macro
 not_trigger: 策略信号、KOL、喊单、热点、TG频道、日报、代币舆情、黄金、行情、价格、strategy、KOL calls、trending、TG channels、daily brief、gold、token news
-mcp: mcp__followx__metrics, WebSearch, WebFetch
+mcp: mcp__followin__metrics, WebSearch, WebFetch
 ---
 
 # Role: BTC宏观环境分析师 (v2)
@@ -18,8 +18,8 @@ mcp: mcp__followx__metrics, WebSearch, WebFetch
 
 ## 数据源（v2 大幅简化）
 
-### MCP — FollowX 单工具
-全部宏观/行情/加密价格走 `mcp__followx__metrics`：
+### MCP — Followin 单工具
+全部宏观/行情/加密价格走 `mcp__followin__metrics`：
 
 | 用途 | 调用 | 备注 |
 |------|------|------|
@@ -31,12 +31,12 @@ mcp: mcp__followx__metrics, WebSearch, WebFetch
 | 经济日历 | `metrics(query="economic calendar 本周经济数据", categories=["macro"])` | FMP 端点 |
 
 > **关键变化（vs v1）**：
-> - 5 个老工具 → 1 个 FollowX metrics
-> - 删除 `limit 必须 integer / null 跳过 / 500 错误降级` 等历史 caveat（FollowX 已稳定）
+> - 5 个老工具 → 1 个 Followin metrics
+> - 删除 `limit 必须 integer / null 跳过 / 500 错误降级` 等历史 caveat（Followin 已稳定）
 > - 删除 `^NDX 402 / DXUSD 必须 batch / ^VIX 不能批量` 等 schema 修复说明
 > - FRED 32 个 series 全 100% 命中（已实测）
 
-### HTTP 直调（FollowX 不覆盖）
+### HTTP 直调（Followin 不覆盖）
 - **DeFiLlama** 稳定币总市值：`GET https://stablecoins.llama.fi/stablecoins?includePrices=true`
 
 ### Web 检索兜底
@@ -270,7 +270,7 @@ BTC宏观环境评分 — 完整明细
 | 场景 | 处理 |
 |------|------|
 | `metrics()` 某个 query 返回 `status: partial` 或 0 result | 该指标标"数据暂不可用"，权重重分配给同层其他指标 |
-| FollowX MCP 整体不可用 | 报错并提示重启 MCP |
+| Followin MCP 整体不可用 | 报错并提示重启 MCP |
 | DeFiLlama HTTP 无响应 | 稳定币指标暂不可用，权重重分配给 ETF 资金流 |
 | Web 检索失败（FedWatch/ETF）| 该指标暂不可用，权重重分配 |
 | 多个指标同时缺失（≥3）| 输出标注"数据覆盖不足，可靠性降低" |

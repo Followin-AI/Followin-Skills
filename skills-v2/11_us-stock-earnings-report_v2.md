@@ -1,15 +1,15 @@
 ---
-name: US Stock Earnings Report (v2 — FollowX MCP)
+name: US Stock Earnings Report (v2 — Followin MCP)
 description: 单股财报三维分析（财务Beat/Miss + 媒体情绪 + 宏观背景）。必须指定具体股票代码或公司名才触发，如"帮我看AAPL财报"、"TSLA earnings"、"英伟达财报分析"。泛问"今天有哪些财报"走情报中心，不在本Skill范围。
 trigger: 帮我看XX财报、XX财报分析、XX财报速查、XX earnings、XX earnings report、[股票代码]财报、[公司名]财报、[ticker] earnings、earnings report、earnings analysis、show me [ticker] earnings、look at [ticker] earnings
 not_trigger: 策略信号、KOL、喊单、热点、日报、背离扫描、divergence、strategy、KOL calls、trending、daily brief、divergence scan、morning brief
-mcp: mcp__followx__metrics, mcp__followx__news
+mcp: mcp__followin__metrics, mcp__followin__news
 args: ticker
 ---
 
 # /earnings-report-v2 $ARGUMENTS
 
-单股财报分析 — 财务数据 + 媒体覆盖 + 宏观背景三维（FollowX MCP 版）
+单股财报分析 — 财务数据 + 媒体覆盖 + 宏观背景三维（Followin MCP 版）
 
 ## 参数
 
@@ -26,7 +26,7 @@ args: ticker
 | 宏观日报、美股早报 | ❌ 转 morning-brief |
 | 背离扫描 | ❌ 转 divergence-scan |
 
-## 数据层 — FollowX MCP 三工具映射
+## 数据层 — Followin MCP 三工具映射
 
 🔒 **本 Skill 全程美股，所有调用必须带 `asset_type="tradfi"`**（避免 ticker 错路由到 crypto 山寨币）
 
@@ -47,7 +47,7 @@ args: ticker
 
 ## EPS 数据源说明（保留 v1）
 
-⚠️ FollowX fundamentals 聚合返回两种 EPS：
+⚠️ Followin fundamentals 聚合返回两种 EPS：
 
 | 来源 | 字段 | 含义 | 用途 |
 |------|------|------|------|
@@ -254,7 +254,7 @@ PE: XX.X | PS: X.X | ROE: XX.X% | D/E: X.X | Gross Margin: XX.X%
 - 情绪判断标"Claude 推断"
 - 财报分析不是交易建议，是"值得进一步研究"的线索
 
-## 注意事项（v2 — FollowX MCP）
+## 注意事项（v2 — Followin MCP）
 
 - 🔒 **`asset_type="tradfi"` 必须**（除 news），否则 ticker 名同 crypto 山寨币会错路由
 - ⚠️ **news() 不要传 asset_type**（实测加 tradfi 返 0 results，is_tradfi 字段几乎全 false 老 bug）
