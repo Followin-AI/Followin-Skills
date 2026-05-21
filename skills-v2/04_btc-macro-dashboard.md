@@ -88,7 +88,7 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 | ⑦ | VIX 恐慌 | 5% | `metrics(keywords=["^VIX"], categories=["market"])` 含均线 |
 | ⑧ | 实际利率趋势 | 5% | `metrics(query="10年期 TIPS 实际利率", limit=4)` (DFII10) |
 | ⑨ | 收益率曲线 2Y-10Y | 3% | `metrics(query="10Y 2Y 利差", limit=4)` (T10Y2Y) |
-| ⑩ | 黄金趋势 | 2% | `metrics(keywords=["GOLD"], categories=["market"])` 自动 alias 到 GCUSD |
+| ⑩ | 黄金趋势 | 2% | `metrics(keywords=["GCUSD"], categories=["market"])` |
 
 评分规则同 v1。
 
@@ -138,7 +138,7 @@ metrics(query="M2 货币供应", limit=12)
 metrics(query="联邦基金利率", limit=12)
 metrics(query="10Y TIPS 实际利率", limit=4)
 metrics(query="10Y 2Y 利差", limit=4)
-metrics(keywords=["DXUSD","^IXIC","^VIX","GOLD"], categories=["market"])
+metrics(keywords=["DXUSD","^IXIC","^VIX","GCUSD"], categories=["market"])
 ```
 
 **Batch 3：第四层经济脉冲（4 个并行）**
