@@ -36,7 +36,7 @@ args: ticker
 | 行情 + 市值 + 多周期均线 | `metrics(keywords=[ticker], categories=["market"], asset_type="tradfi")` |
 | 多时间框架历史 | `metrics(keywords=[ticker], time_range="1y", interval="1day", asset_type="tradfi")` |
 | 媒体覆盖 | `news(query="<companyName> <ticker>", time_range="2w", limit=10, asset_type="tradfi")` |
-| 宏观（按行业）| `metrics(query="10年期美债收益率", limit=5)` 等 |
+| 宏观（按行业）| `metrics(keywords=["DGS10"], categories=["macro"], limit=5)` 等（见行业映射表）|
 
 > **关键变化（vs v1）**：
 > - 9 个老调用 → 3 个 metrics + 1 个 news + 行业宏观
@@ -132,14 +132,19 @@ news(
 
 | Sector | 调用 |
 |---|---|
-| Technology | `metrics(keywords=["DGS10","^VIX"], categories=["market"])` |
-| Semiconductors | + `metrics(query="WTI 原油 oil", limit=5)` + `metrics(query="核心PCE", limit=5)` |
-| Energy | `metrics(query="WTI 原油 oil", limit=5)` |
+> 🔒 v3 修复：行业宏观 **全部走 keywords 直查**（query 路径已实测翻车：
+> "WTI 原油" 返 crypto OIL + ETN / "30 年抵押贷款" 错抓 DGS30 国债）
+
+| Sector | 调用 |
+|---|---|
+| Technology | `metrics(keywords=["DGS10","^VIX"], categories=["market"], asset_type="tradfi")` |
+| Semiconductors | + `metrics(keywords=["CLUSD"], categories=["market"], asset_type="tradfi")` + `metrics(keywords=["PCEPILFE"], categories=["macro"], limit=5)` |
+| Energy | `metrics(keywords=["CLUSD"], categories=["market"], asset_type="tradfi")` |
 | Financials | `metrics(keywords=["DGS10","DGS2"], categories=["macro"], limit=5)` |
-| Consumer | `metrics(query="零售销售 retail sales", limit=5)` + `metrics(query="CPI", limit=5)` |
-| Real Estate | `metrics(query="30年抵押贷款利率 mortgage rate", limit=5)` |
-| Healthcare | `metrics(query="医疗 CPI", limit=5)` |
-| 其他 | `metrics(keywords=["DGS10","^VIX"], categories=["market"])` |
+| Consumer | `metrics(keywords=["RSAFS"], categories=["macro"], limit=5)` + `metrics(keywords=["CPIAUCSL"], categories=["macro"], limit=5)` |
+| Real Estate | `metrics(keywords=["MORTGAGE30US"], categories=["macro"], limit=5)` ⚠️ 不要写 "30 年抵押贷款" |
+| Healthcare | `metrics(keywords=["CPIAUCSL"], categories=["macro"], limit=5)` ⚠️ CPIMEDSL 暂不在 Followin 字典（被错抓到 headline CPI，B-33），退而用 headline CPI |
+| 其他 | `metrics(keywords=["DGS10","^VIX"], categories=["market"], asset_type="tradfi")` |
 
 ### Step 4: 三维分析
 

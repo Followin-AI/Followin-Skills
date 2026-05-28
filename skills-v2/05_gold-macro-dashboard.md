@@ -72,7 +72,7 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 |---|------|------|---------|
 | ① | 10Y TIPS 实际利率 | 15% | `metrics(keywords=["DFII10"], categories=["macro"], limit=22)` 看 4 周变化 |
 | ② | 通胀预期（盈亏平衡）| 10% | `metrics(keywords=["T10YIE"], categories=["macro"], limit=22)` 10 年盈亏平衡通胀率 |
-| ③ | Fed 政策方向 | 10% | `metrics(query="联邦基金利率", limit=12)` + Web FedWatch |
+| ③ | Fed 政策方向 | 10% | `metrics(keywords=["FEDFUNDS"], categories=["macro"], limit=12)` + Web FedWatch |
 
 **评分规则（① TIPS）**：
 | 4 周变化 | 得分 |
@@ -93,7 +93,7 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 | ④ | DXY 美元指数 | 12% | `metrics(keywords=["DXUSD"], categories=["market"])` |
 | ⑤ | USDJPY（避险货币）| 5% | `metrics(keywords=["USDJPY"], categories=["market"])` 日元强势=避险 |
 | ⑥ | VIX 恐慌（**反向**）| 8% | `metrics(keywords=["^VIX"], categories=["market"])` —— **黄金特殊**：VIX > 25 = +2（避险拉动）|
-| ⑦ | 信用利差 | 5% | `metrics(query="高收益债利差 BAMLH0A0HYM2", limit=22)` 飙升 = 利多金 |
+| ⑦ | 信用利差 | 5% | ⚠️ **暂不可得**：BAMLH0A0HYM2 不在 Followin FRED 字典中，keywords 直查也被错抓到 M2SL（B-33，Dev 待修）。**该指标暂标"数据不可用"，权重重分配给同层其他指标**（参考"数据缺失处理"段） |
 
 **评分规则（⑥ VIX 黄金特殊）**：
 | VIX 区间 | 得分 |
@@ -116,7 +116,7 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 
 | # | 指标 | 权重 | 数据 |
 |---|------|------|---------|
-| ⑪ | 通胀脉冲 | 5% | `metrics(query="核心CPI", limit=12)` + `metrics(query="核心PCE", limit=12)` —— 通胀偏热 = +2（实际利率受压）|
+| ⑪ | 通胀脉冲 | 5% | `metrics(keywords=["CPILFESL"], categories=["macro"], limit=12)` + `metrics(keywords=["PCEPILFE"], categories=["macro"], limit=12)` —— 通胀偏热 = +2（实际利率受压）|
 | ⑫ | 金/银比 | 5% | `metrics(keywords=["GCUSD","SIUSD"], categories=["market"])` 计算 GCUSD/SIUSD —— 金银比下行 = +1（市场风险偏好回归 + 黄金共振）|
 
 > 通胀脉冲对黄金是 **正向**（与 BTC 不同），因为通胀热 → 实际利率受压 → 黄金受益。
@@ -142,16 +142,16 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 ```
 metrics(keywords=["DFII10"], categories=["macro"], limit=22)         # ① TIPS
 metrics(keywords=["T10YIE"], categories=["macro"], limit=22)         # ② 通胀预期
-metrics(query="联邦基金利率", limit=12)                              # ③ Fed
+metrics(keywords=["FEDFUNDS"], categories=["macro"], limit=12)       # ③ Fed
 metrics(keywords=["BAMLH0A0HYM2"], categories=["macro"], limit=22)   # ⑦ 信用利差
 ```
 
 **Batch 2：第二层行情 + 第四层**
 ```
 metrics(keywords=["GCUSD","SIUSD","DXUSD","USDJPY","^VIX"], categories=["market"])  # ④⑤⑥⑫
-metrics(query="核心CPI", limit=12)                                                   # ⑪
-metrics(query="核心PCE", limit=12)                                                   # ⑪
-metrics(query="economic calendar 本周经济数据", categories=["macro"])
+metrics(keywords=["CPILFESL"], categories=["macro"], limit=12)                       # ⑪
+metrics(keywords=["PCEPILFE"], categories=["macro"], limit=12)                       # ⑪
+metrics(keywords=["economic calendar"], categories=["macro"])
 ```
 
 **Batch 3：Web 异步**

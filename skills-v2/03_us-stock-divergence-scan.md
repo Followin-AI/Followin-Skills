@@ -278,7 +278,7 @@ Unreported Surge:  Δ > +20% && mktCap > $500M && articles ≤ 2
 - **mover 榜（sort_by）只返回 7 个字段**，**marketCap 缺失**，必须 keywords 二次调用补全
 - **gainers/losers 三类污染必须过滤**：(1) 微盘妖股（AEHL/YMAT) (2) 仙股 < $5 (3) 杠杆 ETF（含 2X/3X/Long/Short/Bull/Bear/Daily/Leveraged 关键词的 name）
 - **`signal(insider_trading)` 不带 keyword 时榜单聚簇**（同公司多笔 Form 4 塞满列表，1w 实测 20 条全 SHFS），必须按 ticker 单查
-- **`signal(insider_trading)` 覆盖 corporate + senate + house 三类**（SEC Form 4 公司高管 + 议员交易 PTR），单次返回里混合呈现，按 `_source` 字段区分
+- **`signal(insider_trading)` 三源 fanout 完整**（已实测 2026-05-27 重新验证）：SEC Form 4（公司高管，14 条 / NVDA 1m）+ congress 政客披露（Pelosi 配偶 NVDA $1M-$5M Sale）一次返 15 条
 - **`news()` query 三原则**：2-3 核心名词 / 不混搭中英 / 不写元词（影响/解读/impact）
 - **避免高并发**：单次 ≤ 4 个 MCP 调用并发，否则 SSE session 可能挂
 - **insider transactionType 类型**：

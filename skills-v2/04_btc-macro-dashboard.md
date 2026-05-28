@@ -27,8 +27,8 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 | FMP 行情批量 | `metrics(keywords=["DXUSD","GCUSD"], categories=["market"])` | tradfi |
 | ^VIX | `metrics(keywords=["^VIX"], categories=["market"])` | 直接命中 |
 | 纳斯达克 | `metrics(keywords=["^IXIC"], categories=["market"])` | 直接命中 |
-| BTC 价格 | `metrics(keywords=["BTC"], categories=["market"])` | crypto |
-| 经济日历 | `metrics(query="economic calendar 本周经济数据", categories=["macro"])` | FMP 端点 |
+| BTC 价格 | `metrics(keywords=["BTC"], categories=["market"], asset_type="crypto")` | crypto，**必传 asset_type** 否则美股 BTC Inc 污染 |
+| 经济日历 | `metrics(keywords=["economic calendar"], categories=["macro"])` | FMP 端点 |
 
 > **关键变化（vs v1）**：
 > - 5 个老工具 → 1 个 Followin metrics
@@ -72,10 +72,10 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 
 | # | 指标 | 权重 | 数据获取 |
 |---|------|------|---------|
-| ① | 净流动性趋势 | 12% | `metrics(query="美联储资产负债表", limit=4)` + `metrics(query="财政部账户 TGA", limit=4)` + `metrics(query="逆回购 RRP", limit=4)` 计算 WALCL - WTREGEN - RRPONTSYD |
-| ② | 美联储政策方向 | 10% | `metrics(query="联邦基金利率", limit=12)` + `metrics(query="美联储资产负债表", limit=12)` + Web 检索最新 FOMC 声明 |
+| ① | 净流动性趋势 | 12% | `metrics(keywords=["WALCL"], categories=["macro"], limit=4)` + `metrics(keywords=["WTREGEN"], categories=["macro"], limit=4)` + `metrics(keywords=["RRPONTSYD"], categories=["macro"], limit=4)` 计算 WALCL - WTREGEN - RRPONTSYD |
+| ② | 美联储政策方向 | 10% | `metrics(keywords=["FEDFUNDS"], categories=["macro"], limit=12)` + `metrics(keywords=["WALCL"], categories=["macro"], limit=12)` + Web 检索最新 FOMC 声明 |
 | ③ | FedWatch 降息概率 | 8% | Web 检索 CME FedWatch（看变化方向，不是绝对值） |
-| ④ | 美国 M2 趋势 | 5% | `metrics(query="M2 货币供应", limit=12)` |
+| ④ | 美国 M2 趋势 | 5% | `metrics(keywords=["M2SL"], categories=["macro"], limit=12)` |
 
 评分规则同 v1（每个指标 -2 到 +2）。
 
@@ -86,9 +86,9 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 | ⑤ | DXY 美元指数 | 8% | `metrics(keywords=["DXUSD"], categories=["market"])` 含 priceAvg50 / priceAvg200 |
 | ⑥ | 纳斯达克趋势 | 7% | `metrics(keywords=["^IXIC"], categories=["market"])` 含均线 |
 | ⑦ | VIX 恐慌 | 5% | `metrics(keywords=["^VIX"], categories=["market"])` 含均线 |
-| ⑧ | 实际利率趋势 | 5% | `metrics(query="10年期 TIPS 实际利率", limit=4)` (DFII10) |
-| ⑨ | 收益率曲线 2Y-10Y | 3% | `metrics(query="10Y 2Y 利差", limit=4)` (T10Y2Y) |
-| ⑩ | 黄金趋势 | 2% | `metrics(keywords=["GCUSD"], categories=["market"])` |
+| ⑧ | 实际利率趋势 | 5% | `metrics(keywords=["DFII10"], categories=["macro"], limit=4)` |
+| ⑨ | 收益率曲线 2Y-10Y | 3% | `metrics(keywords=["T10Y2Y"], categories=["macro"], limit=4)` |
+| ⑩ | 黄金趋势 | 2% | `metrics(keywords=["GCUSD"], categories=["market"], asset_type="tradfi")` ⚠️ 必须用 GCUSD（GOLD 会错抓 Gold.com 美股） |
 
 评分规则同 v1。
 
@@ -104,8 +104,8 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 
 | # | 指标 | 权重 | 数据获取 |
 |---|------|------|---------|
-| ⑭ | 通胀数据脉冲 CPI/PCE | 5% | `metrics(query="核心CPI", limit=12)` + `metrics(query="核心PCE", limit=12)` + Web 检索预期 vs 实际 |
-| ⑮ | 就业数据脉冲 | 5% | `metrics(query="非农就业", limit=12)` + `metrics(query="失业率", limit=12)` + Web 检索预期 vs 实际 |
+| ⑭ | 通胀数据脉冲 CPI/PCE | 5% | `metrics(keywords=["CPILFESL"], categories=["macro"], limit=12)` + `metrics(keywords=["PCEPILFE"], categories=["macro"], limit=12)` + Web 检索预期 vs 实际 |
+| ⑮ | 就业数据脉冲 | 5% | `metrics(keywords=["PAYEMS"], categories=["macro"], limit=12)` + `metrics(keywords=["UNRATE"], categories=["macro"], limit=12)` + Web 检索预期 vs 实际 |
 
 > 数据保鲜期：发布后超过 3 周的脉冲评分自动衰减 50%。
 
@@ -125,34 +125,41 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 
 ### 第一步：数据获取（4-5 批并行，每批 ≤4 防 SSE 挂）
 
-**Batch 1：第一层流动性 FRED（4 个 query 并行）**
+> 🔒 **v3 强制规则**（基于 2026-05-27 实测）：**所有 FRED 指标 + 大宗商品 ticker 一律走 `keywords=[series_id]` 直查，禁止用 `query=` 中文/混合自然语言**。query 路径有 4 类语义陷阱，已实测被 M2SL/DGS30/Gold.com 等抢路由。
+
+**Batch 1：第一层流动性 FRED（4 个并行）**
 ```
-metrics(query="美联储资产负债表 WALCL", limit=4)
-metrics(query="财政部账户 TGA", limit=4)
-metrics(query="逆回购 RRP", limit=4)
-metrics(query="M2 货币供应", limit=12)
+# 每个单独发，避免 batch keywords 静默丢条目（B-31）
+metrics(keywords=["WALCL"],    categories=["macro"], limit=4)   # ① 美联储资产负债表
+metrics(keywords=["WTREGEN"],  categories=["macro"], limit=4)   # ① 财政部账户 TGA
+metrics(keywords=["RRPONTSYD"],categories=["macro"], limit=4)   # ① 隔夜逆回购
+metrics(keywords=["M2SL"],     categories=["macro"], limit=12)  # ④ M2
 ```
 
 **Batch 2：第二层 + 利率（4 个并行）**
 ```
-metrics(query="联邦基金利率", limit=12)
-metrics(query="10Y TIPS 实际利率", limit=4)
-metrics(query="10Y 2Y 利差", limit=4)
-metrics(keywords=["DXUSD","^IXIC","^VIX","GCUSD"], categories=["market"])
+metrics(keywords=["FEDFUNDS"], categories=["macro"], limit=12)  # ② 联邦基金利率
+metrics(keywords=["DFII10"],   categories=["macro"], limit=4)   # ⑧ 10Y TIPS 实际利率
+metrics(keywords=["T10Y2Y"],   categories=["macro"], limit=4)   # ⑨ 收益率曲线 2Y-10Y
+metrics(keywords=["DXUSD","^IXIC","^VIX","GCUSD"], categories=["market"], asset_type="tradfi")
+                                                                # ⑤⑥⑦⑩（GOLD → GCUSD 黄金期货，
+                                                                #  GOLD 会错抓 Gold.com 美股 $42）
 ```
 
 **Batch 3：第四层经济脉冲（4 个并行）**
 ```
-metrics(query="核心CPI", limit=12)
-metrics(query="核心PCE", limit=12)
-metrics(query="非农就业", limit=12)
-metrics(query="失业率", limit=12)
+metrics(keywords=["CPILFESL"], categories=["macro"], limit=12)  # ⑭ 核心 CPI
+metrics(keywords=["PCEPILFE"], categories=["macro"], limit=12)  # ⑭ 核心 PCE
+metrics(keywords=["PAYEMS"],   categories=["macro"], limit=12)  # ⑮ 非农就业
+metrics(keywords=["UNRATE"],   categories=["macro"], limit=12)  # ⑮ 失业率
 ```
 
 **Batch 4：BTC 实时价 + 经济日历**
 ```
-metrics(keywords=["BTC"], categories=["market"])
-metrics(query="economic calendar 本周经济数据", categories=["macro"])
+metrics(keywords=["BTC"], categories=["market"], asset_type="crypto")
+                                                                # 必传 asset_type=crypto，
+                                                                # 否则 fanout 到美股 BTC Inc ($33) 污染（B-18）
+metrics(keywords=["economic calendar"], categories=["macro"])
 ```
 
 **Batch 5：HTTP + Web（异步）**
@@ -161,15 +168,17 @@ HTTP: GET https://stablecoins.llama.fi/stablecoins?includePrices=true
 Web: FedWatch CME / Farside Investors ETF flows
 ```
 
-⚠️ **`metrics()` query 三原则**（实测验证）：
-1. 2-3 个核心名词（≤4 词）
-2. 纯中文或纯英文，不混搭
-3. 不写"影响 / 解读 / 分析 / impact" 等元词
+⚠️ **已知禁用调用模式**（实测翻车，**禁止**）：
 
-⚠️ **FRED 字典未命中兜底**：query 走 `fred_search_fallback` 只返回 series_info 元数据时，改用 `keywords=["<series_id>"]` 直接拉数据。例：
-- `query="财政部账户 TGA"` → 元数据 only ❌
-- `keywords=["WTREGEN"]` → ✅ 拉到实际数据
-- 同样 series_id 兜底：WTREGEN(TGA) / EFFR / SOFR / WALCL / RRPONTSYD 等
+| ❌ 不要写 | ✅ 改成 | 原因 |
+|---|---|---|
+| `metrics(query="财政部账户 TGA")` | `metrics(keywords=["WTREGEN"], categories=["macro"])` | query 路径 degraded 0.82 |
+| `metrics(query="逆回购 RRP")` | `metrics(keywords=["RRPONTSYD"], categories=["macro"])` | 路由错到 fundamentals |
+| `metrics(query="10Y 2Y 利差")` | `metrics(keywords=["T10Y2Y"], categories=["macro"])` | query degraded 0.86 |
+| `metrics(query="10Y TIPS 实际利率")` | `metrics(keywords=["DFII10"], categories=["macro"])` | 拿到 DFII10 但污染 TIPS 美股+crypto |
+| `metrics(keywords=["GOLD"])` | `metrics(keywords=["GCUSD"])` | GOLD → Gold.com 美股 $42 |
+| `metrics(keywords=["BTC"])` 不带 asset_type | `metrics(keywords=["BTC"], asset_type="crypto")` | fanout 双返污染 |
+| `keywords=["X","Y"]` 批量同类 series | 各自单独 fire | 静默丢条目（B-31）|
 
 ### 第二步：逐指标评分
 
