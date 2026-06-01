@@ -113,8 +113,8 @@ metrics(keywords=["[T]"], categories=["fundamentals"], asset_type="tradfi", quer
 news(
   query="[CompanyName] [TICKER]",   # 例: "Apple AAPL" / "Tesla TSLA" / "NVIDIA NVDA"
   time_range="1w" 或 "2w",
-  limit=10,
-  sort_by="relevance"
+  limit=10
+  # news 无 sort_by（相关性走 search_depth，默认 standard）
   # ⚠️ 不要传 asset_type="tradfi" — 实测会返 0 results（is_tradfi 字段几乎全 false 老 bug）
 )
 

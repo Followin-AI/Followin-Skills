@@ -26,12 +26,14 @@
 
 | 工具 | 能力 |
 |---|---|
-| **`mcp__followin__metrics`** | 行情 / 宏观指标 / 美股财报（12 块真聚合）/ 技术指标 / 经济日历 |
-| **`mcp__followin__news`** | 多源新闻 + Trending + TG 频道聚合（**自动按 10 类主题分类**）|
-| **`mcp__followin__signal`** | KOL 喊单 / 顶级交易员实盘 / 链上鲸鱼 / 内部人 + 政客交易 fanout |
-| **`mcp__followin__twitter`** | 15+ Twitter 子工具（高级搜索 / 用户档案 / 关系图谱 / 地区趋势 / 线程上下文）|
+| **`mcp__followin__metrics`** | 行情快照 + 涨跌幅榜（movers）/ 宏观指标（FRED）/ 美股财报（12 块真聚合）/ 技术指标 / 经济日历 |
+| **`mcp__followin__news`** | 四源聚合（`twitter` / `telegram` / `media` / `research`）+ 语言过滤 + TG 频道智能分类（10 类）|
+| **`mcp__followin__signal`** | KOL 喊单 / 顶级交易员 + 鲸鱼实盘 / 公司内部人 + 政客交易 / **13F 机构持仓**（4 类）|
+| **`mcp__followin__twitter`** | **24 个 action**（高级搜索 / 用户档案 / 关系图谱 / 地区趋势 / 线程上下文 / List / Community / Space）|
 
-**TG 频道智能分类（10 类）**：交易信号 / 实盘跟踪 / 市场结构 / 宏观研判 / 跨市场 / 资讯聚合 / 叙事追踪 / 项目研究 / 链上数据 / Meme 打新
+**signal 4 类**：`kol_call`（KOL 喊单）/ `trader_position`（顶级交易员 + 鲸鱼实盘）/ `insider_trading`（公司内部人 Form 4 + 议员 PTR）/ `institutional`（13F 机构持仓）
+
+**TG 频道智能分类（10 类，服务端自动）**：交易信号 / 实盘跟踪 / 市场结构 / 宏观研判 / 跨市场 / 资讯聚合 / 叙事追踪 / 项目研究 / 链上数据 / Meme 打新
 
 详见 [`USER_GUIDE.md`](../USER_GUIDE.md) §"MCP 4 个核心工具" 章节。
 
@@ -230,8 +232,8 @@ claude mcp add followin https://mcp.followin.io/v2/sse \
 - ✅ 年付立省 20%
 
 **典型 quota 消耗**：
-- 一次完整 Skill 分析（14 / 11 / 13）≈ 6-10 quota
-- 一次单查询（08 / 09）≈ 1-2 quota
+- 一次完整 Skill 分析（01 / 02 / 03）≈ 6-10 quota
+- 一次单查询（04 / 05）≈ 1-2 quota
 - Free 50 quota = 够 5-8 次完整分析（约 1 周深度体验）
 
 完整定价 + FAQ 详见 [`USER_GUIDE.md`](../USER_GUIDE.md)。
@@ -254,6 +256,7 @@ claude mcp add followin https://mcp.followin.io/v2/sse \
 
 ## 📅 版本
 
+- **v2.1**（2026-06-02）：对齐 Followin MCP 当前 schema —— signal 新增 `institutional`（13F，共 4 类）；twitter 24 个 action；news 四源（twitter / telegram / media / research）；`time_range` 支持 `<N>{h|d|w|m|y}`；movers 走 `query`（如 "biggest gainers"，移除 `metrics.sort_by`）；移除 `news.sort_by`（相关性走 `search_depth`）
 - **v2.0**（2026-05-13）：从老 MCP（premium-mcp）迁移到 Followin MCP，调用次数减少 60-80%，删除 schema caveat 和媒体 users 列表
 
 每个 Skill 文件头 frontmatter 含详细元信息（trigger / not_trigger / mcp / args）。
