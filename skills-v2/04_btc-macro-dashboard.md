@@ -83,9 +83,9 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 
 | # | 指标 | 权重 | 数据获取 |
 |---|------|------|---------|
-| ⑤ | DXY 美元指数 | 8% | `metrics(keywords=["DXUSD"], categories=["market"])` 含 priceAvg50 / priceAvg200 |
-| ⑥ | 纳斯达克趋势 | 7% | `metrics(keywords=["^IXIC"], categories=["market"])` 含均线 |
-| ⑦ | VIX 恐慌 | 5% | `metrics(keywords=["^VIX"], categories=["market"])` 含均线 |
+| ⑤ | DXY 美元指数 | 8% | `metrics(keywords=["DXUSD"], categories=["market"])` 拿现价 + yearHigh/Low；均线另调 `metrics(keywords=["DXUSD"], query="EMA 50")` |
+| ⑥ | 纳斯达克趋势 | 7% | `metrics(keywords=["^IXIC"], categories=["market"])` + `metrics(keywords=["^IXIC"], query="EMA 50")` 均线 |
+| ⑦ | VIX 恐慌 | 5% | `metrics(keywords=["^VIX"], categories=["market"])` 现价（VIX 看绝对水平，不依赖均线）|
 | ⑧ | 实际利率趋势 | 5% | `metrics(keywords=["DFII10"], categories=["macro"], limit=4)` |
 | ⑨ | 收益率曲线 2Y-10Y | 3% | `metrics(keywords=["T10Y2Y"], categories=["macro"], limit=4)` |
 | ⑩ | 黄金趋势 | 2% | `metrics(keywords=["GCUSD"], categories=["market"], asset_type="tradfi")` ⚠️ 必须用 GCUSD（GOLD 会错抓 Gold.com 美股） |

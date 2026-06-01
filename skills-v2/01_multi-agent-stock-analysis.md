@@ -33,24 +33,19 @@ args: ticker
                           ⑳ 风控经理 → ㉑ 组合经理（LLM 综合决策）
 ```
 
-## 数据层 — Followin MCP 三工具（22 → 5-6 路）
+## 数据层 — Followin MCP 三工具（5-6 路调用）
 
 🔒 所有美股调用必须带 `asset_type="tradfi"`（除 BTC/ETH 等 crypto symbol）
 
-| v1 老调用 | v2 替代 |
+| 用途 | Followin 调用 |
 |---|---|
-| profile / income / balance / cashflow / ratios / key_metrics / enterprise / financial_growth / earnings / analyst_estimates / DCF / peers / grades / shares_float | **`metrics(keywords=[T], categories=["fundamentals"], asset_type="tradfi")`** 一次返 **12 个 block**（comprehensive 已修复）|
-| historical_price + EMA + SMA + RSI | `metrics(keywords=[T], time_range="1y", interval="1day")` + `metrics(query="RSI 14")` |
-| stock-price-change / quote | `metrics(keywords=[T], categories=["market"])` 含 priceAvg50/200 |
-| insider_trading_latest | `signal(categories=["insider_trading"], keywords=[T])` 含 corporate + senate + house |
-| price-target-consensus | 已含在 fundamentals 的 `consensus_price` block |
-| search_finance_news | `news(query="<companyName> <ticker>", time_range="1m", limit=10)` |
-| FRED VIX / DGS10 | `metrics(keywords=["^VIX","DGS10"])` |
-
-> **关键变化（vs v1）**：
-> - 22 个老调用 → 6 个 Followin 调用（**-73%**）
-> - 删除 31 家媒体 users / schema 修复 caveat / FRED limit integer 等
-> - **insider 自动 fanout 政客**（v2 新增维度，影响 Group A 的 Burry / Group C 的 Sentiment）
+| 基本面真聚合（profile / 三表 / 估值 / 同行 / 评级 / shares_float / beat-miss / consensus / eps_trend / latest_quarter / next_earnings）| `metrics(keywords=[T], categories=["fundamentals"], asset_type="tradfi", query="全面分析")` 一次返 14 block |
+| 行情快照（price / change / volume / dayHigh/Low / yearHigh/Low / marketCap）| `metrics(keywords=[T], categories=["market"], asset_type="tradfi")` |
+| 历史 OHLCV（用于多周期涨跌 + 技术指标自算）| `metrics(keywords=[T], categories=["market"], asset_type="tradfi", query="历史走势 30 day chart", time_range="1y")` |
+| 技术指标（RSI / EMA / SMA）| `metrics(keywords=[T], categories=["market"], asset_type="tradfi", query="RSI 14")` 或 `query="EMA 50"` |
+| 内部人交易（含 corporate Form 4 + senate + house 三类）| `signal(categories=["insider_trading"], keywords=[T], asset_type="tradfi")` |
+| 媒体覆盖 | `news(query="<companyName> <ticker>", time_range="1m", limit=10)` |
+| 宏观背景（VIX / 10Y）| `metrics(keywords=["^VIX","DGS10"])` |
 
 ## 执行步骤
 
@@ -65,9 +60,11 @@ args: ticker
       income / balance / cashflow / valuation / profile / peers / grades / shares_float
       + beat_miss / consensus / eps_trend / latest_quarter / next_earnings
 2. metrics(keywords=[T], categories=["market"], asset_type="tradfi")
-   → 当前 price + change + priceAvg50/200 + yearHigh/Low
-3. metrics(keywords=[T], time_range="1y", interval="1day", asset_type="tradfi", limit=252)
-   → 252 交易日历史，用于多周期涨跌 + 自算 RSI/EMA
+   → 当前 price + change + dayHigh/Low + yearHigh/Low + marketCap
+3. metrics(keywords=[T], categories=["market"], asset_type="tradfi", query="历史走势 30 day chart", time_range="1y")
+   → 1y daily OHLCV，用于多周期涨跌（自算 1D/5D/1M/3M/6M/YTD/1Y）
+4. metrics(keywords=[T], categories=["market"], asset_type="tradfi", query="RSI 14", period=14)
+   → RSI(14) 时间序列；EMA/SMA 同理用 query="EMA 50" 或 "SMA 200"
 ```
 
 **Batch B：信号 + 新闻 + 宏观（3 路并行）**
@@ -174,22 +171,12 @@ SMA(200) = 简单 200 日均线
 
 - 🔒 **`asset_type="tradfi"` 必须**（news 除外）
 - ⚠️ **SSE 高并发限制**：单批 ≤ 4 路并行，2-3 批跑完
-- ✅ **comprehensive 真聚合已修复** — 1 次返 12 个 block，无需单独调"利润表"
-- ✅ **insider 已含 senate + house fanout**，Group C Sentiment 可用政客买入信号
-- ✅ **historical_price 1y 用于多周期 + 技术指标自算**，不再依赖单独 RSI/EMA/SMA endpoint
-- 19 个 Agent prompt **完全保留 v1**（业务逻辑核心，不在 MCP 层）
+- ✅ **comprehensive 真聚合**：**必须显式 `query="全面分析"`** 才走 comprehensive intent（不带 query 走 default 只返 5 block）；带 query 时返 14 block（仅缺 stock_peers）
+- ✅ **insider 已含 corporate Form 4 + senate + house 三路 fanout**，Group C Sentiment 可用政客买入信号
+- ✅ **历史 OHLCV** 用 `query="历史走势 30 day chart"` + `time_range="1y"`；**技术指标** 用 `query="RSI 14"` 或 `query="EMA 50"` 各自单调（不要靠 fanout，撞错路径无 fallback）
+- 19 个 Agent prompt 业务逻辑保持稳定（不在 MCP 层）
 
-## v1 → v2 数据层简化对比
-
-| 维度 | v1 | v2 | 节省 |
-|---|---|---|---|
-| MCP 调用次数 | 22 | **6** | **-73%** |
-| 工具种类 | 18 个 finance_tool_* + search_news + fred | 3 个 Followin | **-83%** |
-| schema caveat | 8 条 | 0 条 | -100% |
-| 用户列表维护 | 31 家媒体 | 自动 | -100% |
-| 政客交易 | 不可用 | ✅ 自动 fanout | +∞ |
-
-## 业务逻辑不变（保留 v1 全部 Agent prompts）
+## 业务逻辑（19 Agent prompts 保持稳定）
 
 19 个 Agent 的：
 - 投资哲学描述

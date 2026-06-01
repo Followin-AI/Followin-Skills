@@ -32,18 +32,12 @@ args: ticker
 
 | 用途 | 调用 |
 |------|------|
-| **基本面聚合**（含 profile / 三表 / 估值 / 财报 Beat / 同行 / 评级）| `metrics(keywords=[ticker], categories=["fundamentals"], asset_type="tradfi")` 一次返全 |
-| 行情 + 市值 + 多周期均线 | `metrics(keywords=[ticker], categories=["market"], asset_type="tradfi")` |
-| 多时间框架历史 | `metrics(keywords=[ticker], time_range="1y", interval="1day", asset_type="tradfi")` |
-| 媒体覆盖 | `news(query="<companyName> <ticker>", time_range="2w", limit=10, asset_type="tradfi")` |
+| **基本面真聚合**（含 profile / 三表 / 估值 / 评级 / shares_float / beat-miss / consensus / eps_trend / latest_quarter / next_earnings / financial_growth / sec_filings — 14 block，唯独缺 stock_peers）| `metrics(keywords=[ticker], categories=["fundamentals"], asset_type="tradfi", query="全面分析")` |
+| 行情快照（price / change / volume / dayHigh/Low / yearHigh/Low / marketCap）| `metrics(keywords=[ticker], categories=["market"], asset_type="tradfi")` |
+| 多时间框架历史 OHLCV | `metrics(keywords=[ticker], categories=["market"], asset_type="tradfi", query="历史走势 30 day chart", time_range="1y")` |
+| 技术指标（按需）| `metrics(keywords=[ticker], categories=["market"], asset_type="tradfi", query="RSI 14", period=14)` 或 `query="EMA 50"` |
+| 媒体覆盖 | `news(query="<companyName> <ticker>", time_range="2w", limit=10)` （**不要带 asset_type**，实测会返 0）|
 | 宏观（按行业）| `metrics(keywords=["DGS10"], categories=["macro"], limit=5)` 等（见行业映射表）|
-
-> **关键变化（vs v1）**：
-> - 9 个老调用 → 3 个 metrics + 1 个 news + 行业宏观
-> - **fundamentals 聚合**：profile + income_statement + ratios_ttm + earnings + analyst_estimates → **1 次调用搞定**
-> - 删除 31 家媒体 users 列表
-> - 删除 schema 修复说明（profile / analyst_estimates / stock_price_change 都自动走 fundamentals 聚合）
-> - **stock-price-change 多周期涨跌**用 metrics 时间序列计算（snapshot 已含 priceAvg50 / 200，配合 time_range="1y" 可算 1D/5D/1M/3M/6M/YTD/1Y）
 
 ## EPS 数据源说明（保留 v1）
 
@@ -63,13 +57,13 @@ args: ticker
 
 ## 执行步骤
 
-### Step 1: fundamentals 真聚合（1 次拿全 12 个 block）
+### Step 1: fundamentals 真聚合（1 次拿全 14 个 block）
 
-✅ **Dev 已完整修复 fundamentals 聚合** — 不带 query 或 query="全面分析" 自动走 `comprehensive` intent，**1 次返 12 个 block**：
+⚠️ **必须显式带 `query="全面分析"`** 才走 `comprehensive` intent。不带 query 走 default 只返 5 block。
 
 ```
-metrics(keywords=["[T]"], categories=["fundamentals"], asset_type="tradfi")
-→ intent_label="comprehensive"，~7000 tokens，含：
+metrics(keywords=["[T]"], categories=["fundamentals"], asset_type="tradfi", query="全面分析")
+→ intent_label="comprehensive"，含 14 block：
    1. beat_miss (Adj EPS Beat/Miss)
    2. consensus_price (目标价共识)
    3. eps_trend (4Q EPS)
@@ -78,35 +72,39 @@ metrics(keywords=["[T]"], categories=["fundamentals"], asset_type="tradfi")
    6. income_statement (4Q × 30+ 字段)        ← 利润表
    7. balance_sheet (4Q × 60+ 字段)            ← 资产负债表
    8. cash_flow (4Q × 35+ 字段)                ← 现金流量表
-   9. valuation_block (dcf + ev + key_metrics_ttm + ratios_ttm)
-   10. profile_block (CEO / sector / IPO / beta / website)
-   11. stock_peers (9 个同行)
-   12. analyst_grades (20 条评级历史)
-   13. shares_float (流通股)
+   9. financial_growth (FY × 4 年增速)
+   10. valuation_block (dcf + ev + key_metrics_ttm + ratios_ttm)
+   11. profile_block (CEO / sector / IPO / beta / website)
+   12. sec_filings (近 10 条 SEC 文件)
+   13. analyst_grades (20 条评级历史)
+   14. shares_float (流通股)
+   ❌ stock_peers (Followin MCP 当前不可得，已上报 dev 修复)
 ```
 
-**等价的显式 trigger**（任选其一）：
-- 不带 query（推荐，最简洁）
-- `query="全面分析"`
-- `query="comprehensive analysis"`（精确双词）
+**等价 trigger**：`query="comprehensive analysis"` 也可（精确双词）。
 
 ⚠️ **不要用的 trigger**：
-- `query="comprehensive"` 单词 → default（识别不全，待 Dev 修）
-- 这个 bug 不重要，因为**不带 query 已经默认走 comprehensive**
+- 不带 query → `_intent_label: "default"`，只返 5 block
+- `query="comprehensive"` 单词 → default
 
-**可选追加**（按需展开）：
+**可选追加**（按需展开单独 sub-intent）：
 - `query="现金流量表"` → cashflow_detail + financial_growth
 - `query="公司简介 profile"` → profile_block
 - `query="评级变化 grades"` → analyst_grades 30 条
 - `query="流通股 shares float"` → shares_float
 
-**Batch B — market 行情 + 历史**：
+**Batch B — market 行情 + 历史 + 技术指标**：
 ```
 2. metrics(keywords=["[T]"], categories=["market"], asset_type="tradfi")
-   → price / change / volume / priceAvg50 / priceAvg200 / yearHigh/Low / marketCap
+   → 现价 snapshot: price / change / volume / dayHigh/Low / yearHigh/Low / marketCap
 
-3. metrics(keywords=["[T]"], time_range="1y", interval="1day", asset_type="tradfi", limit=252)
-   → 252 交易日历史，用于计算多周期涨跌
+3. metrics(keywords=["[T]"], categories=["market"], asset_type="tradfi",
+           query="历史走势 30 day chart", time_range="1y")
+   → 1y daily OHLCV，自算多周期涨跌（1D/5D/1M/3M/6M/YTD/1Y）
+
+4. metrics(keywords=["[T]"], categories=["market"], asset_type="tradfi",
+           query="RSI 14", period=14)
+   → RSI 时间序列；EMA/SMA 同理用 query="EMA 50" / "SMA 200"
 ```
 
 ### Step 2: 媒体覆盖
@@ -263,15 +261,15 @@ PE: XX.X | PS: X.X | ROE: XX.X% | D/E: X.X | Gross Margin: XX.X%
 
 - 🔒 **`asset_type="tradfi"` 必须**（除 news），否则 ticker 名同 crypto 山寨币会错路由
 - ⚠️ **news() 不要传 asset_type**（实测加 tradfi 返 0 results，is_tradfi 字段几乎全 false 老 bug）
-- ✅ **fundamentals 真聚合已修复** — 不带 query 或 `query="全面分析"` 默认走 comprehensive intent，**1 次返 12 个 block**（~7000 tokens）。无需多次调用。
+- ✅ **fundamentals 真聚合**：**必须显式 `query="全面分析"`** 才走 comprehensive intent（不带 query 走 default 只 5 block）；comprehensive 返 14 block，仅缺 stock_peers（Followin dev 待修）
 - 单独 sub-intent 触发词（仅在不需要全套时用）：
   - `query="利润表"` = income_statement only（1.4K tokens 节省）
   - `query="资产负债表"` = balance_sheet only
   - `query="现金流量表"` = cashflow + financial_growth
   - `query="估值"` = valuation_block only
-  - `query="同行"` = stock_peers only
   - `query="评级变化"` = analyst_grades only
-- **stock-price-change 多周期涨跌**：通过 `metrics(time_range="1y", interval="1day")` 时间序列计算，不需要单独端点
+- **多周期涨跌**：用 `query="历史走势 30 day chart"` + `time_range="1y"` 拿 1y daily OHLCV 自算（market snapshot 不含 priceAvg50/200）
+- **技术指标 RSI / EMA / SMA**：各自单调 `query="RSI 14"` / `query="EMA 50"` / `query="SMA 200"`（不要靠默认 fanout）
 - **`news()` query 三原则**：2-3 核心名词 / 不混搭中英 / 不写元词
 - **避免高并发**：单批 ≤ 4 路并发，否则 SSE 可能挂
 - **`metrics()` FRED 字典未命中走 fred_search_fallback** → 改用 `keywords=["<series_id>"]` 兜底

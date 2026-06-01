@@ -36,10 +36,10 @@ args: scope, days
 
 | 用途 | 调用 | 参数 |
 |------|------|------|
-| 当日涨幅榜 | `metrics()` | `sort_by="change_pct"`, **`asset_type="tradfi"`** |
-| 当日跌幅榜 | `metrics()` | `sort_by="-change_pct"`, **`asset_type="tradfi"`** |
+| 当日涨幅榜 | `metrics()` | `query="biggest gainers"`, **`asset_type="tradfi"`** |
+| 当日跌幅榜 | `metrics()` | `query="biggest losers"`, **`asset_type="tradfi"`** |
 | 个股报价 + 市值 | `metrics()` | `keywords=["AAPL","TSLA",...]`, `categories=["market"]`, **`asset_type="tradfi"`** 一次最多 ~20 个 |
-| 多时间框架历史 | `metrics()` | `keywords=["AAPL"]`, `time_range="1m"`, `interval="1day"`, **`asset_type="tradfi"`** |
+| 多时间框架历史 | `metrics()` | `keywords=["AAPL"]`, `categories=["market"]`, `query="历史走势 30 day chart"`, `time_range="1m"`, **`asset_type="tradfi"`** |
 | 内部人交易 | `signal()` | `categories=["insider_trading"]`, `keywords=["AAPL"]`, **`asset_type="tradfi"`** |
 | 媒体交叉验证 | `news()` | `query="[companyName 2 词]"`, `time_range="1w"`, **`asset_type="tradfi"`** |
 
@@ -70,7 +70,7 @@ args: scope, days
 
 ```
 检测:
-1. metrics(sort_by="change_pct") + metrics(sort_by="-change_pct") 拿涨跌幅榜
+1. metrics(query="biggest gainers", asset_type="tradfi") + metrics(query="biggest losers", asset_type="tradfi") 拿涨跌幅榜
 2. 客户端过滤: marketCap > $1B（snapshot 已带）
 3. 对每个 ticker 调 news 拿 5-10 篇
 4. Claude 根据 title + content 判断情绪
@@ -84,7 +84,7 @@ args: scope, days
 
 ```
 检测:
-1. metrics(sort_by="-change_pct") 跌幅榜
+1. metrics(query="biggest losers", asset_type="tradfi") 跌幅榜
 2. 客户端过滤 marketCap > $1B
 3. 对每个 ticker 调 news
 4. 判定: 跌幅 >8% 且报道 ≤ 3 篇
@@ -95,7 +95,7 @@ args: scope, days
 
 ```
 检测:
-1. metrics(sort_by="change_pct") 涨幅榜
+1. metrics(query="biggest gainers", asset_type="tradfi") 涨幅榜
 2. 客户端过滤 marketCap > $500M（注意默认返回的是 NASDAQ 微盘妖股 AEHL +135%、YMAT +110% 等，必须过滤）
 3. 对每个 ticker 调 news
 4. 判定: 涨幅 >20% 且报道 ≤ 2 篇
@@ -106,8 +106,8 @@ args: scope, days
 ### Step 1: 拉涨跌幅榜（2 路并行）
 
 ```
-1. metrics(sort_by="change_pct",  asset_type="tradfi", limit=30)
-2. metrics(sort_by="-change_pct", asset_type="tradfi", limit=30)
+1. metrics(query="biggest gainers", asset_type="tradfi", limit=30)
+2. metrics(query="biggest losers",  asset_type="tradfi", limit=30)
 ```
 🔒 必须带 `asset_type="tradfi"`，否则同名 ticker 会被错路由到 crypto。
 
@@ -275,7 +275,7 @@ Unreported Surge:  Δ > +20% && mktCap > $500M && articles ≤ 2
 ## 注意事项（v2 — Followin MCP）
 
 - 🔒 **本 Skill 全程美股，所有 metrics/signal/news 调用必须带 `asset_type="tradfi"`** —— 实测 AMN/WEST 等 ticker 不带会错路由到 crypto 山寨币（AMN→0.00479 USDT / WEST→0.00541 USDT）
-- **mover 榜（sort_by）只返回 7 个字段**，**marketCap 缺失**，必须 keywords 二次调用补全
+- **mover 榜（`query="biggest gainers"` / `query="biggest losers"`）只返回 7 个字段**，**marketCap 缺失**（不要传 `min_market_cap` 参数 — 上游 marketCap 为 null 会被全屠），必须 keywords 二次调用补市值
 - **gainers/losers 三类污染必须过滤**：(1) 微盘妖股（AEHL/YMAT) (2) 仙股 < $5 (3) 杠杆 ETF（含 2X/3X/Long/Short/Bull/Bear/Daily/Leveraged 关键词的 name）
 - **`signal(insider_trading)` 不带 keyword 时榜单聚簇**（同公司多笔 Form 4 塞满列表，1w 实测 20 条全 SHFS），必须按 ticker 单查
 - **`signal(insider_trading)` 三源 fanout 完整**（已实测 2026-05-27 重新验证）：SEC Form 4（公司高管，14 条 / NVDA 1m）+ congress 政客披露（Pelosi 配偶 NVDA $1M-$5M Sale）一次返 15 条
