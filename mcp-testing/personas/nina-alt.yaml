@@ -1,0 +1,84 @@
+id: nina-alt
+name: Nina
+role: Alt 季猎人 / 山寨币轮动
+profile:
+  age: 28
+  experience: 4 年 crypto，专攻 alt rotation 和事件驱动
+  style: 看到 BTC dom 下行 → 切山寨；事件驱动追热门 alt
+  pain_points:
+    - alt 涨跌榜被妖币污染
+    - KOL 喊单 vs 真实鲸鱼动向脱钩
+    - 项目研究类 TG 频道信号迟滞
+
+watchlist:
+  current_alts: [HYPE, ASTER, ZEC, MONOPOLY, CARDS, XPIN, WLD]
+  narrative_tracking: [DeFi, RWA, Restaking, AI tokens]
+
+trigger_style:
+  language: zh-cn + en mixed
+  examples:
+    - "alt 涨幅榜"
+    - "HYPE 最近鲸鱼怎么动"
+    - "ZEC 最近 KOL 在喊什么"
+    - "项目研究类 TG 最近热点"
+
+# 目标：测 crypto movers + alt 鲸鱼 + KOL 喊单 + 项目研究 TG + twitter alt search 的整合准确度
+daily_script:
+  - step: 1
+    intent: Crypto 涨跌榜
+    natural_input: "今天 crypto 涨幅榜前 30，市值 > 1 亿"
+    expected_skill: metrics sort_by=change_pct asset_type=crypto min_market_cap=100_000_000
+    accuracy_check:
+      - 返回的 token 实际市值 >= 100M（与 CoinGecko 抽 5 个交叉）
+      - changePercentage 与 CoinGecko 24h 涨幅一致
+      - 不出现 stablecoin / wrapped token 污染（应该过滤）
+      - 不出现 B-01 类问题（min_market_cap 失效导致全是仙币）
+  - step: 2
+    intent: Alt 鲸鱼跟踪
+    natural_input: "HYPE / ASTER / ZEC 最近 4 小时鲸鱼仓位变动"
+    expected_skill: signal trader_position keywords=[HYPE,ASTER,ZEC] time_range=4h
+    accuracy_check:
+      - 3 个 alt 都有非空 whale 数据
+      - 山寨空军车头 / Loracle 等已知 alt 大户连续追踪
+      - 仓位变动事件 USD 价值 ≈ 数量 × 该 alt 当前价 (±3%, alt 流动性差)
+      - 平仓 PnL 计算与开平价数学一致
+  - step: 3
+    intent: KOL 喊单跨平台
+    natural_input: "ZEC / HYPE 最近 1 天 KOL 喊单"
+    expected_skill: signal kol_call keywords=[ZEC,HYPE] time_range=1d
+    accuracy_check:
+      - 返回的 KOL 用户名跨平台 (twitter user + tg username@telegram)
+      - symbol 字段精确匹配（不混入相似 ticker）
+      - source_lang 标签准确
+      - content 原文可在 KOL twitter/tg 找到对应
+  - step: 4
+    intent: 项目研究类 TG 频道
+    natural_input: "TG 项目研究类频道最近 4 小时"
+    expected_skill: news sources=[telegram] time_range=4h（按 _tg_category 过滤）
+    accuracy_check:
+      - 返回内容 _tg_category="项目研究" 的真为项目研究（不是闲聊）
+      - 同帖不重复标多个 _tg_category（已知 B-16: PowsGemCalls 同帖被标"项目研究"+"Meme打新"）
+      - author_name@telegram 抽样可在 TG web 对齐
+  - step: 5
+    intent: 叙事追踪类 TG
+    natural_input: "TG 叙事追踪类 最近的热门叙事"
+    expected_skill: news sources=[telegram] + 客户端筛 _tg_category="叙事追踪"
+    accuracy_check:
+      - 命中"叙事追踪"标签的帖至少 5 条
+      - 内容确实涉及 narrative（DeFi summer / Restaking / RWA / meme 新主线 等）
+      - published_ts 4h 窗口内
+  - step: 6
+    intent: 新兴 alt twitter 深搜
+    natural_input: "$MONOPOLY $CARDS $XPIN 最近 1 天 Twitter 讨论"
+    expected_skill: twitter action=search query="$MONOPOLY OR $CARDS OR $XPIN" time_range=1d
+    accuracy_check:
+      - 返回结果含 $符号检索精确匹配
+      - 不混入英文单词 "monopoly" 普通含义的推文（symbol 检索语义）
+      - 含 author profile + symbol entities
+      - 至少 30 条 / 1d（这种新 alt 应该有讨论密度）
+
+success_criteria:
+  - crypto movers 实际市值 100% 达阈值
+  - alt 鲸鱼仓位数学自洽率 >95%
+  - TG 项目研究 / 叙事追踪标签语义准确率 >80%（人工抽样）
+  - twitter $符号搜索语义准确（不混普通词）

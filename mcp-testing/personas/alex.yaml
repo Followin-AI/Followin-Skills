@@ -1,0 +1,73 @@
+id: alex
+name: Alex
+role: Crypto 链上猎手
+profile:
+  age: 26
+  experience: 3 年 meme + DeFi，钱包 20 万美元
+  style: meme 早期狙击 + 鲸鱼跟单，分钟级
+
+watchlist:
+  chains: [SOL, ETH, BASE, BSC]
+  follow_kols: [PowsGemCalls, Solotop_Alpha, memekiller69420, cybertruck666]
+  whale_addresses: ["pension-usdt.eth"]
+
+trigger_style:
+  language: zh-cn + en mixed
+  examples:
+    - "TG 上现在最热的 meme"
+    - "鲸鱼最近在干嘛"
+    - "KOL 现在喊什么"
+
+# 目标：测 TG 频道分类准确性 + KOL 喊单原文一致性 + 鲸鱼仓位数据
+daily_script:
+  - step: 1
+    intent: TG meme/项目研究分类
+    natural_input: "TG 上 meme 打新和项目研究类频道最近 4 小时在聊什么"
+    expected_skill: news sources=[telegram] time_range=4h
+    accuracy_check:
+      - 每条 _tg_category 标签语义正确（人工抽查：写 "项目研究" 的真的是研究类内容）
+      - 返回原文可在对应 TG 频道 web 链接找到匹配帖
+      - published_ts 在 4h 窗口内
+  - step: 2
+    intent: KOL 喊单原文准确性
+    natural_input: "BTC KOL 最近 1 天喊什么"
+    expected_skill: signal kol_call keywords=[BTC] time_range=1d
+    accuracy_check:
+      - content 字段与 KOL 原推/原帖文本一致（去重前不截断）
+      - source_lang 标签语义正确
+      - feed_id / user_id 可追溯
+  - step: 3
+    intent: 鲸鱼仓位变动
+    natural_input: "ETH 鲸鱼最近仓位变动"
+    expected_skill: signal trader_position keywords=[ETH]
+    accuracy_check:
+      - 仓位 USD 价值 ≈ 仓位数量 × 当前 ETH 价格 (±2%)
+      - 清算价格合理（与开仓杠杆推算一致）
+      - timestamp 在 1h 内
+  - step: 4
+    intent: 顶级交易员 PnL
+    natural_input: "梭教授当前仓位"
+    expected_skill: signal trader_position group_name=梭教授
+    accuracy_check:
+      - 加仓事件能与之后的总仓位快照一致（前后两条 trader_position 自洽）
+      - 杠杆倍数（x5 等）与保证金 / 仓位价值数学自洽
+  - step: 5
+    intent: 小币种现价命中
+    natural_input: "PENGU / WIF / BONK / POPCAT 现价"
+    expected_skill: metrics keywords=[PENGU,WIF,BONK,POPCAT]
+    accuracy_check:
+      - 4 个都命中且 ticker 正确解析（不出现 PENGU→某美股小盘）
+      - 价格与 CoinGecko 一致 (±1%)
+  - step: 6
+    intent: Twitter list + thread 深度展开
+    natural_input: "crypto KOL 列表最近发言 + 一条热门长帖展开"
+    expected_skill: twitter action=list_timeline list_id=<crypto_kol_list> + action=tweet_thread tweet_id=<viral_tweet>
+    accuracy_check:
+      - list_timeline 返回的 tweet 全部来自 list 内成员（不混入外部）
+      - tweet_thread 返回主帖 + 同作者后续推（按时间序）
+      - thread 中每条 tweet 内容与 twitter.com web 实际显示一致
+
+success_criteria:
+  - 至少 5 条 TG 帖原文与频道 web 链可对齐
+  - 至少 3 笔鲸鱼仓位数学自洽
+  - 4/4 小币种 alias 命中

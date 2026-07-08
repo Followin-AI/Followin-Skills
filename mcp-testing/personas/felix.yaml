@@ -1,0 +1,81 @@
+id: felix
+name: Felix
+role: 空头猎手 / Short-seller
+profile:
+  age: 39
+  experience: 10 年做空 / 仿 Burry / Muddy Waters 风格
+  style: 找 fraud / 高估 / 即将暴雷
+  pain_points:
+    - Insider sell 集中爆发模式（这是 MCP 能给的）
+    - 财报 Beat/Miss 历史（这是 MCP 能给的）
+    - 做空研究机构 social 信号
+
+watchlist:
+  always_watch: 高估值科技股 + 中概股
+  current_targets: [CRCL, BBAI, SOUN, CHWY, AI]
+
+trigger_style:
+  language: zh-cn
+  examples:
+    - "CRCL 内部人最近卖了多少"
+    - "BBAI 过去 4 季都 miss 吗"
+    - "Hindenburg 最近说了什么"
+
+# 目标：测 signal insider + fundamentals beat_miss + news/twitter 的准确度
+daily_script:
+  - step: 1
+    intent: 单股 insider sell 完整性
+    natural_input: "CRCL 最近 1 个月内部人交易"
+    expected_skill: signal insider_trading keywords=[CRCL] time_range=1m
+    accuracy_check:
+      - 返回的每笔交易能否在 SEC EDGAR Form 4 找到对应原始 URL（实测 _source.url 字段）
+      - reportingName / price / securitiesTransacted 与 SEC 原始数据对齐
+      - 1 个月窗口是否真的覆盖到 30 天前
+  - step: 2
+    intent: 全市场 insider 排序
+    natural_input: "本周内部人卖出金额最大的 10 笔"
+    expected_skill: signal insider_trading sort_by=amount time_range=1w
+    accuracy_check:
+      - 是否真按 amount 排序
+      - 金额字段（amount）格式一致（congress 用 "$1M-$5M" 区间，corporate 用具体数字——这是已知字段不齐，要记录）
+  - step: 3
+    intent: 财报 4 季 Beat/Miss 准确性
+    natural_input: "BBAI 过去 4 个季度都 miss 了吗"
+    expected_skill: metrics fundamentals beat_miss
+    accuracy_check:
+      - eps_trend 返回 4 个季度
+      - 每个季度的 epsActual vs SEC 10-Q 真实值（外部交叉）
+  - step: 4
+    intent: 做空大佬 Twitter 信号
+    natural_input: "Hindenburg Research 最近发了什么"
+    expected_skill: twitter action=user_tweets user_name=HindenburgRes
+    accuracy_check:
+      - 返回的推文与 twitter.com/HindenburgRes 实际一致
+      - 时间戳准确
+  - step: 5
+    intent: 跨字段一致性
+    natural_input: "CRCL 现价 + 最新财报 + 内部人最近"
+    expected_skill: metrics market + fundamentals + signal 3 次调用
+    accuracy_check:
+      - 三次调用返回的 symbol 都是同一个 entity
+      - latest_quarter.date 与 beat_miss.date 对齐
+      - 不出现"价格是 X 但 fundamentals 是另一家公司"
+  - step: 6
+    intent: 财报电话会原文（找管理层口风变化）
+    natural_input: "NVDA 最新一季 earnings call 原文"
+    expected_skill: metrics fundamentals NVDA query="电话会 transcript" verbosity=detail
+    accuracy_check:
+      - transcript.content 非空且为完整逐字稿（不是摘要）
+      - quarter / year 与最新 beat_miss.date 对齐
+      - 抽 3 段原话能在 Seeking Alpha / Motley Fool 公开 transcript 找到
+      - 时间戳为电话会实际日期（与 latest_quarter.date 一致或差 1-2 天）
+
+known_pitfalls:
+  - insider amount 字段 corporate vs congress 格式不一（已观察到）
+  - time_range 上限 1m → 跨季度要 date_from/to
+  - 做空机构 handle 不见得在 Followin 的 KOL 池里（要看实测）
+
+success_criteria:
+  - 至少 2 笔 SEC Form 4 可与 EDGAR 原文对齐验证
+  - 至少 1 个 fundamentals 数字可与 SEC 10-Q 对齐验证
+  - 输出 corporate/congress 字段不齐的具体清单

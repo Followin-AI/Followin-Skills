@@ -1,0 +1,70 @@
+id: sarah
+name: Sarah
+role: Alpha 全市场猎人
+profile:
+  age: 35
+  experience: 10 年 hedge fund，现独立
+  style: 跨资产 mispricing，事件驱动
+
+watchlist:
+  flexible: 不固定，跟着热点走
+
+trigger_style:
+  language: zh-en mixed
+  examples:
+    - "Silent buy 信号扫一下"
+    - "大跌但媒体不报道的"
+    - "内部人悄悄买入"
+
+# 目标：测背离扫描需要的 movers + insider + news 三路数据准确度
+daily_script:
+  - step: 1
+    intent: 涨跌榜 + marketCap 过滤
+    natural_input: "今天涨幅榜，市值大于10亿，前 20"
+    expected_skill: metrics movers min_market_cap=1_000_000_000
+    accuracy_check:
+      - 20 行实际 marketCap 全部 >= 1B（vs Yahoo Finance 抽 5 只交叉）
+      - changePercentage 当日真实涨幅一致
+  - step: 2
+    intent: 跌幅榜大票
+    natural_input: "今天美股大票跌 5% 以上"
+    expected_skill: metrics movers sort_by=-change_pct
+    accuracy_check:
+      - 返回标的当日确实跌 >=5%（CNBC/Yahoo 交叉）
+      - 不出现单日成交额 <100万 的低流动性票
+  - step: 3
+    intent: Silent buy 信号源数据
+    natural_input: "最近 1 个月 buy 额度大的内部人交易"
+    expected_skill: signal insider_trading sort_by=amount time_range=1m
+    accuracy_check:
+      - acquisitionOrDisposition=A 的记录 vs SEC EDGAR Form 4 buy 行为一致
+      - transactionType (P-Purchase 等) 字段语义正确
+      - 金额排序生效
+  - step: 4
+    intent: 媒体情绪命中检索
+    natural_input: "NVDA 最近 1 周 news"
+    expected_skill: news query=NVDA time_range=1w
+    accuracy_check:
+      - 返回的文章 title 真的提及 NVDA / NVIDIA（不返回与 NVDA 无关的 fallback）
+      - source_url 可打开且标题对齐
+      - source_quality 字段非空且合理
+  - step: 5
+    intent: 跨资产情绪
+    natural_input: "VIX 最近 + BTC 最近表现对比"
+    expected_skill: metrics macro VIX + crypto BTC
+    accuracy_check:
+      - VIX 与 BTC 各自数据准确
+      - 时间窗口对齐（不出现 VIX 给周更、BTC 给分钟级导致无法横向比较）
+  - step: 6
+    intent: Twitter 全球趋势 + crypto community
+    natural_input: "全球 Twitter trends + crypto community 在聊什么"
+    expected_skill: twitter action=trends woeid=1 + twitter action=community_tweets community_id=<crypto>
+    accuracy_check:
+      - trends 30 条 与 trends24.in/world 当下榜单对齐（高重合度）
+      - trend 含 tweet_volume 字段且数值非零
+      - community_tweets 返回结构含 tweet content + author，与 Twitter app 内 community 浏览一致
+
+success_criteria:
+  - 涨/跌榜过滤后实际 marketCap 100% 达阈值
+  - news 命中标的的文章召回率 >80%（人工抽样）
+  - insider buy/sell 字段语义与 SEC EDGAR 一致
