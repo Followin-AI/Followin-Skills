@@ -23,6 +23,7 @@ yarn-error.log*
 .claude/statsig/
 .claude/shell-snapshots/
 .claude/todos/
+.claude/worktrees/
 
 # Data dumps (ad-hoc analysis artifacts, never in main repo)
 *.tweets.json
