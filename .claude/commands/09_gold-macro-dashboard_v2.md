@@ -3,7 +3,8 @@ name: Gold Macro Dashboard (v2 — Followin MCP)
 description: 评估黄金当前宏观环境，输出0-100综合评分和分层分析。当用户问"黄金宏观怎么样"、"黄金环境如何"、"黄金现在几分"时触发。
 trigger: 黄金宏观、黄金宏观看盘、黄金宏观评分、黄金宏观环境、gold macro、gold macro dashboard、gold macro score、gold macro environment、how is gold macro
 not_trigger: 策略信号、KOL、喊单、热点、TG频道、日报、代币舆情、BTC、比特币、行情、价格、strategy、KOL calls、trending、TG channels、daily brief、bitcoin、token news
-mcp: mcp__followin__metrics, WebSearch, WebFetch
+mcp: mcp__followin__metrics
+tools: WebSearch, WebFetch
 ---
 
 # Role: 黄金宏观环境分析师 (v2)
@@ -16,6 +17,8 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 
 ---
 
+> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `.claude/references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
+
 ## 数据源（v2 简化）
 
 ### MCP — Followin 单工具
@@ -23,11 +26,10 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 
 | 用途 | 调用 |
 |------|------|
-| FRED 宏观指标 | `metrics(query="<中文或英文>", limit=N)` |
-| FRED 字典未命中 | `metrics(keywords=["<series_id>"], categories=["macro"])` 兜底 |
-| 金/银/DXY/日元 批量 | `metrics(keywords=["GCUSD","SIUSD","DXUSD","USDJPY"], categories=["market"])` |
+| FRED 宏观指标 | `metrics(keywords=["<series_id>"], categories=["macro"], limit=N)` 直查（🔒 v3 同 Skill 08：禁止 query 中文/混合自然语言，语义陷阱已实测；且 FRED series 单独 fire 不批量，B-31）|
+| 金/银/DXY/日元 批量 | `metrics(keywords=["GCUSD","SIUSD","DXUSD","USDJPY"], categories=["market"])`（market 快照可批量但上限 10 个 keywords，实测 18→10 静默截断）|
 | VIX | `metrics(keywords=["^VIX"], categories=["market"])` |
-| 经济日历 | `metrics(query="economic calendar 本周经济数据", categories=["macro"])` |
+| 经济日历 | `metrics(keywords=["economic calendar"], categories=["macro"])` ⚠️ 不要写"本周经济数据"——实测"本周"被解析成 lookback 7 天返回已发布历史 |
 
 ### Web 兜底
 - FedWatch 降息概率（CME）
@@ -143,7 +145,8 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 metrics(keywords=["DFII10"], categories=["macro"], limit=22)         # ① TIPS
 metrics(keywords=["T10YIE"], categories=["macro"], limit=22)         # ② 通胀预期
 metrics(keywords=["FEDFUNDS"], categories=["macro"], limit=12)       # ③ Fed
-metrics(keywords=["BAMLH0A0HYM2"], categories=["macro"], limit=22)   # ⑦ 信用利差
+# ⑦ 信用利差 BAMLH0A0HYM2 暂不调用 — B-33：不在 FRED 字典且 keywords 直查会被
+#   错抓到 M2SL（拿错数据比没数据更糟）。标"数据不可用"+ 权重重分配，待 Dev 修复后恢复
 ```
 
 **Batch 2：第二层行情 + 第四层**

@@ -24,6 +24,8 @@ args: watchlist
 
 - `watchlist`（可选）：逗号分隔 ticker，默认从用户 memory 读取
 
+> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `.claude/references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
+
 ## 数据层 — Followin MCP 三工具映射
 
 🔒 **本 Skill 全程美股，metrics 调用必须带 `asset_type="tradfi"`**（除 BTC/ETH 等 crypto symbol）
@@ -31,10 +33,10 @@ args: watchlist
 | 用途 | 调用 |
 |---|---|
 | 国债收益率（全期限）| `metrics(query="treasury rates 美债收益率曲线", categories=["macro"])` 一次返 yield curve 全期限 |
-| 2Y / 10Y 美债 | `metrics(keywords=["DGS2","DGS10"], categories=["macro"], limit=5)` 兜底 |
+| 2Y / 10Y 美债 | `metrics(keywords=["DGS2"], categories=["macro"], limit=5)` + `metrics(keywords=["DGS10"], categories=["macro"], limit=5)` 兜底（⚠️ FRED series 单独 fire，批量会静默丢条目 B-31）|
 | VIX 实时 | `metrics(keywords=["^VIX"], categories=["market"], asset_type="tradfi")` |
 | 布油 + 美元 + watchlist | `metrics(keywords=["BZUSD","DXUSD","AAPL","TSLA",...], categories=["market"], asset_type="tradfi")` |
-| 经济日历 | `metrics(query="economic calendar 本周经济数据", categories=["macro"])` |
+| 经济日历 | `metrics(keywords=["economic calendar"], categories=["macro"])` ⚠️ 不要写"本周经济数据"——实测（2026-06-12）"本周"被解析成 lookback 7 天，返回**上周已发布历史**而非前瞻日历 |
 | 涨跌幅榜 | `metrics(query="biggest gainers"/"biggest losers", asset_type="tradfi", limit=30)` 二次调用补 marketCap |
 | 财经新闻 | `news(query="<2-3 关键词>", time_range="1d", limit=10)` ⚠️ 不要传 asset_type |
 
@@ -54,14 +56,15 @@ args: watchlist
 1. metrics(query="treasury rates 美债收益率曲线", categories=["macro"])
 2. metrics(keywords=["^VIX"], categories=["market"], asset_type="tradfi")
 3. metrics(keywords=["BZUSD","DXUSD"]+watchlist, categories=["market"], asset_type="tradfi")
-4. metrics(query="economic calendar 本周经济数据", categories=["macro"])
+4. metrics(keywords=["economic calendar"], categories=["macro"])   # ⚠️ 别带"本周"，会变 lookback 历史
 ```
 
-**Batch 2：涨跌榜 + 新闻**
+**Batch 2：涨跌榜 + 新闻（4 个并行）**
 ```
 5. metrics(query="biggest gainers", asset_type="tradfi", limit=30)
 6. metrics(query="biggest losers",  asset_type="tradfi", limit=30)
-7. news(query="<根据宏观信号选 query>", time_range="1d", limit=10)
+7. news(query="<根据宏观信号选 query>", time_range="1d", limit=8)
+8. news(query="stock market", time_range="1d", limit=8)    # 泛市场第二路，避免单一主题选题偏置
 ```
 
 ⚠️ **`news()` query 设计**（实测验证）：
@@ -95,8 +98,8 @@ metrics(keywords=[gainers/losers tickers], categories=["market"], asset_type="tr
    - 原油 + 美元趋势方向
 
 2. **新闻热点**：
-   - 多源去重（cluster_id_v2 / cluster_id_v3）
-   - 提取 top 3 热门话题
+   - 两路 news（信号驱动 + 泛市场）合并后再多源去重（cluster_id_v2 / cluster_id_v3）
+   - 提取 top 3 热门话题（不要只从单一 query 的结果选题）
    - Claude 推断每篇情绪聚合
 
 3. **Watchlist + 异动**：
@@ -157,6 +160,7 @@ metrics(keywords=[gainers/losers tickers], categories=["market"], asset_type="tr
 - ⚠️ **杠杆 ETF 污染**（涨幅榜 17.5% 是 2X/3X 衍生品），客户端过滤 LEVERAGED_KEYWORDS
 - ✅ **国债 / VIX / 布油 / 美元 / 经济日历都已 100% 命中**（实测验证）
 - ✅ **FRED 字典未命中走 fred_search_fallback** → 改用 `keywords=["<series_id>"]` 兜底
+- ⚠️ **B-31 边界**：FRED macro series **不要批量**（静默丢条目），DGS2/DGS10 等各自单独 fire；market 行情快照可批量但**上限 10 个**（实测 18→10 静默截断，watchlist 长时分批并检查 keyword_count_over_max warning）
 - 避免高并发：单批 ≤ 4 防 SSE 挂
 
 ## 输出约束（保留 v1）

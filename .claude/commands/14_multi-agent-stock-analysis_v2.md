@@ -33,7 +33,9 @@ args: ticker
                           ⑳ 风控经理 → ㉑ 组合经理（LLM 综合决策）
 ```
 
-## 数据层 — Followin MCP 三工具（5-6 路调用）
+> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `.claude/references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
+
+## 数据层 — Followin MCP 三工具（8 路调用）
 
 🔒 所有美股调用必须带 `asset_type="tradfi"`（除 BTC/ETH 等 crypto symbol）
 
@@ -45,7 +47,7 @@ args: ticker
 | 技术指标（RSI / EMA / SMA）| `metrics(keywords=[T], categories=["market"], asset_type="tradfi", query="RSI 14")` 或 `query="EMA 50"` |
 | 内部人交易（含 corporate Form 4 + senate + house 三类）| `signal(categories=["insider_trading"], keywords=[T], asset_type="tradfi")` |
 | 媒体覆盖 | `news(query="<companyName> <ticker>", time_range="1m", limit=10)` |
-| 宏观背景（VIX / 10Y）| `metrics(keywords=["^VIX","DGS10"])` |
+| 宏观背景（VIX / 10Y）| `metrics(keywords=["^VIX"], categories=["market"], asset_type="tradfi")` + `metrics(keywords=["DGS10"], categories=["macro"], limit=5)` 两路分开（⚠️ 不要把 market ticker 和 FRED series 混批，B-31）|
 
 ## 执行步骤
 
@@ -53,12 +55,13 @@ args: ticker
 
 ⚠️ **SSE 高并发限制**：实测单批 20 路并发会挂，必须分 2-3 批：
 
-**Batch A：fundamentals 真聚合 + 行情（3 路并行，比 v1 节省更多）**
+**Batch A：fundamentals 真聚合 + 行情（4 路并行）**
 ```
-1. metrics(keywords=[T], categories=["fundamentals"], asset_type="tradfi")
-   → ✅ 一次返 12 个 block（comprehensive 已真聚合）：
-      income / balance / cashflow / valuation / profile / peers / grades / shares_float
-      + beat_miss / consensus / eps_trend / latest_quarter / next_earnings
+1. metrics(keywords=[T], categories=["fundamentals"], asset_type="tradfi", query="全面分析")
+   → ✅ 一次返 14 个 block（⚠️ 必须显式 query="全面分析"，不带 query 走 default 只返 5 block）：
+      income / balance / cashflow / financial_growth / valuation / profile / sec_filings
+      / grades / shares_float + beat_miss / consensus / eps_trend / latest_quarter
+      / next_earnings（❌ 缺 stock_peers，Dev 待修）
 2. metrics(keywords=[T], categories=["market"], asset_type="tradfi")
    → 当前 price + change + dayHigh/Low + yearHigh/Low + marketCap
 3. metrics(keywords=[T], categories=["market"], asset_type="tradfi", query="历史走势 30 day chart", time_range="1y")
@@ -67,17 +70,19 @@ args: ticker
    → RSI(14) 时间序列；EMA/SMA 同理用 query="EMA 50" 或 "SMA 200"
 ```
 
-**Batch B：信号 + 新闻 + 宏观（3 路并行）**
+**Batch B：信号 + 新闻 + 宏观（4 路并行）**
 ```
-4. signal(categories=["insider_trading"], keywords=[T], asset_type="tradfi", limit=20)
+5. signal(categories=["insider_trading"], keywords=[T], asset_type="tradfi", limit=20)
    → corporate Form 4 + senate + house 三类聚合
-5. news(query="<companyName> <ticker>", time_range="1m", limit=10)
+6. news(query="<companyName> <ticker>", time_range="1m", limit=10)
    → 不带 asset_type（实测加 tradfi 返 0）
-6. metrics(keywords=["^VIX","DGS10"], asset_type="tradfi")
-   → VIX 恐慌 + 10Y 利率（宏观背景）
+7. metrics(keywords=["^VIX"], categories=["market"], asset_type="tradfi")
+   → VIX 恐慌指数
+8. metrics(keywords=["DGS10"], categories=["macro"], limit=5)
+   → 10Y 利率（⚠️ FRED series 单独 fire，不与 market ticker 混批，B-31）
 ```
 
-**总计 6 路调用** — 比 v1 的 22 路节省 **-73%**。
+**总计 8 路调用** — 比 v1 的 22 路节省 **-64%**。
 
 ### Step 2: 数据预处理
 
@@ -101,7 +106,7 @@ SMA(200) = 简单 200 日均线
 - **置信度**: 0-100
 - **核心理由**: 2-3 条关键论据
 
-> 19 个 Agent 的 prompt（哲学 + 关注数据 + 评分框架）**完全保留 v1**，详见原文件。每个 Agent 从同一数据池中按需取数。
+> 19 个 Agent 的 prompt（哲学 + 关注数据 + 评分框架）**完全保留 v1**，执行前先 Read 引用附件 `~/.claude/references/14_agent-prompts.md`（仓库内对应 `.claude/references/14_agent-prompts.md`）。每个 Agent 从同一数据池中按需取数。
 
 ### Step 4: ⑳ 风控经理（Risk Manager）
 
@@ -184,7 +189,7 @@ SMA(200) = 简单 200 日均线
 - 评分框架（如 Buffett 护城河 / Graham NCAV / Wood 颠覆性创新）
 - 信号阈值
 
-详见原文件 14_multi-agent-stock-analysis.md 第 145-700 行。
+以及 ⑳ 风控经理 / ㉑ 组合经理的完整决策逻辑，全部在引用附件 **`14_agent-prompts.md`**（路径：`~/.claude/references/14_agent-prompts.md`，仓库内 `.claude/references/14_agent-prompts.md`）。**执行 Step 3 前必须先 Read 该文件**，不要凭分析师名字现编评分框架。
 
 ## 输出约束
 

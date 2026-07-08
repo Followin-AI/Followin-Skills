@@ -30,14 +30,16 @@ args: indicator
 
 本Skill 聚焦**单个宏观指标发布后的影响分析**（指标→板块→个股的全链路）。
 
+> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `.claude/references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
+
 ## 数据层 — Followin MCP 三工具映射
 
 | 用途 | 调用 | 参数 |
 |------|------|------|
-| FRED 指标历史数据 | `metrics()` | `query="CPI"`, `limit=12` |
+| FRED 指标历史数据 | `metrics()` | `keywords=["CPIAUCSL"]`（先查 Step 1 翻译表转 series_id 再 keywords 直查）, `categories=["macro"]`, `limit=12` |
 | ETF 板块批量报价 | `metrics()` | `keywords=["XLE","XLB","XLK"]`, `categories=["market"]` |
-| VIX / 商品 / 国债收益率 | `metrics()` | `keywords=["^VIX"]` 或 `keywords=["GOLD"]`（自动 alias） |
-| 媒体解读 | `news()` | `query="CPI 影响 解读"`, `categories=["macro"]`, `time_range="1w"` |
+| VIX / 商品 / 国债收益率 | `metrics()` | `keywords=["^VIX"]` 或 `keywords=["GCUSD"]`（⚠️ 不要用 GOLD，会错抓 Gold.com 美股）|
+| 媒体解读 | `news()` | `query="CPI inflation"`, `time_range="1w"`（⚠️ 不写"影响/解读"等元词，见 query 三原则）|
 
 > **关键变化（vs v1）**：
 > - 删除 21 个 series_id 别名表 — Followin 自动识别中英文（"CPI"/"核心CPI"/"非农"/"NFP" 全 ✅）
@@ -187,18 +189,18 @@ metrics(
 **第三路：媒体报道**
 ```
 news(
-  query="[英文指标名] [对应中文]",      # 2 个核心名词，纯英文或纯中文
+  query="[指标核心词 2-3 个]",          # 纯英文或纯中文，不混搭
   time_range="1w",
-  limit=10,
-  sort_by="relevance"
+  limit=10
+  # news 无 sort_by（相关性走 search_depth，默认 standard）
 )
 
 例:
   CPI       → query="CPI inflation"           （双英文核心词，避免被 PMTS 等公司劫持）
-  非农       → query="非农 NFP"               （中英对照）
-  Fed Rate  → query="Fed rate 美联储 利率"     （3 词上限）
-  GDP       → query="GDP 增速"
-  零售销售   → query="retail sales 零售"
+  非农       → query="nonfarm payrolls"
+  Fed Rate  → query="Fed rate cut"
+  GDP       → query="GDP growth"
+  零售销售   → query="retail sales"
 
 返回: 媒体文章含 title / content / published_ts / source_name
 LLM 读原文做解读，不要把"解读/影响/分析"塞进 query
@@ -264,4 +266,4 @@ LLM 读原文做解读，不要把"解读/影响/分析"塞进 query
   4. **避免单纯股票符号**（`"CPI"` 会被 CPI Card PMTS 公司劫持，要双词 `"CPI inflation"` 消歧）
 - **time_range** 选 `"1w"`（覆盖周内主流报道），`"1d"` 太窄 `"1m"` 太宽
 - **避免高并发**：单次 ≤ 4 个 MCP 调用并发，否则 SSE session 可能挂
-- **特殊行情符号**：VIX 写 `^VIX`，黄金 `GOLD`（自动转 GCUSD），白银 `SILVER`（自动转 SIUSD）；OIL 当前 alias 未修，**暂时用 `BZUSD` 或等 Dev 修**
+- **特殊行情符号**：VIX 写 `^VIX`；黄金必须 `GCUSD`（⚠️ GOLD 会错抓 Gold.com 美股 $42，不要依赖 alias）；白银 `SIUSD`；原油 `CLUSD`（WTI）/ `BZUSD`（布油），**不要用 OIL alias**（未修，会错路由）

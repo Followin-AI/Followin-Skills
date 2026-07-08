@@ -29,6 +29,8 @@ args: scope, days
 
 本Skill 聚焦**多标的批量扫描价格/内部人/媒体背离信号**。
 
+> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `.claude/references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
+
 ## 数据层 — Followin MCP 三工具映射
 
 > 🔒 **本 Skill 全程只查美股（tradfi），所有 `metrics()` 调用必须带 `asset_type="tradfi"`**
@@ -38,10 +40,10 @@ args: scope, days
 |------|------|------|
 | 当日涨幅榜 | `metrics()` | `query="biggest gainers"`, **`asset_type="tradfi"`** |
 | 当日跌幅榜 | `metrics()` | `query="biggest losers"`, **`asset_type="tradfi"`** |
-| 个股报价 + 市值 | `metrics()` | `keywords=["AAPL","TSLA",...]`, `categories=["market"]`, **`asset_type="tradfi"`** 一次最多 ~20 个 |
+| 个股报价 + 市值 | `metrics()` | `keywords=["AAPL","TSLA",...]`, `categories=["market"]`, **`asset_type="tradfi"`** 一次最多 **10 个**（实测 18→10 静默截断，超出分批并检查 `keyword_count_over_max` warning）|
 | 多时间框架历史 | `metrics()` | `keywords=["AAPL"]`, `categories=["market"]`, `query="历史走势 30 day chart"`, `time_range="1m"`, **`asset_type="tradfi"`** |
 | 内部人交易 | `signal()` | `categories=["insider_trading"]`, `keywords=["AAPL"]`, **`asset_type="tradfi"`** |
-| 媒体交叉验证 | `news()` | `query="[companyName 2 词]"`, `time_range="1w"`, **`asset_type="tradfi"`** |
+| 媒体交叉验证 | `news()` | `query="[companyName 2 词]"`, `time_range="1w"` ⚠️ **不要传 asset_type**（实测加 tradfi 返 0 results）|
 
 > **关键变化（vs v1）**：
 > - 6 个老工具 → 3 个 Followin 工具
@@ -56,13 +58,18 @@ args: scope, days
 内部人主动买入 + 媒体无报道 = 知情人看好但市场未反应
 
 ```
-检测:
-1. signal(categories=["insider_trading"], time_range="1w")
-2. 过滤:
-   - transactionType = "P-Purchase"（排除 M-Exempt/S-Sale/F-InKind/A-Award/G-Gift 等）
+检测（⚠️ 必须全量扫描，不要只查涨跌榜 ticker — Silent 的本义是价格未动，上榜 = 已动）:
+1. signal(categories=["insider_trading"], asset_type="tradfi", time_range="1w",
+          limit=50, sort_by="amount")           # 1 次全量，替代旧版按榜单 ticker 逐个单查
+2. 客户端过滤（实测 2026-06-12）:
+   - formType="4" 且 transactionType="P-Purchase"（⚠️ formType 3 是初始持仓/期权申报
+     不是交易，会聚簇污染——实测 SPCX 一家占 13 条）
    - price × securitiesTransacted > $100K
-3. 对每个 ticker 调 news(query="[companyName] 2-3 词", time_range="1w")
-4. 判定: 主动买入 > $100K 且报道 ≤ 2 篇
+   - congress 记录（provenance="congress"）结构不同: type="Purchase" 且 amount 区间下限 ≥ $50K
+   - 按 ticker 去重（同一人多笔合并金额）
+3. 排除已上当日涨跌幅榜的 ticker（价格已动 ≠ silent；榜内 ticker 有内部人买入 → 归"多重信号"）
+4. 对剩余 ticker 调 news(query="[companyName] 2-3 词", time_range="1w")
+5. 判定: 主动买入 > $100K 且报道 ≤ 2 篇
 ```
 
 ### 信号二：Sentiment Mismatch（情绪错配）
@@ -103,11 +110,13 @@ args: scope, days
 
 ## 执行步骤
 
-### Step 1: 拉涨跌幅榜（2 路并行）
+### Step 1: 拉涨跌幅榜 + 全量内部人扫描（3 路并行）
 
 ```
 1. metrics(query="biggest gainers", asset_type="tradfi", limit=30)
 2. metrics(query="biggest losers",  asset_type="tradfi", limit=30)
+3. signal(categories=["insider_trading"], asset_type="tradfi", time_range="1w",
+          limit=50, sort_by="amount")
 ```
 🔒 必须带 `asset_type="tradfi"`，否则同名 ticker 会被错路由到 crypto。
 
@@ -138,7 +147,7 @@ tickers = list({x.symbol for x in filtered})
 然后**二次调用补市值**：
 ```
 metrics(
-  keywords=tickers[:20],         # 一次最多 ~20 个
+  keywords=tickers[:10],         # ⚠️ 一次最多 10 个（实测 18→10 静默截断），超出分批
   categories=["market"],
   asset_type="tradfi"             # 🔒 必须，否则 AMN/WEST 等 ticker 会错路由到 crypto 山寨币
 )
@@ -148,51 +157,53 @@ final_gainers = [x for x in result if x.marketCap > 500_000_000 and x.changePerc
 final_losers  = [x for x in result if x.marketCap > 1_000_000_000 and x.changePercentage < -8]
 ```
 
-### Step 3: 内部人交易按 ticker 单查（不要查全量榜单）
+### Step 3: Silent Buy 候选构建（用 Step 1 的全量扫描结果，0 次新调用）
 
-⚠️ **`signal(insider_trading)` 不带 keyword 时，全量榜单会被同一家小公司 + 多笔 Form 4 拆分塞满**（实测 1w 内 20 条全是 SHFS）。
+⚠️ **不要按涨跌榜 ticker 逐个查 insider** — 上榜 = 价格已动，永远扫不到真正的 Silent Buy（v2 旧版的设计缺陷）。聚簇问题用 `limit=50` + 客户端去重解决（实测 50 条 ≈ 30+ distinct ticker）。
 
-正确做法：对 Step 2 留下的 tickers 各调一次：
 ```
-对每个 ticker (单批 ≤ 4 防 SSE 挂):
-  signal(
-    categories=["insider_trading"],
-    keywords=[ticker],
-    asset_type="tradfi",           # 🔒 必须
-    time_range="1w",
-    limit=10
+candidates = [
+  x for x in insider_scan          # Step 1 第 3 路的结果
+  if (
+    # SEC Form 4 主动买入
+    (x.formType == "4" and x.transactionType == "P-Purchase"
+     and x.price * x.securitiesTransacted > 100_000)
+    # 或 国会议员买入（congress 记录结构不同：type / amount 是区间字符串）
+    or (x.provenance == "congress" and x.type == "Purchase"
+        and amount_lower_bound(x.amount) >= 50_000)
   )
-
-客户端过滤:
-  insiders_filtered = [
-    x for x in result
-    if x.transactionType == "P-Purchase"          # 只要主动买
-    and (x.price * x.securitiesTransacted) > 100_000
-  ]
+  and x.symbol not in movers_tickers     # 价格静默才算 Silent
+]
+# 按 ticker 去重（同一人多笔合并金额）
+# formType="3"（初始申报/期权，如实测 SPCX 13 条）直接丢弃 — 不是交易
 ```
 
-### Step 3: 多时间框架补充（可选 1 次批量）
+榜内 ticker 如同时有内部人买入 → 不算 Silent Buy，归入"多重信号"段落加注。
+
+### Step 4: 多时间框架补充（可选 1 次批量）
 
 对 Step 2 保留的 ticker 一次性查历史走势区分单日异动 vs 持续趋势：
 ```
 metrics(
-  keywords=[ticker_list],         # 最多 ~20 个
+  keywords=[ticker_list],         # ⚠️ 最多 10 个，超出分批
   categories=["market"],
-  time_range="1m",
-  interval="1day"
+  asset_type="tradfi",            # 🔒 必须（本 Skill 红线，漏传会错路由 crypto）
+  query="历史走势 30 day chart",   # 历史 OHLCV 必须靠该 query 路由（同 11/14 实测）
+  time_range="1m"
 )
 ```
 
-### Step 4: 媒体交叉验证
+### Step 5: 媒体交叉验证
 
 ```
-对去重后的 ticker（≤15 个，超出按 insider 金额 + 涨跌幅 top 排序裁剪）:
+对去重后的 ticker = Step 2 榜单幸存者 + Step 3 Silent Buy 候选（合计 ≤15 个，超出按 insider 金额 + 涨跌幅 top 排序裁剪）:
 
 news(
   query="[companyName] [行业关键词或主营]",   # 2 个核心名词，纯英文
-  asset_type="tradfi",                       # 🔒 必须，避免混入 crypto 内容
   time_range="1w" 或 [days]天前的 ts,
   limit=5
+  # ⚠️ 不要传 asset_type — 实测加 tradfi 返 0 results（is_tradfi 字段几乎全 false 老 bug）
+  #   0 results 会让"报道 ≤ N"判定全部假阳性，比报错更危险
 )
 
 ⚠️ query 设计三原则（实测验证，避免 0 results）:
@@ -208,10 +219,10 @@ news(
   AVAX    → query="Avalanche blockchain"
 ```
 
-### Step 5: 信号判定
+### Step 6: 信号判定
 
 ```
-Silent Buy:        insider P-Purchase > $100K && articles ≤ 2
+Silent Buy:        insider P-Purchase > $100K && 不在当日涨跌榜 && articles ≤ 2
 Sentiment Mismatch: |Δ| > 5% && mktCap > $1B && 情绪与价格相反
 Unreported Drop:   Δ < -8% && mktCap > $1B && articles ≤ 3
 Unreported Surge:  Δ > +20% && mktCap > $500M && articles ≤ 2
@@ -219,7 +230,7 @@ Unreported Surge:  Δ > +20% && mktCap > $500M && articles ≤ 2
 排序: 多信号命中 > 单信号；市值大者前；涨跌绝对值大者前
 ```
 
-### Step 6: 输出报告
+### Step 7: 输出报告
 
 ```
 ## 🔍 背离信号扫描 — [日期]
@@ -274,12 +285,14 @@ Unreported Surge:  Δ > +20% && mktCap > $500M && articles ≤ 2
 
 ## 注意事项（v2 — Followin MCP）
 
-- 🔒 **本 Skill 全程美股，所有 metrics/signal/news 调用必须带 `asset_type="tradfi"`** —— 实测 AMN/WEST 等 ticker 不带会错路由到 crypto 山寨币（AMN→0.00479 USDT / WEST→0.00541 USDT）
+- 🔒 **本 Skill 全程美股，所有 metrics/signal 调用必须带 `asset_type="tradfi"`** —— 实测 AMN/WEST 等 ticker 不带会错路由到 crypto 山寨币（AMN→0.00479 USDT / WEST→0.00541 USDT）
+- ⚠️ **`news()` 例外：不要传 asset_type**（实测加 tradfi 返 0 results，is_tradfi 字段几乎全 false 老 bug）——0 篇会让四种信号的"报道 ≤ N"判定全部假阳性
 - **mover 榜（`query="biggest gainers"` / `query="biggest losers"`）只返回 7 个字段**，**marketCap 缺失**（不要传 `min_market_cap` 参数 — 上游 marketCap 为 null 会被全屠），必须 keywords 二次调用补市值
 - **gainers/losers 三类污染必须过滤**：(1) 微盘妖股（AEHL/YMAT) (2) 仙股 < $5 (3) 杠杆 ETF（含 2X/3X/Long/Short/Bull/Bear/Daily/Leveraged 关键词的 name）
-- **`signal(insider_trading)` 不带 keyword 时榜单聚簇**（同公司多笔 Form 4 塞满列表，1w 实测 20 条全 SHFS），必须按 ticker 单查
+- **`signal(insider_trading)` 全量扫描有聚簇但可用**（旧实测 20 条全 SHFS；2026-06-12 复测 50 条中 SPCX Form 3 占 13 条、仍有 30+ distinct ticker）——对策：`limit=50` + `sort_by="amount"` + 客户端按 ticker 去重 + 只留 `formType="4"` 的 `P-Purchase`（Form 3 是初始申报不是交易）。**不要回退到按榜单 ticker 单查**：既扫不到真 Silent Buy，调用数还多 ~15 倍
 - **`signal(insider_trading)` 三源 fanout 完整**（已实测 2026-05-27 重新验证）：SEC Form 4（公司高管，14 条 / NVDA 1m）+ congress 政客披露（Pelosi 配偶 NVDA $1M-$5M Sale）一次返 15 条
 - **`news()` query 三原则**：2-3 核心名词 / 不混搭中英 / 不写元词（影响/解读/impact）
+- ⚠️ **news() 无匹配不返回空，返回语义兜底的不相关填充**（实测查 Quhuo/Navios 返的是 BoJ/伊朗宏观新闻）——**"报道 ≤ N"判定必须按逐条判断后的相关报道数计，不能用 raw count**，否则无声异动会被填充内容误判成"有报道"
 - **避免高并发**：单次 ≤ 4 个 MCP 调用并发，否则 SSE session 可能挂
 - **insider transactionType 类型**：
   - `P-Purchase` ✅ 主动买入（信号）

@@ -26,6 +26,8 @@ args: ticker
 | 宏观日报、美股早报 | ❌ 转 morning-brief |
 | 背离扫描 | ❌ 转 divergence-scan |
 
+> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `.claude/references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
+
 ## 数据层 — Followin MCP 三工具映射
 
 🔒 **本 Skill 全程美股，所有调用必须带 `asset_type="tradfi"`**（避免 ticker 错路由到 crypto 山寨币）
@@ -113,8 +115,8 @@ metrics(keywords=["[T]"], categories=["fundamentals"], asset_type="tradfi", quer
 news(
   query="[CompanyName] [TICKER]",   # 例: "Apple AAPL" / "Tesla TSLA" / "NVIDIA NVDA"
   time_range="1w" 或 "2w",
-  limit=10,
-  sort_by="relevance"
+  limit=10
+  # news 无 sort_by（相关性走 search_depth，默认 standard）
   # ⚠️ 不要传 asset_type="tradfi" — 实测会返 0 results（is_tradfi 字段几乎全 false 老 bug）
 )
 

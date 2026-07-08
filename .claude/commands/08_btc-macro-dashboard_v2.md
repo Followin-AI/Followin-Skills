@@ -3,7 +3,8 @@ name: BTC Macro Dashboard (v2 — Followin MCP)
 description: 评估BTC当前宏观环境，输出0-100综合评分和分层分析。当用户问"BTC宏观怎么样"、"宏观环境如何"、"现在几分"时触发。
 trigger: BTC宏观、BTC宏观看盘、BTC宏观评分、BTC宏观环境、BTC macro、BTC macro dashboard、BTC macro score、BTC macro environment、how is BTC macro
 not_trigger: 策略信号、KOL、喊单、热点、TG频道、日报、代币舆情、黄金、行情、价格、strategy、KOL calls、trending、TG channels、daily brief、gold、token news
-mcp: mcp__followin__metrics, WebSearch, WebFetch
+mcp: mcp__followin__metrics
+tools: WebSearch, WebFetch
 ---
 
 # Role: BTC宏观环境分析师 (v2)
@@ -15,6 +16,8 @@ mcp: mcp__followin__metrics, WebSearch, WebFetch
 - expertise: 全球流动性分析、货币政策解读、跨市场联动、加密资金流追踪、宏观经济数据评估
 
 ---
+
+> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `.claude/references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
 
 ## 数据源（v2 大幅简化）
 
@@ -178,7 +181,7 @@ Web: FedWatch CME / Farside Investors ETF flows
 | `metrics(query="10Y TIPS 实际利率")` | `metrics(keywords=["DFII10"], categories=["macro"])` | 拿到 DFII10 但污染 TIPS 美股+crypto |
 | `metrics(keywords=["GOLD"])` | `metrics(keywords=["GCUSD"])` | GOLD → Gold.com 美股 $42 |
 | `metrics(keywords=["BTC"])` 不带 asset_type | `metrics(keywords=["BTC"], asset_type="crypto")` | fanout 双返污染 |
-| `keywords=["X","Y"]` 批量同类 series | 各自单独 fire | 静默丢条目（B-31）|
+| `keywords=["X","Y"]` 批量 FRED macro series | 各自单独 fire | 静默丢条目（B-31）。⚠️ 边界：仅 FRED macro 受影响，market 快照可批量但上限 10 个 keywords（实测 18→10 静默截断；Batch 2 的 4 个 ticker 合法）|
 
 ### 第二步：逐指标评分
 
