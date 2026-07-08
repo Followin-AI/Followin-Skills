@@ -3,9 +3,9 @@
  * @followin/skills CLI
  *
  * Commands:
- *   setup      One-stop install: copy skill files + configure MCP servers
+ *   setup      One-stop install: copy skill files + configure the Followin MCP server
  *   install    Copy skill files only
- *   configure  Configure MCP servers only (writes to client config file)
+ *   configure  Configure the Followin MCP server only (writes to client config file)
  *   uninstall  Remove bundled skills from a target dir
  *   list       Show bundled skills
  *   path       Print the source dir of bundled skill files
@@ -20,8 +20,10 @@ const https = require('https');
 const PKG_ROOT = path.resolve(__dirname, '..');
 const SOURCE_DIR = path.join(PKG_ROOT, '.claude', 'commands');
 
-const FOLLOWIN_MCP_URL = 'https://mcp.followin.io/sse';
-const PREMIUM_MCP_URL = 'https://premium-mcp.followin.io/sse';
+const FOLLOWIN_MCP_URL = 'https://mcp.followin.io/v2/sse';
+// Legacy server keys written by <=1.6.0 setups; v2 merged everything into one
+// `followin` server, and the old endpoints are dead (HTTP 502). Cleaned up on write.
+const LEGACY_SERVER_KEYS = ['followin-mcp', 'premium-mcp'];
 
 // ---------- Client registry ----------
 //
@@ -266,9 +268,9 @@ function readJsonOrEmpty(file) {
 function buildMcpEntry(url, apiKey) {
   return {
     type: 'sse',
-    url: `${url}?api_key=${encodeURIComponent(apiKey)}`,
+    url,
     headers: {
-      'X-API-Key': apiKey,
+      'x-api-key': apiKey,
     },
   };
 }
@@ -278,10 +280,10 @@ function buildMcpEntry(url, apiKey) {
 function buildOpenCodeMcpEntry(url, apiKey) {
   return {
     type: 'remote',
-    url: `${url}?api_key=${encodeURIComponent(apiKey)}`,
+    url,
     enabled: true,
     headers: {
-      'X-API-Key': apiKey,
+      'x-api-key': apiKey,
     },
   };
 }
@@ -299,10 +301,15 @@ function writeMcpConfig(client, apiKey) {
   if (!config[topKey] || typeof config[topKey] !== 'object') {
     config[topKey] = {};
   }
-  const hadFollowin = !!config[topKey]['followin-mcp'];
-  const hadPremium = !!config[topKey]['premium-mcp'];
-  config[topKey]['followin-mcp'] = build(FOLLOWIN_MCP_URL, apiKey);
-  config[topKey]['premium-mcp'] = build(PREMIUM_MCP_URL, apiKey);
+  const hadFollowin = !!config[topKey]['followin'];
+  config[topKey]['followin'] = build(FOLLOWIN_MCP_URL, apiKey);
+  const legacyRemoved = [];
+  for (const key of LEGACY_SERVER_KEYS) {
+    if (config[topKey][key]) {
+      delete config[topKey][key];
+      legacyRemoved.push(key);
+    }
+  }
   fs.writeFileSync(file, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
   try {
     fs.chmodSync(file, 0o600);
@@ -313,7 +320,7 @@ function writeMcpConfig(client, apiKey) {
     skipped: false,
     file,
     followin: hadFollowin ? 'updated' : 'added',
-    premium: hadPremium ? 'updated' : 'added',
+    legacyRemoved,
   };
 }
 
@@ -367,12 +374,10 @@ function promptHidden(question) {
 // ---------- Connection validation ----------
 function validateMcpConnection(url, apiKey) {
   return new Promise((resolve) => {
-    const u = new URL(url);
-    u.searchParams.set('api_key', apiKey);
     const req = https.get(
-      u.toString(),
+      url,
       {
-        headers: { 'X-API-Key': apiKey, Accept: 'text/event-stream' },
+        headers: { 'x-api-key': apiKey, Accept: 'text/event-stream' },
         timeout: 6000,
       },
       (res) => {
@@ -390,12 +395,8 @@ function validateMcpConnection(url, apiKey) {
   });
 }
 
-async function validateBoth(apiKey) {
-  const [followin, premium] = await Promise.all([
-    validateMcpConnection(FOLLOWIN_MCP_URL, apiKey),
-    validateMcpConnection(PREMIUM_MCP_URL, apiKey),
-  ]);
-  return { followin, premium };
+async function validateFollowin(apiKey) {
+  return validateMcpConnection(FOLLOWIN_MCP_URL, apiKey);
 }
 
 function formatValidationResult(name, result) {
@@ -412,7 +413,7 @@ async function setup(args) {
     console.log('');
     console.log(`  Skill files → ${path.join(process.cwd(), '.claude', 'commands')} (project-local)`);
     console.log(`  MCP config  → ${path.join(os.homedir(), '.claude.json')} (global, all projects)`);
-    console.log('  Skills only activate from this directory; MCP servers are available everywhere.');
+    console.log('  Skills only activate from this directory; the MCP server is available everywhere.');
     console.log('  For a fully global install (skills too), re-run with: --client claude-code');
   }
   console.log('');
@@ -449,19 +450,20 @@ async function setup(args) {
     }
     console.log(`Step 2/3 — writing MCP config to ${client.mcpConfig}`);
     const r = writeMcpConfig(client, apiKey);
-    console.log(`  followin-mcp: ${r.followin}`);
-    console.log(`  premium-mcp:  ${r.premium}`);
+    console.log(`  followin: ${r.followin}`);
+    if (r.legacyRemoved.length) {
+      console.log(`  cleaned up legacy entries: ${r.legacyRemoved.join(', ')}`);
+    }
     console.log('');
 
     // 3. Validate
     if (!args.noValidate) {
-      console.log('Step 3/3 — validating MCP connections');
-      const v = await validateBoth(apiKey);
-      console.log(formatValidationResult('followin-mcp', v.followin));
-      console.log(formatValidationResult('premium-mcp ', v.premium));
+      console.log('Step 3/3 — validating MCP connection');
+      const v = await validateFollowin(apiKey);
+      console.log(formatValidationResult('followin', v));
       console.log('');
-      if (!v.followin.ok || !v.premium.ok) {
-        console.error('Warning: one or both MCPs failed to validate.');
+      if (!v.ok) {
+        console.error('Warning: MCP failed to validate.');
         console.error('Common causes: invalid API key (HTTP 401/403), network restrictions, or temporary server issue.');
         console.error('Config has been written — fix the API key and re-run `followin-skills configure` if needed.');
         console.log('');
@@ -472,7 +474,7 @@ async function setup(args) {
     }
   }
 
-  console.log('Done. Restart your client to pick up the new skills and MCPs.');
+  console.log('Done. Restart your client to pick up the new skills and MCP server.');
   if (client.mcpConfig) {
     console.log('');
     console.log(`Note: your API key is stored in plaintext in ${client.mcpConfig}`);
@@ -495,7 +497,7 @@ function install(args) {
   console.log(`  target : ${targetDir}`);
   console.log(`  client : ${label}`);
   console.log('');
-  console.log('Next: configure the MCP servers');
+  console.log('Next: configure the Followin MCP server');
   console.log('  npx @followin/skills configure');
   console.log('Or do both at once:');
   console.log('  npx @followin/skills setup');
@@ -515,17 +517,18 @@ async function configure(args) {
   }
   console.log(`Writing MCP config to ${client.mcpConfig}`);
   const r = writeMcpConfig(client, apiKey);
-  console.log(`  followin-mcp: ${r.followin}`);
-  console.log(`  premium-mcp:  ${r.premium}`);
+  console.log(`  followin: ${r.followin}`);
+  if (r.legacyRemoved.length) {
+    console.log(`  cleaned up legacy entries: ${r.legacyRemoved.join(', ')}`);
+  }
   console.log('');
   if (!args.noValidate) {
-    console.log('Validating MCP connections...');
-    const v = await validateBoth(apiKey);
-    console.log(formatValidationResult('followin-mcp', v.followin));
-    console.log(formatValidationResult('premium-mcp ', v.premium));
+    console.log('Validating MCP connection...');
+    const v = await validateFollowin(apiKey);
+    console.log(formatValidationResult('followin', v));
     console.log('');
-    if (!v.followin.ok || !v.premium.ok) {
-      console.error('Warning: one or both MCPs failed to validate. Check your API key.');
+    if (!v.ok) {
+      console.error('Warning: MCP failed to validate. Check your API key.');
       console.log('');
     }
   }
@@ -612,9 +615,9 @@ function usage(exitCode = 0) {
   console.log('Usage: followin-skills <command> [options]');
   console.log('');
   console.log('Commands:');
-  console.log('  setup       One-stop install: copy skill files + configure MCP servers');
+  console.log('  setup       One-stop install: copy skill files + configure the Followin MCP server');
   console.log('  install     Copy skill files only');
-  console.log('  configure   Configure MCP servers only (writes to client config file)');
+  console.log('  configure   Configure the Followin MCP server only (writes to client config file)');
   console.log('  uninstall   Remove bundled skills from target dir');
   console.log('  list        Show bundled skills');
   console.log('  path        Print source dir of bundled skill files');

@@ -2,7 +2,7 @@
 
 [English](./README.md) | **简体中文**
 
-13 个 AI Agent 技能,覆盖加密交易、宏观分析与市场情报 —— 由 **Followin MCP** 和 **Premium MCP** 驱动。
+13 个 AI Agent 技能,覆盖加密交易、宏观分析与市场情报 —— 由 **Followin MCP** 驱动。
 
 所有技能同时支持**中英文**触发词,输出语言跟随你的提问语言。
 
@@ -10,7 +10,7 @@
 
 整个包分为两层:
 
-1. **MCP 服务器**(Followin MCP + Premium MCP)—— 提供底层数据和工具,适用于**任何兼容 MCP 的 AI 客户端**:Claude Code、Claude Desktop、Cursor、Windsurf、Cline、Continue.dev、OpenCode、OpenClaw 等。
+1. **MCP 服务器**(Followin MCP)—— 提供底层数据和工具,适用于**任何兼容 MCP 的 AI 客户端**:Claude Code、Claude Desktop、Cursor、Windsurf、Cline、Continue.dev、OpenCode、OpenClaw 等。
 2. **Skill 文件**(`.claude/commands/` 下的 13 个 markdown 文件)—— 采用 Claude Code 的 slash command 格式编写。可直接放入 Claude Code 及其它兼容该格式的客户端;对于使用其它规则/命令格式的工具,markdown 内容本身依然完全可移植 —— 把对应字段粘到工具自己的格式里就行。
 
 ## 一键安装
@@ -19,7 +19,7 @@
 npx @followin/skills setup
 ```
 
-按提示粘贴你的 Followin API key,然后重启客户端。完成 —— 13 个 skill 文件已安装,两个 MCP 服务器(`followin-mcp` + `premium-mcp`)已配置并通过连接验证。
+按提示粘贴你的 Followin API key,然后重启客户端。完成 —— 13 个 skill 文件已安装,Followin MCP 服务器(`followin`)已配置并通过连接验证。
 
 > **默认布局(1.6.0+):skill 项目级,MCP 全局**。`npx @followin/skills setup` 把 skill 文件写到 `<cwd>/.claude/commands/`(只在当前项目生效),MCP 配置写到 `~/.claude.json`(所有 Claude Code 会话都能用)。API key 配一次,MCP 服务器到处都能调用。如果想让 skill 也全局可用,加 `--client claude-code`。
 
@@ -48,15 +48,10 @@ Cursor 和 Windsurf 的规则文件会被**自动转换**为它们各自的原�
 ```json
 {
   "mcpServers": {
-    "followin-mcp": {
+    "followin": {
       "type": "sse",
-      "url": "https://mcp.followin.io/sse?api_key=YOUR_API_KEY_HERE",
-      "headers": { "X-API-Key": "YOUR_API_KEY_HERE" }
-    },
-    "premium-mcp": {
-      "type": "sse",
-      "url": "https://premium-mcp.followin.io/sse?api_key=YOUR_API_KEY_HERE",
-      "headers": { "X-API-Key": "YOUR_API_KEY_HERE" }
+      "url": "https://mcp.followin.io/v2/sse",
+      "headers": { "x-api-key": "YOUR_API_KEY_HERE" }
     }
   }
 }
@@ -71,13 +66,13 @@ Cursor 和 Windsurf 的规则文件会被**自动转换**为它们各自的原�
 | Cline | Cline 面板 → MCP Servers(齿轮图标) |
 | Continue.dev | `~/.continue/config.yaml`(JSON 转 YAML) |
 
-API key 同时以 `?api_key=` 查询参数和 `X-API-Key` header 两种方式发送,以兼容不同客户端。改完配置后请重启客户端。
+API key 通过 `x-api-key` header 发送。改完配置后请重启客户端。
 
 </details>
 
 ---
 
-## Followin MCP — 加密资讯与舆情
+## 加密资讯与舆情
 
 Followin MCP 接入 Followin 加密货币资讯平台,提供以下数据能力:
 
@@ -175,9 +170,9 @@ Followin MCP 接入 Followin 加密货币资讯平台,提供以下数据能力:
 
 ---
 
-## Premium MCP — 交易策略与宏观分析
+## 交易策略与宏观分析
 
-Premium MCP 聚合多个专业数据源:
+Followin MCP 还聚合多个专业数据源:
 
 - **顶级交易员实盘** — 顶级合约交易员的实时持仓数据(方向、杠杆、仓位规模)
 - **链上巨鲸** — Hyperliquid 链上可验证的巨鲸/知名交易员仓位(开仓价、清算价、精确仓位)

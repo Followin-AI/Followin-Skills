@@ -2,7 +2,7 @@
 
 **English** | [简体中文](./README.zh-CN.md)
 
-13 AI agent skills for crypto trading, macro analysis, and market intelligence — powered by **Followin MCP** and **Premium MCP**.
+13 AI agent skills for crypto trading, macro analysis, and market intelligence — powered by **Followin MCP**.
 
 All skills support both **Chinese and English** triggers and output in the language you use.
 
@@ -10,7 +10,7 @@ All skills support both **Chinese and English** triggers and output in the langu
 
 The package has two layers:
 
-1. **MCP servers** (Followin MCP + Premium MCP) — these provide the underlying data and tools, and work in **any MCP-compatible AI client**: Claude Code, Claude Desktop, Cursor, Windsurf, Cline, Continue.dev, OpenCode, OpenClaw, and so on.
+1. **MCP server** (Followin MCP) — provides the underlying data and tools, and works in **any MCP-compatible AI client**: Claude Code, Claude Desktop, Cursor, Windsurf, Cline, Continue.dev, OpenCode, OpenClaw, and so on.
 2. **Skill files** (the 13 markdown files in `.claude/commands/`) — written in Claude Code's slash-command format. They drop in directly to Claude Code and other clients that read the same format. For tools that use a different rule/command format, the markdown bodies are still fully portable — just paste the relevant fields into your tool's native format.
 
 ## Setup
@@ -19,7 +19,7 @@ The package has two layers:
 npx @followin/skills setup
 ```
 
-Paste your Followin API key when prompted, then restart your client. Done — the 13 skill files are installed and both MCP servers (`followin-mcp` + `premium-mcp`) are configured and validated.
+Paste your Followin API key when prompted, then restart your client. Done — the 13 skill files are installed and the Followin MCP server (`followin`) is configured and validated.
 
 > **Default layout (1.6.0+): skills project-local, MCP global.** `npx @followin/skills setup` writes skill files to `<cwd>/.claude/commands/` (only active in this project) and MCP config to `~/.claude.json` (available in every Claude Code session). Configure your API key once, use the MCP servers everywhere. For a fully global install (skills too), pass `--client claude-code`.
 
@@ -48,15 +48,10 @@ Run `npx @followin/skills clients` to see every preset. Requires Node.js 16+ (ma
 ```json
 {
   "mcpServers": {
-    "followin-mcp": {
+    "followin": {
       "type": "sse",
-      "url": "https://mcp.followin.io/sse?api_key=YOUR_API_KEY_HERE",
-      "headers": { "X-API-Key": "YOUR_API_KEY_HERE" }
-    },
-    "premium-mcp": {
-      "type": "sse",
-      "url": "https://premium-mcp.followin.io/sse?api_key=YOUR_API_KEY_HERE",
-      "headers": { "X-API-Key": "YOUR_API_KEY_HERE" }
+      "url": "https://mcp.followin.io/v2/sse",
+      "headers": { "x-api-key": "YOUR_API_KEY_HERE" }
     }
   }
 }
@@ -71,13 +66,13 @@ Run `npx @followin/skills clients` to see every preset. Requires Node.js 16+ (ma
 | Cline | Cline panel → MCP Servers (gear icon) |
 | Continue.dev | `~/.continue/config.yaml` (convert JSON to YAML) |
 
-The API key is sent both as `?api_key=` and `X-API-Key` for cross-client compatibility. Restart your client after editing.
+The API key is sent via the `x-api-key` header. Restart your client after editing.
 
 </details>
 
 ---
 
-## Followin MCP — Crypto News & Sentiment
+## Crypto News & Sentiment
 
 Followin MCP connects to the Followin crypto intelligence platform, providing:
 
@@ -174,9 +169,9 @@ Specify a token, get a 4-dimension snapshot: news flashes, in-depth articles, Tw
 
 ---
 
-## Premium MCP — Trading Strategy & Macro Analysis
+## Trading Strategy & Macro Analysis
 
-Premium MCP aggregates professional data sources:
+Followin MCP also aggregates professional data sources:
 
 - **Top Trader Positions** — Real-time CEX contract trader positions (direction, leverage, size)
 - **On-chain Whales** — Hyperliquid on-chain verifiable whale positions (entry price, liquidation price, exact size)
