@@ -16,7 +16,7 @@
 - **v1 范围**：早报 + 事件预告 + 研报热议 + 推特热议/信号 + 实时热点速报，共 5 模块；实盘交易跟踪留 v2。
 - **产出形态**：直接可复制粘贴的繁体中文社群贴文，运营零加工即发。网站二次加工由对方自理。
 - **科普形态**：嵌入式——每篇贴文自带白话解释（"可以粗略理解成…"句式）+ 每篇末尾一张"今日名詞"卡（从当天内容里抽一个术语）。不做独立科普课程模块。
-- **额度**：不设硬约束，质量优先。实测下来全套月耗约 400 点（早报 7/天 + 三个周模块 ~15/周 + 速报按日均 2 次各 ~2 点计 ~120/月），Basic（1000/月）仍有余量，作为对外话术优势保留。
+- **额度**：不设硬约束，质量优先。实测下来全套月耗约 400-500 点（早报 7-10/天视批量降级层级 + 三个周模块 ~15/周 + 速报日均 2 次各 ~2 点 ~120/月），Basic（1000/月）仍有余量；数组批量恢复后回落至 ~400 以下，作为对外话术优势保留。
 
 ## 2. 架构（方案 B）
 
@@ -35,6 +35,8 @@ skills-community/
 
 维护纪律沿用现行模式：MCP 行为变更 → 先改 caveats SSOT → sweep 各 skill 内联镜像（镜像只抄用到的条目）。风格规范同理。
 
+**调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 本会话 07-22 复现）**：`keywords/categories/sources` 等数组参数在当前环境会被序列化成字符串遭 schema 拒（连环 -32602）。所有调用规范以 **query 自然语言/空格拼串为主写法**（服务端自解析成 keywords，meta 可验证），数组形式仅作"标准客户端若可传数组"的备选注记。批量降级梯：① keywords 数组批量（≤10，B-31）→ ② query 串批量（crypto 实测可行，tradfi 多 ticker 可能被路由到 fundamentals，实现时验证）→ ③ 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+
 ## 3. 共享风格规范（community-post-style.md）
 
 内容清单：
@@ -51,6 +53,13 @@ skills-community/
 - **多空平衡**：任何看多内容必须带一条空方视角或风险；跨源数据打架时明说（"三個溫度計指向不同方向"），不硬圆。
 - **禁止事项**：不给买卖指令、不给仓位建议、不预测短线涨跌、不使用"必涨/起飞/上车"类词汇。
 
+以下五条运营铁律借鉴 trend-scout 实战教训（详见其 SKILL.md v1.11.x）：
+- **单源铁律**：地缘/政策/监管类大消息，≥2 个相互独立信源确认才能当事实陈述；单源一律标"消息尚待確認"。
+- **价格铁律**：贴文里所有当前价/涨跌幅只准引本次 metrics 返回值；新闻正文和 KOL 推文里转述的百分比是二手数据（trend-scout 实测 KOL 报"-35~50%"实为 -25~35%），必须经实时快照核实才可写。
+- **禁止凑数**：当日无大事就诚实写"今日平靜"，禁止拿陈货或边角料硬凑版面（社群信任是唯一资产）。
+- **事件时间双时区**：宏观/财报时间标 美东+台北 双时间；写"今晚/明晚"前用绝对日历核对，禁按惯例推算（trend-scout 被 CPI 日期变更坑过 3 天）。
+- **发前自检清单**（每篇产出前逐项过）：繁体✓ 大白话✓ 字数✓ 名词卡✓ 免责✓ 多空平衡✓ 单源标注✓ 价格可回溯✓。
+
 ## 4. 四个模块设计
 
 ### c1 每日早报（日跑，盘前）
@@ -60,11 +69,11 @@ skills-community/
 |---|---|---|
 | 1 | `news(空 query, asset_type="tradfi", time_range="24h")` 热点趋势榜 | 0（实测） |
 | 2 | （按需）对头条事件 `news(query="<核心名词×2>", time_range="24h")` 补细节，≤3 次 | 0（实测） |
-| 3 | `metrics(query="biggest gainers")` / `"biggest losers"` 各一次 | 2 |
+| 3 | `metrics(query="most active stocks", asset_type="tradfi")` 异动榜——**弃用 biggest gainers/losers**（trend-scout v1.8.0 实测：上游缺 marketCap 且全是仙股）；most_actives 返回行自带 marketCap，客户端过滤 ≥$1B 后取涨跌显著者 | 1 |
 | 4 | `signal(query="consensus", asset_type="tradfi", time_range="24h")` 无 categories 一次拿全：喊单榜+多空比+内部人大额动向 | 1 |
-| 5 | `metrics(query="earnings calendar", asset_type="tradfi", date_from=今日, date_to=明日)` 当日财报名单，按 c2 同款规则过滤 | 1 |
-| 6 | `metrics(keywords=["economic calendar"], categories=["macro"])` 当日宏观数据发布 | 1 |
-| 7 | 大盘 ETF（SPY/QQQ/DIA）+ 过滤后重点股合并一批 ≤10 `metrics(keywords=[…], asset_type="tradfi")` 快照 | 1 |
+| 5 | `metrics(query="earnings calendar", asset_type="tradfi", date_from=今日, date_to=明日)` 当日财报名单，按 c2 同款规则过滤 + 重点标的日期二次核实（见 c2） | 1 |
+| 6 | `metrics(query="economic calendar upcoming releases")` 当日宏观数据发布（数组形态失效后 query 路径未实测，实现时验证；不通则由 c2 周预告承载宏观日历，本行降级删除） | 1 |
+| 7 | 大盘指数 ^GSPC ^IXIC ^DJI ^VIX（trend-scout 实测可用）+ 过滤后重点股快照，按批量降级梯执行（§2 调用形态铁律） | 1-4 |
 
 产出结构（≤1000 字）：
 1. **大盤一眼**：三大指数 ETF 昨收涨跌 + 一句话定调（盘前跑则引用快照自带的 extendedHoursQuote 标注"盤前"）
@@ -75,11 +84,13 @@ skills-community/
 6. 今日名詞卡 + 免责声明
 
 防坑规则：
-- movers 按 caveats 红线 9 过滤（杠杆 ETF/仙股 <$5/微盘）。
+- 异动榜客户端过滤：marketCap ≥$1B + 剔杠杆 ETF（name 含 2X/3X/Long/Short/Bull/Bear/Daily/Leveraged）+ 仙股 <$5（红线 9 与 trend-scout 双重依据）。
 - 趋势榜内容含代币化股票与加密混排（实测 SKHYx、LAB 代币），按"美股正股白名单"原则剔除。
 - news 搜索模式不传 asset_type（红线）；趋势模式（空 query）可传，见新 caveat N-1。
 - 步骤 4 的内部人行按 N-6 客户端过滤 transactionDate=昨日，且只认 S-Sale/P-Purchase（F-InKind/M-Exempt 剔除）。
-- VIX 类波动率标的调用路径未实测，实现时先验证（VIXY ETF 或 ^VIX），不通则"大盤一眼"只用三大 ETF。
+- 原油如需引用：用 BZUSD/USO——CLUSD 被 trend-scout 实测 402（与红线 6 冲突，实现时复核后回写 SSOT）。
+
+**刷新模式（借鉴 trend-scout 模式入口）**：当日已出早报后，运营说"刷新"→ 只跑步骤 1/3/4 增量（time_range 缩到 4h；metrics 的 time_range <1d 有返旧数据 bug——trend-scout 实测——小时级一律用当次返回的实时快照，不拉小时历史），产出 200-400 字增量补丁贴（"午间更新：新增 XX 两件事"），已在早报出现过的条目不重复。无当日早报 baseline 时拒绝刷新、先跑早报。
 
 ### c2 事件预告（周跑，周日/周一）
 
@@ -91,7 +102,9 @@ skills-community/
 | 3 | `metrics(keywords=["economic calendar"], categories=["macro"])` | 1 |
 
 财报日历过滤（新 caveat N-2）：只留无交易所后缀的美股 symbol → `revenueEstimated > $1B` 初筛 → 市值排序取 Top 5-8。
-经济日历 query 严禁带"本周"（红线 10）。
+经济日历 query 严禁带"本周"（红线 10）；数组失效后经济日历的 query 形态实现时重验（同 c1 步骤 6）。
+
+**日期核实制度（借鉴 trend-scout 弃用 fmp 日历的前科）**：trend-scout 连续 3 周实测 fmp 财报/经济日历返回垃圾（外币小票、关键词误解析成 ticker），最终弃用改为人工核实的事件锚点登记表。c2 保留日历调用作候选源，但加两道闸：① 进贴文的重点财报日期，用 `news(query="<公司名> earnings date")` 交叉确认（0 额度）或对照公司 IR；② CPI/非农等宏观日期禁按惯例推算，只认日历返回值并在贴文标注"以官方公告為準"。c2 每周产出的预告贴本身即社群版锚点表——下周跑时先对照上周预告核对差异，日期变更主动发更正。
 
 产出结构：本周财报（谁、哪天、市场在赌什么）→ 本周宏观数据（哪天、为什么重要）→ 每个事件一句"影响哪些标的" → 名词卡。
 
@@ -101,7 +114,7 @@ skills-community/
 | 步骤 | 调用 | 额度 |
 |---|---|---|
 | 1 | `metrics(query="research reports most mentioned stocks", asset_type="tradfi", time_range="7d")` 聚合榜 | 1 |
-| 2 | 对榜单 Top 3-5 逐个 `metrics(keywords=[TICKER], query="research reports", verbosity="detail", time_range="7d")` | 各 1 |
+| 2 | 对榜单 Top 3-5 逐个 `metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")`（本会话实测可路由；标准客户端可用 keywords=[TICKER] 数组形态） | 各 1 |
 
 层 1 周榜贴：本周机构最密集讨论标的（提及篇数/机构家数/多空方向/目标价覆盖）。
 层 2 研究笔记贴（对标 lynette.io 页面结构，数据纵深更强）：一句話先懂 → 最新動態（融合 c4 推特层，见下）→ 機構怎麼看（多机构目标价区间标准化 + 对现价上行/回撤，注明分歧）→ 空方在擔心什麼（研报 risks + bear scenario）→ 接下來看什麼（catalysts 时间线）→ 名词卡。
@@ -118,7 +131,7 @@ skills-community/
 | 步骤 | 调用 | 额度 |
 |---|---|---|
 | 1 | `signal(query="consensus", asset_type="tradfi", time_range="3d")` 无 categories 一次拿全四类（新 caveat N-4） | 1 |
-| 2 | 对喊单榜 Top 3-5 逐个 `signal(keywords=[TICKER], query="详细仓位", asset_type="tradfi", time_range="7d")` 四维钻取 | 各 1 |
+| 2 | 对喊单榜 Top 3-5 逐个 `signal(query="<TICKER> 详细仓位", asset_type="tradfi", time_range="7d")` 四维钻取（本会话实测 ticker 经 query 正确解析进 keywords；query 禁放"KOL"等元词） | 各 1 |
 | 3 | （可选）`news(query="<TICKER> <公司名>", time_range="24h")` 补推特层原文 | 0（实测） |
 
 产出结构：本周推特在吵什么（喊单聚合榜 + 多空比）→ 每个标的的温度计三格：
@@ -158,7 +171,9 @@ skills-community/
 
 防坑规则：
 - 继承 c1 全部过滤规则（代币化股票/加密噪音/杠杆 ETF）。
-- 速报时效红线：所有引用行情必须是本次调用返回值并标注时间戳（"截至 XX:XX"）；趋势榜文章的 published_ts 超过 12h 的条目不得作为"实时热点"入选菜单。
+- 速报时效红线（age gate，借鉴 trend-scout §5.0）：趋势榜按热度返回、常混多日陈货，**必须机器核每条 published_ts**（当前时间 − published_ts >12h 不得入"实时"菜单），禁止肉眼估。所有引用行情必须是本次调用返回值并标注时间戳（"截至 XX:XX"）。
+- 单源 BREAKING：地缘/政策/监管类事件 ≥2 独立信源才可当事实写，否则标"消息尚待確認"（风格 SSOT 单源铁律）。
+- 纯交易事件不成稿：单一爆仓/大单/技术位突破且无叙事层（政策锚/产业链传导/跨源共振）的条目不入菜单——对新手社群是噪音不是内容。
 - 单事件单贴：一次速报只写一个热点，多个热点让运营分次选，避免大杂烩。
 
 ## 5. 错误处理与数据诚实
@@ -182,6 +197,14 @@ skills-community/
 
 另：F-InKind/M-Exempt 为缴税代扣非主动减持，扩充既有 insider 条目的解读规则。
 
+trend-scout 交叉引入的四条（其 SKILL.md 已实测，回写时标注双来源）：
+| 编号 | 内容 | 动作 |
+|---|---|---|
+| N-8 | keywords/categories/sources 数组参数 2026-07-20 起全域被序列化成字符串遭 schema 拒；统一走 query 串，服务端自解析（meta.filters_applied.keywords 可验证） | 新增红线（Dev 待修，修复后可回退数组批量） |
+| N-9 | biggest gainers/losers 上游缺 marketCap 且全是仙股，禁用；改 `query="most active stocks"`（自带 marketCap，客户端 ≥$1B 过滤），红线 9 的过滤清单继续沿用 | 修订红线 9 |
+| N-10 | metrics time_range <1d 返一个月前旧数据 bug；小时级用 interval 参数或只用实时快照 | 新增登记 |
+| N-11 | 指数类 ^GSPC ^IXIC ^DJI ^VIX 可用；^DXY/CLUSD/NGUSD 为 402 Special Endpoint 禁调——与红线 6 的 CLUSD 记载冲突，实现时复核后统一 SSOT | 新增登记 + 红线 6 复核 |
+
 ## 7. 验收标准
 
 1. **可复现**：干净 Claude 客户端 + Followin MCP key + skill 文件，一句触发词跑通各模块，产出完整贴文。
@@ -198,4 +221,8 @@ skills-community/
 
 ## 9. 实测记录索引
 
-本设计的全部调用路径均于 2026-07-22 在线实测验证，样本：NVDA（研报钻取/新闻/推特）、MU（四维交叉）、市场级（趋势榜/财报日历/研报聚合榜/喊单聚合）。额度实测：news 搜索与趋势 0 消耗，metrics/signal 每次 1 消耗，signal 无 categories fanout 亦为 1。
+证据两源：
+1. **本会话（2026-07-22）在线实测**：NVDA（研报钻取/新闻/推特）、MU（四维交叉）、市场级（趋势榜/财报日历/研报聚合榜/喊单聚合）。额度实测：news 搜索与趋势 0 消耗，metrics/signal 每次 1 消耗，signal 无 categories fanout 亦为 1。
+2. **trend-scout SKILL.md v1.11.x（~/.claude/skills/trend-scout/，2026-06~07 持续实测）**：数组参数全域失效（7/20）、movers 仙股问题、指数 symbol 白名单、metrics time_range <1d bug、fmp 日历质量前科、单源/价格/凑数三铁律的事故依据。其 references/decisions.md 存完整教训记录。
+
+两源冲突时（如 CLUSD）在实现阶段以新实测为准并回写 SSOT。
