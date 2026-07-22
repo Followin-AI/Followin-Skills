@@ -14,7 +14,7 @@
 6. **商品 ticker**：黄金 `GCUSD`（GOLD 错抓 Gold.com 美股 $42）；白银 `SIUSD`；原油 `CLUSD`（WTI）/ `BZUSD`（布油）；**不要用 GOLD/SILVER/OIL alias**。⚠️ CLUSD 被 trend-scout 2026-07 实测 402 Special Endpoint；原油优先 BZUSD/USO，CLUSD 待复核（N-11）。
 7. **fundamentals comprehensive 必须显式 `query="全面分析"`**（或 `"comprehensive analysis"` 精确双词）：不带 query 走 default 只返 5 block；带 query 返 14 block（仅缺 stock_peers）。`query="comprehensive"` 单词无效。
 8. **历史 OHLCV / 技术指标各自单调**：历史必须 `query="历史走势 30 day chart"` + `time_range`；RSI/EMA/SMA 用 `query="RSI 14"` / `"EMA 50"` / `"SMA 200"` 单独调，不要靠默认 fanout（撞错路径无 fallback）。历史路径支持多 ticker 批量（实测 2026-06-12：3 ticker × limit 各自完整返回，无丢条；~20 个上限未实测）。
-9. **mover 榜**：biggest gainers/losers 上游缺 marketCap 且全是仙股（trend-scout v1.8.0 实测）——弃用；改 query="most active stocks"（返回行自带 marketCap），客户端过滤 marketCap ≥$1B + 剔杠杆 ETF（name 含 2X/3X/Long/Short/Bull/Bear/Daily/Leveraged）+ 仙股 <$5。movers 仅美股。
+9. **mover 榜**：biggest gainers/losers 上游缺 marketCap 且全是仙股（trend-scout v1.8.0 实测）——弃用；改 `query="most active stocks"`，但实测（2026-07-22 Task 10 回归）board 行亦不带 marketCap（trend-scout 旧版记载已失效）——候选 ticker 需二次批量快照补市值后再过滤：marketCap ≥$1B + 剔杠杆 ETF（name 含 2X/3X/Long/Short/Bull/Bear/Daily/Leveraged）+ 仙股 <$5。movers 仅美股。
 10. **经济日历**：`metrics(keywords=["economic calendar"], categories=["macro"])`。query 别带"本周"——实测（2026-06-12）"本周"被解析成 lookback 7 天，返回**已发布历史**而非前瞻日历。
 11. **news() 无匹配时不返回空，返回语义兜底的不相关内容**（实测 2026-06-12：查 Quhuo/Navios 返回的是 BoJ/伊朗等宏观新闻填充）。**所有"报道 ≤ N"类判定必须按 LLM 逐条判断后的相关报道数计数，不能用 raw count**——否则填充内容会把"无声异动"误判成"有报道"。
 12. **研报查询 query 必须含研报意图词**（"research reports" / "研报"等）：实测（2026-07-15）query 只放报告标题（如 `query="Can semi cap work if memory doesn't"` + keywords=["MU"]）**不会路由到 research-report 路径**，掉进 CORE fundamentals 默认全家桶（三表/估值/profile），且照常计 1 次额度。**钻取指定报告的正确姿势 = 保持 `query="research reports"` + `verbosity="detail"` 重查，客户端从结果挑目标报告**；无按 event_id/标题取单份的入参。返回分 `subject_reports`（主题报告）与 `mention_reports`（提及报告）两层。
@@ -46,8 +46,10 @@
 | N-6 | insider/congress 行无视 time_range（7d 返回 2020 年记录）；客户端按 transactionDate 过滤强制 | 客户端按 transactionDate 过滤强制 | 本会话实测 2026-07-22 |
 | N-7 | 13F institutional 申报季中期 investorsHolding 环比为残缺假信号（实测 NVDA 6234→1441）；申报季内禁止引用环比 | 申报季禁引环比 | 本会话实测 2026-07-22 |
 | N-8 | keywords/categories/sources 数组参数 2026-07-20 起全域被序列化成字符串遭 schema 拒；统一走 query 串，服务端自解析（meta.filters_applied.keywords 可验证） | query 串替代；Dev 修复后回退 | trend-scout v1.11.x + 本会话复现（N-8）|
-| N-9 | biggest gainers/losers 上游缺 marketCap 且全是仙股，禁用；改 `query="most active stocks"`（自带 marketCap，客户端 ≥$1B 过滤），红线 9 的过滤清单继续沿用 | 改 query="most active stocks"；客户端 marketCap ≥$1B 过滤 + 剔杠杆 ETF + 仙股 <$5 | trend-scout 实测（N-9）|
+| N-9 | biggest gainers/losers 上游缺 marketCap 且全是仙股，禁用；改 `query="most active stocks"`，但实测（2026-07-22 Task 10 回归）board 行亦不带 marketCap（trend-scout 旧版记载已失效），需二次批量快照补市值后过滤；红线 9 的过滤清单继续沿用 | 改 query="most active stocks"；客户端 marketCap ≥$1B 过滤 + 剔杠杆 ETF + 仙股 <$5 | trend-scout 实测（N-9）＋Task 10 回归修正 |
 | N-10 | metrics time_range <1d 返一个月前旧数据 bug；小时级用 interval 参数或只用实时快照 | 小时级用 interval/实时快照 | trend-scout 实测（N-10）|
 | N-11 | 指数类 ^GSPC ^IXIC ^DJI ^VIX 可用；^DXY/CLUSD/NGUSD 为 402 Special Endpoint 禁调——与红线 6 的 CLUSD 记载冲突，实现时复核后统一 SSOT | 指数白名单 ^GSPC ^IXIC ^DJI ^VIX 可用；^DXY/CLUSD/NGUSD 402 | trend-scout 实测（N-11）|
+| N-12 | query 串批量会静默丢弃部分 ticker（实测 2026-07-22：9 个 ticker 空格拼串仅解析出 5 个，ONDS 连续两次被跳过且无任何 warning） | 批量调用后必须核对 `meta.filters_applied.keywords` 与请求清单一致，缺失者单独补调 | 本会话实测（Task 10 回归） |
+| N-13 | signal consensus 聚合疑似对 time_range 不敏感（3d 与 24h 共四次调用返回 total_posts/多空比/榜单完全一致；可能数据池小到收敛，证据不足定性） | 对外表述窗口用词保守（"近幾日"而非精确小时数）；后续以 3d vs 30d 大窗口差异复验 | 本会话实测（Task 10 回归，待复验） |
 
 > 完整 bug 复现记录见 Obsidian《FollowX MCP - Skill v2 烟雾测试 Bug Report - 2026-06-01》（已提交 dev）。
