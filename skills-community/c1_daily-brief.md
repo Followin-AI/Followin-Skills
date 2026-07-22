@@ -31,10 +31,10 @@ spec §4-c1 表（逐字）：
 |---|---|---|
 | 1 | `news(空 query, asset_type="tradfi", time_range="24h")` 热点趋势榜 | 0（实测） |
 | 2 | （按需）对头条事件 `news(query="<核心名词×2>", time_range="24h")` 补细节，≤3 次 | 0（实测） |
-| 3 | `metrics(query="most active stocks", asset_type="tradfi")` 异动榜——**弃用 biggest gainers/losers**（trend-scout v1.8.0 实测：上游缺 marketCap 且全是仙股）；most_actives 返回行自带 marketCap，客户端过滤 ≥$1B 后取涨跌显著者 | 1 |
+| 3 | `metrics(query="most active stocks", asset_type="tradfi")` 异动榜——**弃用 biggest gainers/losers**（trend-scout v1.8.0 实测：上游缺 marketCap 且全是仙股）；**2026-07-22 回归实测更正**：该 board 行本身也不带 marketCap 字段（10/10 行仅有 price/change/name/symbol），需对候选 ticker 另发一次批量 `metrics(query="<TICKER1> <TICKER2> ...", asset_type="tradfi")` 补 snapshot 取 marketCap 后再套用 ≥$1B 过滤（≤10 个一批；query 串批量会静默丢部分 ticker，需核对 `meta.filters_applied.keywords` 是否齐全，缺的单独补查） | 2 |
 | 4 | `signal(query="consensus", asset_type="tradfi", time_range="24h")` 无 categories 一次拿全：喊单榜+多空比+内部人大额动向 | 1 |
 | 5 | `metrics(query="earnings calendar", asset_type="tradfi", date_from=今日, date_to=明日)` 当日财报名单，按 c2 同款规则过滤 + 重点标的日期二次核实（见 c2） | 1 |
-| 6 | `metrics(query="economic calendar upcoming releases")` 当日宏观数据发布（数组形态失效后 query 路径未实测，实现时验证；不通则由 c2 周预告承载宏观日历，本行降级删除） | 1 |
+| 6 | `metrics(query="economic calendar upcoming releases")` 当日宏观数据发布（2026-07-22 回归实测确认可用：query 路径能路由，返回调用当下自然日的日历，满足"当日"需求；date_from/date_to 不影响窗口宽度，传或不传都只回传锚定日当天，见 c2 关于多日窗口限制的记载） | 1 |
 | 7 | 大盘指数 ^GSPC ^IXIC ^DJI ^VIX（trend-scout 实测可用）+ 过滤后重点股快照，按批量降级梯执行（§2 调用形态铁律） | 1-4 |
 
 调用形态铁律（架构 §2 镜像，本序列全程通用）：
@@ -51,7 +51,7 @@ spec §4-c1 表（逐字）：
    # 搜索模式：不要传 asset_type（红线 1，加了会返 0 篇且不报错），≤3 次，按需
 
 3. metrics(query="most active stocks", asset_type="tradfi")
-   # 异动榜；客户端三重过滤见第 4 节
+   # 异动榜；返回行不带 marketCap（2026-07-22 回归实测更正原 N-9 记载），先用候选 ticker 批量 metrics(query="<TICKER…>", asset_type="tradfi") 补一次 snapshot 取 marketCap，再套三重过滤见第 4 节
 
 4. signal(query="consensus", asset_type="tradfi", time_range="24h")
    # 不带 categories 一次拿全 4 类（喊单/多空比/内部人/实盘），仍计 1 额度
@@ -59,7 +59,7 @@ spec §4-c1 表（逐字）：
 5. metrics(query="earnings calendar", asset_type="tradfi", date_from="<今日>", date_to="<明日>")
 
 6. metrics(query="economic calendar upcoming releases")
-   # 宏观日历，非个股查询不传 asset_type；query 严禁带"本周"（红线 10，会返历史而非前瞻）
+   # 宏观日历，非个股查询不传 asset_type；query 严禁带"本周"（红线 10，会返历史而非前瞻）；2026-07-22 实测确认：不带 date_from/date_to 时默认即返回当天日历（当日已发布+待发布混排），满足 c1"当日"需求即可，date_from/date_to 传了也不会扩大窗口（见 c2 关于多日窗口限制的记载）
 
 7. metrics(query="^GSPC ^IXIC ^DJI ^VIX", asset_type="tradfi")
    # 大盘四指数一次批量；过滤后重点股快照另按批量降级梯逐批补（单批 ≤4 路，SSE 红线）
@@ -104,7 +104,7 @@ spec §4-c1 表（逐字）：
 
 ## 4. 防坑镜像（逐条，来源编号见括号）
 
-- **异动榜三重过滤**：异动榜客户端过滤：marketCap ≥$1B + 剔杠杆 ETF（name 含 2X/3X/Long/Short/Bull/Bear/Daily/Leveraged）+ 仙股 <$5（红线 9 与 trend-scout 双重依据）。（N-9：gainers/losers 榜上游缺 marketCap 且全是仙股，禁用；改用 `most active stocks`——回传行自带 marketCap，客户端 ≥$1B 过滤，红线 9 的过滤清单继续沿用）
+- **异动榜三重过滤**：异动榜客户端过滤：marketCap ≥$1B + 剔杠杆 ETF（name 含 2X/3X/Long/Short/Bull/Bear/Daily/Leveraged）+ 仙股 <$5（红线 9 与 trend-scout 双重依据）。（N-9：gainers/losers 榜上游缺 marketCap 且全是仙股，禁用；改用 `most active stocks`——但 2026-07-22 回归实测发现该 board 本身也不带 marketCap（原 N-9"回传行自带 marketCap"记载有误，此处更正），须另发一次批量 snapshot 补 marketCap 才能套用 ≥$1B 过滤，红线 9 的过滤清单继续沿用）
 - **代币化+加密噪音白名单剔除**：趋势榜内容含代币化股票与加密混排（实测 SKHYx、LAB 代币），按"美股正股白名单"原则剔除。（来源：c1 本次实测命中 SKHYx、LAB）
 - **news 搜索不传 asset_type、趋势可传**：news 搜索模式不传 asset_type（红线 1）；趋势模式（空 query）可传，见新 caveat N-1。（N-1：news 趋势模式［空 query］传 asset_type="tradfi" 可用且 0 额度；"news 不传 asset_type" 红线仅适用搜索模式；实体搜索［query="NVDA Nvidia"］实测也 0 额度）
 - **内部人 transactionDate=昨日，只认 S-Sale/P-Purchase**：步骤 4 的内部人行按 N-6 客户端过滤 transactionDate=昨日，且只认 S-Sale/P-Purchase（F-InKind/M-Exempt 剔除）。（N-6：insider/congress 行无视 time_range，7d 窗口可能返回 2020 年记录；客户端按 transactionDate 过滤为强制要求，Dev 待修。F-InKind/M-Exempt 是缴税代扣/豁免行使，非主动交易，对外只认 S-Sale 当卖出、P-Purchase 当买入）

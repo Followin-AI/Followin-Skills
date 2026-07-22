@@ -21,10 +21,10 @@ spec §4-c5 表（逐字）：
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
-| 1 | `news(空 query, asset_type="tradfi", time_range="4h")` 趋势榜（hot 排序，实测 sort_by_effective="hot"） | 0（实测 24h 窗口；4h/1h 窗口实现时验证，不通则 24h + 按 published_ts 客户端取最近） |
+| 1 | `news(空 query, asset_type="tradfi", time_range="4h")` 趋势榜（hot 排序，实测 sort_by_effective="hot"） | 0（2026-07-22 回归实测确认：4h 窗口不可用，返回 0 篇，`meta.warnings` 报 `asset_type_filter_emptied`——该窗口候选池太小，仅有的几条话题全被 tradfi 过滤器剔除；已改走 24h + 按 published_ts 客户端取最近，本行不再标"待验证"） |
 | 2 | `signal(query="consensus", asset_type="tradfi", time_range="24h")` 喊单热度佐证 | 1 |
 
-步骤 1 的 4h 窗口目前只是设计推断，本会话实测确认可行的是 24h 窗口（`sort_by_effective="hot"`）；4h/1h 更短窗口能不能正常返回，需实现时另外验证，不通则降级为 24h 窗口 + 客户端按每条的 `published_ts` 字段自行截取"最近"的条目。
+步骤 1 的 4h 窗口 2026-07-22 回归实测已确认不可行——`news(query="", asset_type="tradfi", time_range="4h")` 返回 0 篇，`meta.warnings` 明确报"followin_trending: all N trending topics dropped by asset_type filter"（4h 窗口候选池太小，仅有的几条话题全被 tradfi 过滤器滤掉，upstream tag gap 待 Dev 排查）；1h 窗口大概率同样受限，未逐一复测但按同一机制推断。可行的是 24h 窗口（`sort_by_effective="hot"`），**已确认降级为 24h 窗口 + 客户端按每条的 `published_ts` 字段自行截取"最近"的条目**，此为最终结论，不再标"待验证"。
 
 这里必须和 N-10 分清楚，不能混为一谈：
 
@@ -44,7 +44,7 @@ N-10 记载的是 `metrics()` 工具在 `time_range` 小于 1 天时会返回一
 
 ```
 1. news(query="", asset_type="tradfi", time_range="4h")
-   # 趋势模式：空 query 传 asset_type 是可用例外（红线 1 + N-1）；4h 窗口待验证，不通则改 time_range="24h" + 客户端按 published_ts 取最近
+   # 趋势模式：空 query 传 asset_type 是可用例外（红线 1 + N-1）；4h 窗口 2026-07-22 实测已确认不可行（0 篇，asset_type_filter_emptied），一律改用 time_range="24h" + 客户端按 published_ts 取最近
 
 2. signal(query="consensus", asset_type="tradfi", time_range="24h")
    # 不带 categories 一次拿全 4 类，仍计 1 额度（N-4）；此处只用喊单热度佐证扫描菜单排序，不做温度计钻取
