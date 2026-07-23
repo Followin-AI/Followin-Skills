@@ -45,7 +45,7 @@
 
 ## 4️⃣ 安装方式
 
-同 [`skills-v2/README.md`](../skills-v2/README.md) 的三种安装方式，路径换成 `skills-community/`：
+三种安装方式（路径为 `skills-community/`）：
 
 ### 方法 1：复制到全局 commands 目录（推荐）
 

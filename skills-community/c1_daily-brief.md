@@ -25,7 +25,7 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 
 ## 2. 调用序列（实测额度 ≈7/天）
 
-spec §4-c1 表（逐字）：
+调用序列：
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
@@ -37,9 +37,9 @@ spec §4-c1 表（逐字）：
 | 6 | `metrics(query="economic calendar upcoming releases")` 当日宏观数据发布（2026-07-22 回归实测确认可用：query 路径能路由，返回调用当下自然日的日历，满足"当日"需求；date_from/date_to 不影响窗口宽度，传或不传都只回传锚定日当天，见 c2 关于多日窗口限制的记载） | 1 |
 | 7 | 大盘指数 ^GSPC ^IXIC ^DJI ^VIX（trend-scout 实测可用）+ 过滤后重点股快照，按批量降级梯执行（§2 调用形态铁律） | 1-4 |
 
-调用形态铁律（架构 §2 镜像，本序列全程通用）：
+调用形态铁律（本序列全程通用）：
 
-> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 本会话 07-22 复现）**：`keywords/categories/sources` 等数组参数在当前环境会被序列化成字符串遭 schema 拒（连环 -32602）。所有调用规范以 **query 自然语言/空格拼串为主写法**（服务端自解析成 keywords，meta 可验证），数组形式仅作"标准客户端若可传数组"的备选注记。批量降级梯：① keywords 数组批量（≤10，B-31）→ ② query 串批量（crypto 实测可行，tradfi 多 ticker 可能被路由到 fundamentals，实现时验证）→ ③ 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-07-22 复现）**：`keywords/categories/sources` 等数组参数在当前环境会被序列化成字符串遭 schema 拒（连环 -32602）。所有调用规范以 **query 自然语言/空格拼串为主写法**（服务端自解析成 keywords，meta 可验证），数组形式仅作"标准客户端若可传数组"的备选注记。批量降级梯：① keywords 数组批量（≤10，B-31）→ ② query 串批量（crypto 实测可行，tradfi 多 ticker 可能被路由到 fundamentals，实现时验证）→ ③ 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
 
 每步 query 主形态调用示例：
 

@@ -13,18 +13,18 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
 ## 1. 两层产出与调用序列（≈4-6/周）
 
-spec §4-c3 表（逐字）：
+调用序列：
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
 | 1 | `metrics(query="research reports most mentioned stocks", asset_type="tradfi", time_range="7d")` 聚合榜 | 1 |
-| 2 | 对榜单 Top 3-5 逐个 `metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")`（本会话实测可路由；标准客户端可用 keywords=[TICKER] 数组形态） | 各 1 |
+| 2 | 对榜单 Top 3-5 逐个 `metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")`（实测可路由；标准客户端可用 keywords=[TICKER] 数组形态） | 各 1 |
 
 ### 层 1：本周研报热议榜
 
 调用：`metrics(query="research reports most mentioned stocks", asset_type="tradfi", time_range="7d")` 聚合榜。
 
-输出内容（spec 逐字）：本周机构最密集讨论标的（提及篇数/机构家数/多空方向/目标价覆盖）。
+输出内容：本周机构最密集讨论标的（提及篇数/机构家数/多空方向/目标价覆盖）。
 
 具体字段：
 - **排名**：按提及篇数或机构家数降序（二者不一致时以机构家数为准，避免同一机构多篇报告刷高排名）。
@@ -39,13 +39,13 @@ spec §4-c3 表（逐字）：
 
 ### 层 2：研究笔记（对 Top 3-5 或指定标的）
 
-调用：`metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")`（本会话实测可路由；标准客户端可用 `keywords=["<TICKER>"]` 数组形态）。
+调用：`metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")`（实测可路由；标准客户端可用 `keywords=["<TICKER>"]` 数组形态）。
 
 对层 1 榜单 Top 3-5 逐个调用；若触发时带 args `ticker`，跳过层 1，只对该 ticker 调用一次。
 
-调用形态铁律（架构 §2 镜像，本序列全程通用）：
+调用形态铁律（本序列全程通用）：
 
-> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 本会话 07-22 复现）**：`keywords/categories/sources` 等数组参数在当前环境会被序列化成字符串遭 schema 拒（连环 -32602）。所有调用规范以 **query 自然语言/空格拼串为主写法**（服务端自解析成 keywords，meta 可验证），数组形式仅作"标准客户端若可传数组"的备选注记。批量降级梯：① keywords 数组批量（≤10，B-31）→ ② query 串批量（crypto 实测可行，tradfi 多 ticker 可能被路由到 fundamentals，实现时验证）→ ③ 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-07-22 复现）**：`keywords/categories/sources` 等数组参数在当前环境会被序列化成字符串遭 schema 拒（连环 -32602）。所有调用规范以 **query 自然语言/空格拼串为主写法**（服务端自解析成 keywords，meta 可验证），数组形式仅作"标准客户端若可传数组"的备选注记。批量降级梯：① keywords 数组批量（≤10，B-31）→ ② query 串批量（crypto 实测可行，tradfi 多 ticker 可能被路由到 fundamentals，实现时验证）→ ③ 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
 
 每步 query 主形态调用示例：
 
@@ -60,9 +60,9 @@ spec §4-c3 表（逐字）：
 
 ## 2. 研究笔记模板
 
-spec 逐字：
 
-> 层 2 研究笔记贴（对标 lynette.io 页面结构，数据纵深更强）：一句話先懂 → 最新動態（融合 c4 推特层，见下）→ 機構怎麼看（多机构目标价区间标准化 + 对现价上行/回撤，注明分歧）→ 空方在擔心什麼（研报 risks + bear scenario）→ 接下來看什麼（catalysts 时间线）→ 名词卡。
+
+> 层 2 研究笔记贴（对标公开研究页的结构，数据纵深更强）：一句話先懂 → 最新動態（融合 c4 推特层，见下）→ 機構怎麼看（多机构目标价区间标准化 + 对现价上行/回撤，注明分歧）→ 空方在擔心什麼（研报 risks + bear scenario）→ 接下來看什麼（catalysts 时间线）→ 名词卡。
 
 七段骨架（S-3 骨架适配，去掉互动钩子——见第 4 节）：
 1. **标题**：📌 本週研報熱點｜TICKER 公司名
@@ -73,7 +73,7 @@ spec 逐字：
 6. **接下來看什麼**：catalysts 时间线
 7. 今日名詞卡 + 免责声明
 
-**目标价必带家数+分歧幅度（约束所有对外模块的总则，c6 同条镜像）**：機構怎麼看段落的目标价必须标注参与家数与分歧幅度，禁止只给单一均值——单均值误导性大（lynette 页教训），这条规则同样约束 bundle 内所有对外模块。T-1 样例的"三家大行目標價落在 $288–350"就是标准写法。
+**目标价必带家数+分歧幅度（约束所有对外模块的总则，c6 同条镜像）**：機構怎麼看段落的目标价必须标注参与家数与分歧幅度，禁止只给单一均值——单均值误导性大（公开研究页的常见毛病），这条规则同样约束 bundle 内所有对外模块。T-1 样例的"三家大行目標價落在 $288–350"就是标准写法。
 
 字数按 S-4 镜像：研究笔记（层 2）单篇 ≤1000 字（S-4 只点名"c3 研究笔记"这一例外，T-1 样例本身即示范长度）；周榜贴（层 1）按 S-4 默认档 500-800 字，不套用层 2 的 1000 字上限。
 
@@ -118,11 +118,11 @@ spec 逐字：
 
 - **N-3 去重（机构+标题+日期）**：
 
-  > N-3：研报同一份报告可双 event_id 重复入库；按 机构+标题+日期 去重（本会话实测 2026-07-22）。
+  > N-3：研报同一份报告可双 event_id 重复入库；按 机构+标题+日期 去重（实测 2026-07-22）。
 
   层 1 聚合榜与层 2 detail 返回都可能出现同一份报告被不同 event_id 重复计入（实测花旗案例）。客户端在统计提及篇数、机构家数、或列出具体报告时，一律按"机构+标题+日期"三元组去重，避免同一份报告被算成两篇、虚增热度或家数。
 
-- **detail 自带快照，上行空间就地算，不再花额度（spec 逐字）**：
+- **detail 自带快照，上行空间就地算，不再花额度**：
 
   > detail 返回自带实时行情快照，上行空间就地计算，不再花额度。
 
@@ -134,7 +134,7 @@ spec 逐字：
 
   第 1 节层 1 输出已述；此处重申：层 2 若榜单 Top 3-5 里出现非美股 ticker（如台积电 2330.TW、三星 005930.KS），研究笔记照样可以产出，只需在标题/一句話先懂里标注市场，运营自行决定是否收录进当周产出。
 
-- **meta.warnings 检查（`research_report_limit_capped`）**：每次调用（层 1 聚合榜、层 2 detail 钻取）后按 spec §5 惯例检查返回的 `meta.warnings`（"每次调用后检查 meta.warnings（keyword_count_over_max 等）"）。研报路径对应的告警键预期为 `research_report_limit_capped`——出现即代表本次榜单排名或 detail 报告数被上游截断，不代表"研报本来就这么少"，成稿前须知会运营；该键名沿用红线 4/B-31 的 `keyword_count_over_max` 同一惯例，键名本身尚待实测最终确认，实现时以实际返回字段为准。
+- **meta.warnings 检查（`research_report_limit_capped`）**：每次调用（层 1 聚合榜、层 2 detail 钻取）后按 设计文档对应章节）"）。研报路径对应的告警键预期为 `research_report_limit_capped`——出现即代表本次榜单排名或 detail 报告数被上游截断，不代表"研报本来就这么少"，成稿前须知会运营；该键名沿用红线 4/B-31 的 `keyword_count_over_max` 同一惯例，键名本身尚待实测最终确认，实现时以实际返回字段为准。
 
 - **S-5 多空平衡**：
 
@@ -164,6 +164,6 @@ S-12 清单（逐字，每篇产出前逐项过）：
 
 c3 专属追加一项：**目标价家数可回溯✓**——機構怎麼看段落写的家数、分歧幅度、目标价区间都能指向本次 detail 返回的 `subject_reports` 列表，不是凭记忆或旧研报数字。
 
-额度哨兵（内部提醒，不进对外贴文，spec §5 镜像）：
+额度哨兵（内部提醒，不进对外贴文，设计文档对应章节）：
 
 > **额度哨兵**：每次模块跑完读一次 `meta.quota`（每个返回都带，实测），`remaining/limit < 15%` 时在产出末尾附一行内部提醒（不进对外贴文）："⚠️ 本月額度剩 N 次，按當前節奏約可跑 X 天，考慮降頻或升級"。额度见底导致日更断档比任何单篇内容缺失都伤运营。
