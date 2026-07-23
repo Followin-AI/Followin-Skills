@@ -164,11 +164,21 @@ spec 逐字：
 
 识别规则：触发短语含"财报"关键词（如"XX 财报出来了"），或第 1 节扫描菜单里某条候选本身就是财报事件，或运营从 c6 标的速查"🔥 值得速报"衔接过来且该标的当日有财报——三种情形都路由到本节的专用速读路径，不走第 2 节的常规速报模板。
 
-调用：`metrics(query="<TICKER> earnings beat miss analyst ratings", asset_type="tradfi")`，≈1-2 点。query 关键词能否稳定路由到财报专属路径、还是掉进 fundamentals 默认全家桶，实现时需要验证——按第 3 节引用的 c3 红线 12 前车之鉴，研报查询若 query 里意图词不够会静默路由到默认集且照常计额度；本行"earnings beat miss analyst ratings"关键词组合是否会触发同类的 fanout 提示词，需实现时按返回的 `meta.warnings` 核实（提示词键名尚未确认，先按"出现任何 fanout/降级相关 warning 即代表本次未命中财报专属路径"处理，并需客户端自行从返回内容里判断有没有拿到 earnings beat/miss 相关字段）。
+调用（2026-07-23 GOOGL 财报夜实跑修订，原写法已废弃）：**禁止**使用 `query="<TICKER> earnings beat miss analyst ratings"`——实测该串里的 "beat" 被关键词抽取器当成 ticker，实际解析出 `keywords=["GOOGL","BEAT"]`，把仙股 HeartBeam（BEAT，$0.55）的行情混进快照（N-14）。正确写法是纯 ticker 加自然语言意图词，不要在 query 里放会撞 ticker 的英文单词：
+
+```
+metrics(query="<TICKER> 财报 分析师评级", asset_type="tradfi")
+# 或最稳的形态：query 只放 ticker → metrics(query="<TICKER>", asset_type="tradfi")
+# 无论哪种，调用后必须核对 meta.filters_applied.keywords 是否只含目标 ticker（N-12/N-14）
+```
+
+返回仍会带 `default_fanout_fallback` 提示（属正常，CORE fundamentals 集里已含 beat_miss / consensus_price / next_earnings_estimate / analyst_grades，够用），≈1-2 点。
+
+**财报当晚的数据时差（2026-07-23 实跑发现，必读）**：财报公布当晚，`fundamentals.beat_miss` 仍停留在**上一季**（实测 GOOGL 7/22 盘后发 Q2，当晚 beat_miss 返回的仍是 4/29 的 Q1 数据），FMP 侧要延后才更新。因此四句结构里的"本季实际 vs 预期"**当晚必须从第 2 节步骤 3 的 `news()` 返回里取**（媒体与公司披露原文，0 额度），metrics 只用于取盘后快照、分析师目标价与评级；直接把 `beat_miss` 当成本季数字写进贴文会写错一整季。次日之后再跑同一标的，才可用 beat_miss 交叉复核。
 
 速读贴固定四句结构，逐条展开：
 
-1. **营收/EPS**：本季实际营收与每股盈余，对比市场预期，写出具体数字（不能只写"超预期"三个字，必须是"实际 X vs 预期 Y"这种可回溯的数字对比，价格与财务数字只能引用本次调用返回值，呼应 S-7 铁律 2）。
+1. **营收/EPS**：本季实际营收与每股盈余，对比市场预期，写出具体数字（不能只写"超预期"三个字，必须是"实际 X vs 预期 Y"这种可回溯的数字对比，价格与财务数字只能引用本次调用返回值，呼应 S-7 铁律 2）；当晚数据源见上方"财报当晚的数据时差"——取 `news()` 返回的媒体/披露原文，不取 `beat_miss`。另：**EPS 若含一次性项目必须点破**（实测 GOOGL Q2 每股获利 9.11 美元 vs 预期 2.89 美元，但其中约 990 亿美元来自一次性项目，直接写"超预期 3 倍"会严重误导新手）——凡实际 EPS 与预期偏离幅度异常（>50%），先在 news 层确认是否有一次性损益，再决定怎么写。
 2. **指引**：管理层对下一季或全年营收/获利的预测怎么说——上调、维持还是下调。
 3. **盘后反应**：财报公布后股价的实际反应，必须是本次调用返回的快照数据，按财报公布的实际时段标注「盤中」或「盤後」。
 4. **下一个观察点**：一个可验证的前瞻点，比如下一季财报会不会延续这次的指引基调。

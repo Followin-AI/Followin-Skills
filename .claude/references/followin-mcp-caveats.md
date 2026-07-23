@@ -51,5 +51,8 @@
 | N-11 | 指数类 ^GSPC ^IXIC ^DJI ^VIX 可用；^DXY/CLUSD/NGUSD 为 402 Special Endpoint 禁调——与红线 6 的 CLUSD 记载冲突，实现时复核后统一 SSOT | 指数白名单 ^GSPC ^IXIC ^DJI ^VIX 可用；^DXY/CLUSD/NGUSD 402 | trend-scout 实测（N-11）|
 | N-12 | query 串批量会静默丢弃部分 ticker（实测 2026-07-22：9 个 ticker 空格拼串仅解析出 5 个，ONDS 连续两次被跳过且无任何 warning） | 批量调用后必须核对 `meta.filters_applied.keywords` 与请求清单一致，缺失者单独补调 | 本会话实测（Task 10 回归） |
 | N-13 | signal consensus 聚合疑似对 time_range 不敏感（3d 与 24h 共四次调用返回 total_posts/多空比/榜单完全一致；可能数据池小到收敛，证据不足定性） | 对外表述窗口用词保守（"近幾日"而非精确小时数）；后续以 3d vs 30d 大窗口差异复验 | 本会话实测（Task 10 回归，待复验） |
+| N-14 | query 串里的普通英文词会被当 ticker 抽取：实测 `query="GOOGL earnings beat miss analyst ratings"` 解析出 `keywords=["GOOGL","BEAT"]`，把仙股 HeartBeam(BEAT,$0.55) 行情混入快照 | query 只放 ticker + 中文意图词（如 `"GOOGL 财报 分析师评级"`）；禁用 beat/miss/hold/buy/now/all 等会撞 ticker 的英文词；调用后核对 `meta.filters_applied.keywords` | 本会话实测（2026-07-23 GOOGL 财报夜实跑） |
+| N-15 | 财报当晚 `fundamentals.beat_miss` 仍是上一季数据（实测 GOOGL 7/22 盘后发 Q2，当晚返回的仍是 4/29 Q1），FMP 侧延后更新 | 当晚"实际 vs 预期"一律取 `news()` 媒体/披露原文（0 额度），metrics 只用于盘后快照与目标价；次日后才可用 beat_miss 复核 | 本会话实测（2026-07-23 GOOGL 财报夜实跑） |
+| N-16 | `consensus_price` 无分析师家数字段（仅 targetConsensus/High/Low/Median），而 c3/c6 规则要求"目标价必带家数+分歧幅度" | 家数不可得时明确标注"家数未提供"，只给区间+中位；需要家数时改由 `analyst_grades` 近 N 条按机构去重估算并注明是估算 | 本会话实测（2026-07-23） |
 
 > 完整 bug 复现记录见 Obsidian《FollowX MCP - Skill v2 烟雾测试 Bug Report - 2026-06-01》（已提交 dev）。
