@@ -33,7 +33,7 @@ spec §4-c1 表（逐字）：
 | 2 | （按需）对头条事件 `news(query="<核心名词×2>", time_range="24h")` 补细节，≤3 次 | 0（实测） |
 | 3 | `metrics(query="most active stocks", asset_type="tradfi")` 异动榜——**弃用 biggest gainers/losers**（trend-scout v1.8.0 实测：上游缺 marketCap 且全是仙股）；**2026-07-22 回归实测更正**：该 board 行本身也不带 marketCap 字段（10/10 行仅有 price/change/name/symbol），需对候选 ticker 另发一次批量 `metrics(query="<TICKER1> <TICKER2> ...", asset_type="tradfi")` 补 snapshot 取 marketCap 后再套用 ≥$1B 过滤（≤10 个一批；query 串批量会静默丢部分 ticker，需核对 `meta.filters_applied.keywords` 是否齐全，缺的单独补查） | 2 |
 | 4 | `signal(query="consensus", asset_type="tradfi", time_range="24h")` 无 categories 一次拿全：喊单榜+多空比+内部人大额动向 | 1 |
-| 5 | `metrics(query="earnings calendar", asset_type="tradfi", date_from=今日, date_to=明日)` 当日财报名单，按 c2 同款规则过滤 + 重点标的日期二次核实（见 c2） | 1 |
+| 5 | `metrics(query="earnings calendar", asset_type="tradfi", date_from=今日, date_to=明日, limit=100)` 当日财报名单，按 c2 同款规则过滤 + 重点标的日期二次核实（见 c2）；**limit 必须调大并做交叉验证，见下方 N-17** | 1 |
 | 6 | `metrics(query="economic calendar upcoming releases")` 当日宏观数据发布（2026-07-22 回归实测确认可用：query 路径能路由，返回调用当下自然日的日历，满足"当日"需求；date_from/date_to 不影响窗口宽度，传或不传都只回传锚定日当天，见 c2 关于多日窗口限制的记载） | 1 |
 | 7 | 大盘指数 ^GSPC ^IXIC ^DJI ^VIX（trend-scout 实测可用）+ 过滤后重点股快照，按批量降级梯执行（§2 调用形态铁律） | 1-4 |
 
@@ -108,6 +108,8 @@ spec §4-c1 表（逐字）：
 - **代币化+加密噪音白名单剔除**：趋势榜内容含代币化股票与加密混排（实测 SKHYx、LAB 代币），按"美股正股白名单"原则剔除。（来源：c1 本次实测命中 SKHYx、LAB）
 - **news 搜索不传 asset_type、趋势可传**：news 搜索模式不传 asset_type（红线 1）；趋势模式（空 query）可传，见新 caveat N-1。（N-1：news 趋势模式［空 query］传 asset_type="tradfi" 可用且 0 额度；"news 不传 asset_type" 红线仅适用搜索模式；实体搜索［query="NVDA Nvidia"］实测也 0 额度）
 - **内部人 transactionDate=昨日，只认 S-Sale/P-Purchase**：步骤 4 的内部人行按 N-6 客户端过滤 transactionDate=昨日，且只认 S-Sale/P-Purchase（F-InKind/M-Exempt 剔除）。（N-6：insider/congress 行无视 time_range，7d 窗口可能返回 2020 年记录；客户端按 transactionDate 过滤为强制要求，Dev 待修。F-InKind/M-Exempt 是缴税代扣/豁免行使，非主动交易，对外只认 S-Sale 当卖出、P-Purchase 当买入）
+- **财报日历会漏掉当天最重要的美股（N-17，2026-07-23 实测）**：当日 30 条返回被印度/欧洲/OTC 小票占满，而同一时刻 `fundamentals.next_earnings_estimate` 明确显示 AAL 当天发财报，该股却不在日历返回里。补救三步：① `limit` 至少 100；② 客户端只留无交易所后缀的美股 symbol 并剔除优先股（含 `-P` 字样，如 DLR-PJ）；③ **对当日涨跌榜/热点里出现的标的，用其 `next_earnings_estimate.date` 交叉验证是否等于今天**——日历漏了但个股字段有，这是唯一能补回大票的路径。宁可在贴文里承认"今日财报名单可能不全"，也不能把小票名单当成当天全貌。
+- **指数快照会出现重复行（N-18，2026-07-23 实测）**：query 串 `"^GSPC ^IXIC ^DJI ^VIX"` 被解析成 5 个 keywords（多出一个裸 `VIX`），返回里 ^VIX 出现两条完全相同的行。写贴文前必须按 `symbol` 去重，否则"大盤一眼"会把同一个指数写两次。
 - **原油用 BZUSD/USO**：原油如需引用：用 BZUSD/USO——CLUSD 被 trend-scout 实测 402（与红线 6 冲突，实现时复核后回写 SSOT）。（N-11：指数类 ^GSPC ^IXIC ^DJI ^VIX 可用；^DXY/CLUSD/NGUSD 为 402 Special Endpoint 禁调，与红线 6 的 CLUSD 记载冲突，实现时复核后统一 SSOT——复核完成前一律避开 CLUSD）
 - **S-7 五铁律（全文镜像，五条均对本 skill 生效）**：
   - 铁律1 单源：地缘/政策/监管大消息 ≥2 独立信源才当事实，否则标「消息尚待確認」。

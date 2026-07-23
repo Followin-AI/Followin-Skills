@@ -54,5 +54,8 @@
 | N-14 | query 串里的普通英文词会被当 ticker 抽取：实测 `query="GOOGL earnings beat miss analyst ratings"` 解析出 `keywords=["GOOGL","BEAT"]`，把仙股 HeartBeam(BEAT,$0.55) 行情混入快照 | query 只放 ticker + 中文意图词（如 `"GOOGL 财报 分析师评级"`）；禁用 beat/miss/hold/buy/now/all 等会撞 ticker 的英文词；调用后核对 `meta.filters_applied.keywords` | 本会话实测（2026-07-23 GOOGL 财报夜实跑） |
 | N-15 | 财报当晚 `fundamentals.beat_miss` 仍是上一季数据（实测 GOOGL 7/22 盘后发 Q2，当晚返回的仍是 4/29 Q1），FMP 侧延后更新 | 当晚"实际 vs 预期"一律取 `news()` 媒体/披露原文（0 额度），metrics 只用于盘后快照与目标价；次日后才可用 beat_miss 复核 | 本会话实测（2026-07-23 GOOGL 财报夜实跑） |
 | N-16 | `consensus_price` 无分析师家数字段（仅 targetConsensus/High/Low/Median），而 c3/c6 规则要求"目标价必带家数+分歧幅度" | 家数不可得时明确标注"家数未提供"，只给区间+中位；需要家数时改由 `analyst_grades` 近 N 条按机构去重估算并注明是估算 | 本会话实测（2026-07-23） |
+| N-17 | 财报日历漏掉当天美股大票：实测 2026-07-23 当日 30 条全被印度/欧洲/OTC 小票占满，而 AAL 的 `next_earnings_estimate.date` 明确是当天，日历却无此股 | limit≥100 + 客户端只留无后缀美股 symbol 并剔优先股(-P) + 对重点标的用 `next_earnings_estimate.date` 交叉验证；名单不全时如实标注 | 本会话实测（2026-07-23 全模块实跑） |
+| N-18 | 指数 query 串产生重复行：`"^GSPC ^IXIC ^DJI ^VIX"` 解析出 5 个 keywords（多一个裸 VIX），^VIX 返回两条相同行 | 客户端按 symbol 去重后再引用 | 本会话实测（2026-07-23） |
+| N-19 | 研报榜排名基于 mention count，钻取时可能 `subject_reports=0` 只有 `mention_reports`（实测 GOOGL 榜单第 2、66 篇提及，但主题报告为 0，4 篇全是行业报告里的提及） | 榜单高位≠有专题报告；钻取后必须检查 subject/mention 两层比例，只有 mention 时贴文须写明"是被行业报告提及，不是专题研究" | 本会话实测（2026-07-23） |
 
 > 完整 bug 复现记录见 Obsidian《FollowX MCP - Skill v2 烟雾测试 Bug Report - 2026-06-01》（已提交 dev）。
