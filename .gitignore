@@ -38,3 +38,6 @@ followin_io_*.json
 .idea/
 *.swp
 *.swo
+
+# SDD scratch (agent briefs/reports/diffs — 本地过程产物，不入库)
+.superpowers/
