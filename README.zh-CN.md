@@ -59,7 +59,7 @@ claude mcp add followin https://mcp.followin.io/v2/mcp --scope user --transport 
 | Cline | Cline 面板 → MCP Servers（齿轮图标）|
 | Continue.dev | `~/.continue/config.yaml`（JSON 转 YAML）|
 
-改完重启客户端。项目级模板见 [`.mcp.json.example`](./.mcp.json.example)。
+改完重启客户端。
 
 **3. 安装 Skill 文件**（可选）—— 把需要的文件复制进客户端的命令目录：
 

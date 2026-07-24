@@ -59,7 +59,7 @@ Other clients — paste into the config file below, replacing `YOUR_API_KEY_HERE
 | Cline | Cline panel → MCP Servers (gear icon) |
 | Continue.dev | `~/.continue/config.yaml` (convert JSON to YAML) |
 
-Restart your client after editing. See [`.mcp.json.example`](./.mcp.json.example) for a project-local template.
+Restart your client after editing.
 
 **3. Install the skill files** (optional) — copy what you want into your client's command directory:
 

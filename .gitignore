@@ -9,14 +9,6 @@
 *.key
 *.pem
 
-# Node
-node_modules/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-*.tgz
-
 # Claude Code local state (user's installed plugins, marketplaces, caches)
 .claude/plugins/
 .claude/settings.local.json
