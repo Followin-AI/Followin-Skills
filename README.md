@@ -14,9 +14,9 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 
 | Bundle | Files | For |
 |---|---|---|
-| **[`.claude/commands/`](./.claude/commands/)** | 6 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
+| **[`Base Skill/Skill/`](./Base%20Skill/Skill/)** | 6 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
 | **[`skills-community/`](./skills-community/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
-| **[`.claude/references/`](./.claude/references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
+| **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
 Everything is plain Markdown. There is no build step and no runtime dependency beyond the MCP server.
 
@@ -64,7 +64,7 @@ Restart your client after editing.
 **3. Install the skill files** (optional) — copy what you want into your client's command directory:
 
 ```bash
-cp .claude/commands/*.md ~/.claude/commands/
+cp "Base Skill/Skill"/*.md ~/.claude/commands/
 ```
 
 Skills are written in Claude Code's slash-command format (YAML frontmatter + Markdown body). They drop straight into Claude Code and OpenCode. For Cursor / Windsurf / Cline, copy each body into that tool's native rule format — the Markdown is fully portable.
@@ -89,7 +89,7 @@ Skills are written in Claude Code's slash-command format (YAML frontmatter + Mar
 - **Structured broker research (研报) goes through `metrics`, not `news`.** `news(sources=["research"])` is for raw research-source *article* discovery; report cards, target prices, and thesis/catalyst fields come from `metrics(categories=["fundamentals"])`.
 - **Omitting `categories` on `signal()` fans out** to insider trading + 13F institutional + KOL calls for a single quota unit — cheaper than three filtered calls returning the same data.
 
-Full call red-lines and the known-issues register live in [`.claude/references/followin-mcp-caveats.md`](./.claude/references/followin-mcp-caveats.md).
+Full call red-lines and the known-issues register live in [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md).
 
 ---
 
@@ -99,16 +99,16 @@ Numbered in recommended onboarding order — 01 is the deepest dive, 06 the ligh
 
 | # | Skill | Ask it | MCP tools |
 |---|---|---|---|
-| **01** | [Multi-Agent Stock Analysis](./.claude/commands/01_multi-agent-stock-analysis.md) | `Should I buy NVDA` · `全面分析 NVDA` | `metrics` `news` `signal` |
-| **02** | [US Stock Earnings Report](./.claude/commands/02_us-stock-earnings-report.md) | `AAPL earnings` · `AAPL 财报` | `metrics` `news` `signal` |
-| **03** | [US Stock Divergence Scan](./.claude/commands/03_us-stock-divergence-scan.md) | `Divergence scan` · `美股背离扫描` | `metrics` `news` `signal` |
-| **04** | [BTC Macro Dashboard](./.claude/commands/04_btc-macro-dashboard.md) | `BTC macro` · `BTC 宏观` | `metrics` |
-| **05** | [Gold Macro Dashboard](./.claude/commands/05_gold-macro-dashboard.md) | `Gold macro` · `黄金宏观` | `metrics` |
-| **06** | [Macro Morning Brief](./.claude/commands/06_macro-morning-brief.md) | `Morning brief` · `宏观早报` | `metrics` `news` |
+| **01** | [Multi-Agent Stock Analysis](./Base%20Skill/Skill/01_multi-agent-stock-analysis.md) | `Should I buy NVDA` · `全面分析 NVDA` | `metrics` `news` `signal` |
+| **02** | [US Stock Earnings Report](./Base%20Skill/Skill/02_us-stock-earnings-report.md) | `AAPL earnings` · `AAPL 财报` | `metrics` `news` `signal` |
+| **03** | [US Stock Divergence Scan](./Base%20Skill/Skill/03_us-stock-divergence-scan.md) | `Divergence scan` · `美股背离扫描` | `metrics` `news` `signal` |
+| **04** | [BTC Macro Dashboard](./Base%20Skill/Skill/04_btc-macro-dashboard.md) | `BTC macro` · `BTC 宏观` | `metrics` |
+| **05** | [Gold Macro Dashboard](./Base%20Skill/Skill/05_gold-macro-dashboard.md) | `Gold macro` · `黄金宏观` | `metrics` |
+| **06** | [Macro Morning Brief](./Base%20Skill/Skill/06_macro-morning-brief.md) | `Morning brief` · `宏观早报` | `metrics` `news` |
 
 ### 01 — Multi-Agent Stock Analysis
 
-19 virtual analysts (8 legendary investors + 5 modern masters + 6 quant analysts) score independently, a risk manager constrains position size, and a portfolio manager makes the call — 21 agents total. Modeled on the ai-hedge-fund architecture. Its 11-call sequence covers the full official due-diligence orchestration. Analyst personas live in [`.claude/references/01_agent-prompts.md`](./.claude/references/01_agent-prompts.md).
+19 virtual analysts (8 legendary investors + 5 modern masters + 6 quant analysts) score independently, a risk manager constrains position size, and a portfolio manager makes the call — 21 agents total. Modeled on the ai-hedge-fund architecture. Its 11-call sequence covers the full official due-diligence orchestration. Analyst personas live in [`references/01_agent-prompts.md`](./references/01_agent-prompts.md).
 
 ### 02 — US Stock Earnings Report
 
@@ -162,7 +162,7 @@ Each skill's frontmatter carries explicit `trigger` and `not_trigger` lists — 
 
 ## Maintenance discipline
 
-`.claude/references/followin-mcp-caveats.md` is the **single source of truth** for MCP call red-lines and known upstream issues. Skills mirror the relevant caveats inline; **on conflict, the reference file wins.**
+`references/followin-mcp-caveats.md` is the **single source of truth** for MCP call red-lines and known upstream issues. Skills mirror the relevant caveats inline; **on conflict, the reference file wins.**
 
 When MCP behavior changes: edit the reference file first, then sweep the inline mirrors in the affected skills. The register also records the rollback action for each issue, so workarounds can be removed once upstream ships a fix.
 

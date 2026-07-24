@@ -162,8 +162,8 @@ cp skills-community/*.md ~/.claude/commands/
 ## 🔗 相关资料
 
 - MCP 接入：[`README.zh-CN.md`](../README.zh-CN.md) §"接入" · 定价见 [followin.io/en/mcp](https://followin.io/en/mcp)
-- 贴文风格规范（S-1~S-12 + 已核可样例）：[`.claude/references/community-post-style.md`](../.claude/references/community-post-style.md)
-- MCP 调用 caveats 单一事实源：[`.claude/references/followin-mcp-caveats.md`](../.claude/references/followin-mcp-caveats.md)
+- 贴文风格规范（S-1~S-12 + 已核可样例）：[`references/community-post-style.md`](../references/community-post-style.md)
+- MCP 调用 caveats 单一事实源：[`references/followin-mcp-caveats.md`](../references/followin-mcp-caveats.md)
 - 产出样张集（七场景索引 + 触发词速查）：[`docs/产出样张集.md`](../docs/产出样张集.md)
 
 ---

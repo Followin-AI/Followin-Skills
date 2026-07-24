@@ -26,7 +26,7 @@ args: ticker
 | 宏观日报、美股早报 | ❌ 转 morning-brief |
 | 背离扫描 | ❌ 转 divergence-scan |
 
-> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `.claude/references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
+> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
 
 ## 数据层 — Followin MCP 三工具映射
 

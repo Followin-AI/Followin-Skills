@@ -14,9 +14,9 @@
 
 | Bundle | 文件数 | 面向 |
 |---|---|---|
-| **[`.claude/commands/`](./.claude/commands/)** | 6 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
+| **[`Base Skill/Skill/`](./Base%20Skill/Skill/)** | 6 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
 | **[`skills-community/`](./skills-community/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
-| **[`.claude/references/`](./.claude/references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
+| **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
 全部为纯 Markdown，无构建步骤，除 MCP 服务器外无任何运行时依赖。
 
@@ -64,7 +64,7 @@ claude mcp add followin https://mcp.followin.io/v2/mcp --scope user --transport 
 **3. 安装 Skill 文件**（可选）—— 把需要的文件复制进客户端的命令目录：
 
 ```bash
-cp .claude/commands/*.md ~/.claude/commands/
+cp "Base Skill/Skill"/*.md ~/.claude/commands/
 ```
 
 Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 正文），可直接放入 Claude Code 与 OpenCode。Cursor / Windsurf / Cline 需要把正文复制进各自的原生规则格式 —— Markdown 本身完全可移植。
@@ -89,7 +89,7 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 - **结构化券商研报走 `metrics`，不走 `news`**。`news(sources=["research"])` 是研报来源的**原始文章**检索；报告卡、目标价、thesis/catalyst 这些结构化字段来自 `metrics(categories=["fundamentals"])`。
 - **`signal()` 省略 `categories` 会 fanout** 到内部人交易 + 13F 机构持仓 + KOL 喊单，**三类合计只计 1 次额度** —— 比分三次带过滤条件调用更省，且数据完全相同。
 
-完整调用红线与已知问题登记见 [`.claude/references/followin-mcp-caveats.md`](./.claude/references/followin-mcp-caveats.md)。
+完整调用红线与已知问题登记见 [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md)。
 
 ---
 
@@ -99,16 +99,16 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 
 | # | Skill | 怎么问 | 依赖工具 |
 |---|---|---|---|
-| **01** | [多 Agent 深度分析](./.claude/commands/01_multi-agent-stock-analysis.md) | `NVDA 值不值得买` · `全面分析 NVDA` | `metrics` `news` `signal` |
-| **02** | [美股财报分析](./.claude/commands/02_us-stock-earnings-report.md) | `AAPL 财报` · `AAPL earnings` | `metrics` `news` `signal` |
-| **03** | [美股背离扫描](./.claude/commands/03_us-stock-divergence-scan.md) | `美股背离扫描` · `内部人悄悄买入` | `metrics` `news` `signal` |
-| **04** | [BTC 宏观看盘](./.claude/commands/04_btc-macro-dashboard.md) | `BTC 宏观` · `BTC macro` | `metrics` |
-| **05** | [黄金宏观看盘](./.claude/commands/05_gold-macro-dashboard.md) | `黄金宏观` · `Gold macro` | `metrics` |
-| **06** | [宏观早报](./.claude/commands/06_macro-morning-brief.md) | `宏观早报` · `Morning brief` | `metrics` `news` |
+| **01** | [多 Agent 深度分析](./Base%20Skill/Skill/01_multi-agent-stock-analysis.md) | `NVDA 值不值得买` · `全面分析 NVDA` | `metrics` `news` `signal` |
+| **02** | [美股财报分析](./Base%20Skill/Skill/02_us-stock-earnings-report.md) | `AAPL 财报` · `AAPL earnings` | `metrics` `news` `signal` |
+| **03** | [美股背离扫描](./Base%20Skill/Skill/03_us-stock-divergence-scan.md) | `美股背离扫描` · `内部人悄悄买入` | `metrics` `news` `signal` |
+| **04** | [BTC 宏观看盘](./Base%20Skill/Skill/04_btc-macro-dashboard.md) | `BTC 宏观` · `BTC macro` | `metrics` |
+| **05** | [黄金宏观看盘](./Base%20Skill/Skill/05_gold-macro-dashboard.md) | `黄金宏观` · `Gold macro` | `metrics` |
+| **06** | [宏观早报](./Base%20Skill/Skill/06_macro-morning-brief.md) | `宏观早报` · `Morning brief` | `metrics` `news` |
 
 ### 01 —— 多 Agent 深度分析
 
-19 位虚拟分析师（8 位传奇投资者 + 5 位现代大师 + 6 位量化分析师）独立打分，风控经理约束仓位，组合经理综合决策 —— 合计 21 个 Agent，对标 ai-hedge-fund 架构。11 路调用序列已完整覆盖官方尽调编排。分析师人设见 [`.claude/references/01_agent-prompts.md`](./.claude/references/01_agent-prompts.md)。
+19 位虚拟分析师（8 位传奇投资者 + 5 位现代大师 + 6 位量化分析师）独立打分，风控经理约束仓位，组合经理综合决策 —— 合计 21 个 Agent，对标 ai-hedge-fund 架构。11 路调用序列已完整覆盖官方尽调编排。分析师人设见 [`references/01_agent-prompts.md`](./references/01_agent-prompts.md)。
 
 ### 02 —— 美股财报分析
 
@@ -162,7 +162,7 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 
 ## 维护纪律
 
-`.claude/references/followin-mcp-caveats.md` 是 MCP 调用红线与已知上游问题的**单一事实源**。各 Skill 内联的 caveat 是它的本地镜像，**冲突时以该文件为准**。
+`references/followin-mcp-caveats.md` 是 MCP 调用红线与已知上游问题的**单一事实源**。各 Skill 内联的 caveat 是它的本地镜像，**冲突时以该文件为准**。
 
 MCP 行为变更时：**先改这个文件，再 sweep 各 Skill 的内联镜像**。登记表同时记录了每个问题的"Dev 修复后回滚动作"，上游修好后可以据此撤掉 workaround。
 

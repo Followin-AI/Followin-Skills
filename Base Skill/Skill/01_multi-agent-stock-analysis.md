@@ -33,11 +33,11 @@ args: ticker
                           ⑳ 风控经理 → ㉑ 组合经理（LLM 综合决策）
 ```
 
-> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `.claude/references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
+> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
 
 ## 数据层 — Followin MCP 三工具（11 路调用 / 3 批）
 
-> 🔗 **官方路由 primer**（意图→工具映射、命名约定、尽调编排）见 `.claude/references/followin-routing-primer.md`。本 Skill 的调用序列已对齐官方「美股尽调」五项编排。
+> 🔗 **官方路由 primer**（意图→工具映射、命名约定、尽调编排）见 `references/followin-routing-primer.md`。本 Skill 的调用序列已对齐官方「美股尽调」五项编排。
 
 🔒 所有美股调用必须带 `asset_type="tradfi"`（除 BTC/ETH 等 crypto symbol）
 
@@ -130,7 +130,7 @@ SMA(200) = 简单 200 日均线
 - **置信度**: 0-100
 - **核心理由**: 2-3 条关键论据
 
-> 19 个 Agent 的 prompt（哲学 + 关注数据 + 评分框架）**完全保留 v1**，执行前先 Read 引用附件 `~/.claude/references/01_agent-prompts.md`（仓库内对应 `.claude/references/01_agent-prompts.md`）。每个 Agent 从同一数据池中按需取数。
+> 19 个 Agent 的 prompt（哲学 + 关注数据 + 评分框架）**完全保留 v1**，执行前先 Read 引用附件 `~/.claude/references/01_agent-prompts.md`（仓库内对应 `references/01_agent-prompts.md`）。每个 Agent 从同一数据池中按需取数。
 
 ### Step 4: ⑳ 风控经理（Risk Manager）
 
@@ -217,7 +217,7 @@ SMA(200) = 简单 200 日均线
 - 评分框架（如 Buffett 护城河 / Graham NCAV / Wood 颠覆性创新）
 - 信号阈值
 
-以及 ⑳ 风控经理 / ㉑ 组合经理的完整决策逻辑，全部在引用附件 **`01_agent-prompts.md`**（路径：`~/.claude/references/01_agent-prompts.md`，仓库内 `.claude/references/01_agent-prompts.md`）。**执行 Step 3 前必须先 Read 该文件**，不要凭分析师名字现编评分框架。
+以及 ⑳ 风控经理 / ㉑ 组合经理的完整决策逻辑，全部在引用附件 **`01_agent-prompts.md`**（路径：`~/.claude/references/01_agent-prompts.md`，仓库内 `references/01_agent-prompts.md`）。**执行 Step 3 前必须先 Read 该文件**，不要凭分析师名字现编评分框架。
 
 ## 输出约束
 

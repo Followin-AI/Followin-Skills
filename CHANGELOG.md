@@ -14,6 +14,19 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
 
 ---
 
+## [2026-07-24] — Directory layout: `.claude/` → `Base Skill/` + top-level `references/`
+
+### Changed
+- **`.claude/commands/` → `Base Skill/Skill/`** — the base bundle now lives in a visible, product-named folder instead of a hidden dotdir, mirroring `skills-community/`.
+- **`.claude/references/` → top-level `references/`** — the caveats SSOT and post-style guide serve both bundles, so shared assets moved out from under any single bundle's folder.
+- Install source path is now `cp "Base Skill/Skill"/*.md ~/.claude/commands/` (note the quotes — the folder name contains a space). The target stays `~/.claude/commands/`.
+- All repo-internal path references swept (READMEs, skill authority pointers, community README, 样张集, caveats header). `~/.claude/…` consumer-install paths are untouched.
+
+### Note
+- Cloning the repo and opening it in Claude Code **no longer auto-loads the skills** — `.claude/commands/` was Claude Code's convention path for project-local commands. Copy the files into your own `~/.claude/commands/` (or your project's `.claude/commands/`) as the README describes.
+
+---
+
 ## [2026-07-24] — Remove Macro Analyzer (07); flagship count 7 → 6
 
 ### Removed

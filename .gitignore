@@ -9,13 +9,8 @@
 *.key
 *.pem
 
-# Claude Code local state (user's installed plugins, marketplaces, caches)
-.claude/plugins/
-.claude/settings.local.json
-.claude/statsig/
-.claude/shell-snapshots/
-.claude/todos/
-.claude/worktrees/
+# Claude Code local state (repo no longer tracks anything under .claude/)
+.claude/
 
 # Data dumps (ad-hoc analysis artifacts, never in main repo)
 *.tweets.json
