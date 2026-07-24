@@ -10,7 +10,7 @@
 
 本 bundle **仅供社群运营人员使用**：运营触发 skill、审核产出、决定是否发布；群成员只消费运营发布出去的内容，不与任何 skill 产生直接或间接交互。
 
-**不做答疑服务**（v1 明确边界）：运营代群成员现查现答某个具体问题，属于答疑服务形态，v1 版本不支持——这类需求属于 v2 backlog，见 [`docs/superpowers/specs/2026-07-22-community-content-skills-design.md`](../docs/superpowers/specs/2026-07-22-community-content-skills-design.md) §8「群问答回复体模式」。
+**不做答疑服务**（v1 明确边界）：运营代群成员现查现答某个具体问题，属于答疑服务形态，v1 版本不支持——「群问答回复体模式」列入 v2 backlog。
 
 六个模块的产出物性质也不相同：**c1-c5** 是"运营零加工即发"的社群贴文；**c6** 是"运营自己看"的内部备忘，产出不对外，禁止直接复制进群（每份备忘尾行都固定提示这一点）。
 
@@ -73,7 +73,7 @@ cp skills-community/*.md ~/.claude/commands/
 
 ### MCP 接入
 
-六个模块合计只依赖 Followin MCP 的 3 个工具——`metrics` / `news` / `signal`（不需要 `twitter`）。注册账户、获取 API Key、各 AI 客户端（Claude Desktop / Cursor / Claude Code / Windsurf）的具体配置步骤，统一见仓库根目录 [`USER_GUIDE.md`](../USER_GUIDE.md) §"MCP 4 个核心工具"与§"快速接入（5 分钟）"。
+六个模块合计只依赖 Followin MCP 的 3 个工具——`metrics` / `news` / `signal`（不需要 `twitter`）。注册账户、获取 API Key、各 AI 客户端（Claude Desktop / Cursor / Claude Code / Windsurf）的具体配置步骤，统一见仓库根目录 [`README.zh-CN.md`](../README.zh-CN.md) §"接入"。
 
 ---
 
@@ -161,10 +161,10 @@ cp skills-community/*.md ~/.claude/commands/
 
 ## 🔗 相关资料
 
-- 完整 MCP 接入 / 定价文档：[`USER_GUIDE.md`](../USER_GUIDE.md)
+- MCP 接入：[`README.zh-CN.md`](../README.zh-CN.md) §"接入" · 定价见 [followin.io/en/mcp](https://followin.io/en/mcp)
 - 贴文风格规范（S-1~S-12 + 已核可样例）：[`.claude/references/community-post-style.md`](../.claude/references/community-post-style.md)
 - MCP 调用 caveats 单一事实源：[`.claude/references/followin-mcp-caveats.md`](../.claude/references/followin-mcp-caveats.md)
-- 设计文档（需求边界/架构/验收标准）：[`docs/superpowers/specs/2026-07-22-community-content-skills-design.md`](../docs/superpowers/specs/2026-07-22-community-content-skills-design.md)
+- 产出样张集（七场景索引 + 触发词速查）：[`docs/产出样张集.md`](../docs/产出样张集.md)
 
 ---
 

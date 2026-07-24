@@ -1,17 +1,10 @@
 {
   "mcpServers": {
-    "premium-mcp": {
+    "followin": {
       "type": "sse",
-      "url": "https://premium-mcp.followin.io/sse?api_key=YOUR_API_KEY_HERE",
+      "url": "https://mcp.followin.io/v2/sse",
       "headers": {
-        "X-API-Key": "YOUR_API_KEY_HERE"
-      }
-    },
-    "followin-mcp": {
-      "type": "sse",
-      "url": "https://mcp.followin.io/sse?api_key=YOUR_API_KEY_HERE",
-      "headers": {
-        "X-API-Key": "YOUR_API_KEY_HERE"
+        "x-api-key": "YOUR_API_KEY_HERE"
       }
     }
   }

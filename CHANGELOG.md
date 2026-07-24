@@ -5,12 +5,49 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> **⚠️ Entries for 1.0.0–1.6.0 describe the retired `@followin/skills` npm installer.**
+> `npx @followin/skills setup` no longer reflects how this project is installed — connect
+> Followin MCP at [followin.io/en/mcp](https://followin.io/en/mcp) and copy the skill files
+> manually. Those entries are kept as history; do not follow their instructions.
+
 ## [Unreleased]
 
 ### Ideas
 - On-chain data skill (Glassnode / CryptoQuant integration)
 - Polymarket API integration to replace web search for FedWatch probabilities
 - Deribit options data skill for implied expectations layer
+
+---
+
+## [2026-07-24] — Repository cleanup
+
+### Removed
+- **npm installer retired.** Deleted `bin/cli.js` and the `bin` / `postinstall` / `files` /
+  `publishConfig` fields from `package.json`; the package is now marked `private`. Setup moved to
+  [followin.io/en/mcp](https://followin.io/en/mcp). The published `@followin/skills@1.6.0` is
+  unaffected but is no longer the recommended install path.
+- **`skills-v2/` deleted.** It was a stale duplicate of `.claude/commands/` carrying instructions
+  that later testing disproved — notably `metrics(query=…)` for FRED series (a confirmed semantic
+  trap) and a live `BAMLH0A0HYM2` call that silently returns M2SL instead (B-33). `.claude/commands/`
+  is now the single authoritative copy.
+- **`mcp-testing/` deleted** — abandoned scaffold: 11 personas defined, 2 run reports, 9 empty
+  directories, last touched 2026-05-27.
+- **`docs/superpowers/` deleted** — internal plans, specs, and regression logs, not intended as
+  public documentation.
+- **`USER_GUIDE.md` deleted** — merged into `README.md` / `README.zh-CN.md`. Its pricing table had
+  drifted from the current credit-based model; the READMEs now link to the official pricing page
+  rather than restating numbers that go stale.
+
+### Fixed
+- **READMEs rewritten to match the actual inventory.** Both language versions claimed 13 skills and
+  documented six (01, 03, 04, 05, 06, 07) that were deleted back in `bd978a6`, while omitting skill
+  14 entirely. They now document the 8 skills that exist, plus the 6-module community bundle.
+- **Stale "Technical Notes" removed** — documented the v1 MCP surface (`finance_tool_quote`,
+  `fred_get_series`, `search_finance_news`, …), none of which exists on the current
+  `metrics` / `news` / `signal` / `twitter` / `subscription` toolset.
+- **`.mcp.json.example` updated** to the single merged `followin` server at
+  `https://mcp.followin.io/v2/sse`, replacing the retired two-server `followin-mcp` + `premium-mcp`
+  layout with API keys in the query string.
 
 ---
 

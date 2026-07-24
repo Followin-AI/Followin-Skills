@@ -1,6 +1,7 @@
-# Followin MCP 调用规范 + 已知问题登记（Skills v2 共享 SSOT）
+# Followin MCP 调用规范 + 已知问题登记（共享 SSOT）
 
-> 7 个 v2 Skill（08/09/10/11/12/13/14）共享的调用红线与已知问题单一事实源。
+> `.claude/commands/` 下 7 个 Skill（08/09/10/11/12/13/14）共享的调用红线与已知问题单一事实源。
+> `skills-community/` 的 c1-c6 同样以本文件为准。
 > 各 Skill 内联的 caveat 是本文件的本地镜像，**如有冲突以本文件为准**。
 > 维护纪律：MCP 行为每次变更 → 先改本文件 → 再 sweep 7 个 Skill 的内联镜像。
 
