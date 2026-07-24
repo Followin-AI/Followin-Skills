@@ -16,7 +16,7 @@
 |---|---|---|
 | **[`.claude/commands/`](./.claude/commands/)** | 8 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
 | **[`skills-community/`](./skills-community/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
-| **[`.claude/references/`](./.claude/references/)** | 3 个文件 | 共享单一事实源：MCP 调用红线、Agent 人设、贴文风格 |
+| **[`.claude/references/`](./.claude/references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
 全部为纯 Markdown，无构建步骤，除 MCP 服务器外无任何运行时依赖。
 
@@ -26,10 +26,12 @@
 
 **1. 获取 API Key** —— 在 [followin.io/en/mcp](https://followin.io/en/mcp) 注册。
 
-**2. 连接 MCP 服务器。** Claude Code：
+**2. 连接 MCP 服务器。** 官方端点是 **Streamable HTTP** 传输的 `https://mcp.followin.io/v2/mcp`，用 `x-api-key` 头鉴权。
+
+Claude Code：
 
 ```bash
-claude mcp add followin https://mcp.followin.io/v2/sse --scope user --transport sse --header "x-api-key: YOUR_API_KEY_HERE"
+claude mcp add followin https://mcp.followin.io/v2/mcp --scope user --transport http --header "x-api-key: YOUR_API_KEY_HERE"
 ```
 
 其他客户端 —— 把下面这段粘进对应配置文件，替换 `YOUR_API_KEY_HERE`：
@@ -38,13 +40,15 @@ claude mcp add followin https://mcp.followin.io/v2/sse --scope user --transport 
 {
   "mcpServers": {
     "followin": {
-      "type": "sse",
-      "url": "https://mcp.followin.io/v2/sse",
+      "type": "http",
+      "url": "https://mcp.followin.io/v2/mcp",
       "headers": { "x-api-key": "YOUR_API_KEY_HERE" }
     }
   }
 }
 ```
+
+> **SSE 旧端点**：不支持 Streamable HTTP 的老客户端仍可用 `"type": "sse"` + `https://mcp.followin.io/v2/sse`（头相同）。2026-07-24 实测可用，但官方文档给的是上面的 Streamable HTTP 端点，新接入优先用它。
 
 | 客户端 | 配置文件 |
 |---|---|

@@ -35,7 +35,9 @@ args: ticker
 
 > 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `.claude/references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
 
-## 数据层 — Followin MCP 三工具（10 路调用 / 3 批）
+## 数据层 — Followin MCP 三工具（11 路调用 / 3 批）
+
+> 🔗 **官方路由 primer**（意图→工具映射、命名约定、尽调编排）见 `.claude/references/followin-routing-primer.md`。本 Skill 的调用序列已对齐官方「美股尽调」五项编排。
 
 🔒 所有美股调用必须带 `asset_type="tradfi"`（除 BTC/ETH 等 crypto symbol）
 
@@ -90,17 +92,21 @@ args: ticker
    → 推特风向，供 Sentiment 分析师使用
 ```
 
-**Batch C：宏观（2 路并行）**
+**Batch C：研报原文 + 宏观（3 路并行）**
 ```
-9.  metrics(keywords=["^VIX"], categories=["market"], asset_type="tradfi")
+9.  news(query="<companyName> <ticker>", sources=["research"], time_range="2w", limit=10)
+    → 官方尽调编排的 news(["research"]) 一环：研报来源的原始文章
+    → 与 ⑥ 互补——⑥ 给结构化字段（目标价/rating_action），本路给原文论述；quota=0
+10. metrics(keywords=["^VIX"], categories=["market"], asset_type="tradfi")
     → VIX 恐慌指数
-10. metrics(keywords=["DGS10"], categories=["macro"], limit=5)
+11. metrics(keywords=["DGS10"], categories=["macro"], limit=5)
     → 10Y 利率（⚠️ FRED series 单独 fire，不与 market ticker 混批，B-31）
 ```
 
-**总计 10 路调用**（3 批，每批 ≤4 遵守 SSE 并发红线）。相对旧版 8 路：
-- **净增 1 次额度**——新增的研报层计 1；signal 由「只取 insider」放宽为 fanout **额度不变**却多拿 13F + KOL；news 拆两源**不增额度**（news 实体搜索 quota=0）
-- 比 v1 的 22 路仍节省 **-55%**
+**总计 11 路调用**（3 批，每批 ≤4 遵守 SSE 并发红线）。相对旧版 8 路：
+- **净增 1 次额度**——新增的结构化研报层计 1；signal 由「只取 insider」放宽为 fanout **额度不变**却多拿 13F + KOL；news 由 1 路拆成 media / twitter / research 三路**不增额度**（news 实体搜索 quota=0）
+- 编排已覆盖官方尽调全五项：`metrics(market)` + `metrics(fundamentals)` + `news(twitter)` + `news(research)` + `signal(insider_trading)`
+- 比 v1 的 22 路仍节省 **-50%**
 
 ### Step 2: 数据预处理
 

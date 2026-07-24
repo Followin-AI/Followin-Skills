@@ -16,7 +16,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 |---|---|---|
 | **[`.claude/commands/`](./.claude/commands/)** | 8 skills | Individual traders / analysts — macro dashboards, earnings, divergence scans, multi-agent analysis |
 | **[`skills-community/`](./skills-community/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
-| **[`.claude/references/`](./.claude/references/)** | 3 files | Shared single-source-of-truth: MCP call red-lines, agent prompts, post style |
+| **[`.claude/references/`](./.claude/references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
 Everything is plain Markdown. There is no build step and no runtime dependency beyond the MCP server.
 
@@ -26,10 +26,12 @@ Everything is plain Markdown. There is no build step and no runtime dependency b
 
 **1. Get an API key** — sign up at [followin.io/en/mcp](https://followin.io/en/mcp).
 
-**2. Connect the MCP server.** Claude Code:
+**2. Connect the MCP server.** The official endpoint is a **Streamable HTTP** transport at `https://mcp.followin.io/v2/mcp`, authenticated with an `x-api-key` header.
+
+Claude Code:
 
 ```bash
-claude mcp add followin https://mcp.followin.io/v2/sse --scope user --transport sse --header "x-api-key: YOUR_API_KEY_HERE"
+claude mcp add followin https://mcp.followin.io/v2/mcp --scope user --transport http --header "x-api-key: YOUR_API_KEY_HERE"
 ```
 
 Other clients — paste into the config file below, replacing `YOUR_API_KEY_HERE`:
@@ -38,13 +40,15 @@ Other clients — paste into the config file below, replacing `YOUR_API_KEY_HERE
 {
   "mcpServers": {
     "followin": {
-      "type": "sse",
-      "url": "https://mcp.followin.io/v2/sse",
+      "type": "http",
+      "url": "https://mcp.followin.io/v2/mcp",
       "headers": { "x-api-key": "YOUR_API_KEY_HERE" }
     }
   }
 }
 ```
+
+> **Legacy SSE endpoint.** Older clients that don't speak Streamable HTTP can still use `"type": "sse"` with `https://mcp.followin.io/v2/sse` (same header). Verified working as of 2026-07-24, but the Streamable HTTP endpoint above is the officially documented one — prefer it for new setups.
 
 | Client | Config file |
 |---|---|

@@ -40,7 +40,8 @@ args: ticker
 | 技术指标（按需）| `metrics(keywords=[ticker], categories=["market"], asset_type="tradfi", query="RSI 14", period=14)` 或 `query="EMA 50"` |
 | 媒体覆盖 | `news(query="<companyName> <ticker>", sources=["media"], time_range="2w", limit=10)` （**不要带 asset_type**，实测会返 0）|
 | 推特风向（可选）| `news(query="<companyName> <ticker>", sources=["twitter"], time_range="1w", limit=10)` |
-| **机构研报**（目标价 / rating_action / thesis / key_caveat / latest_catalyst）| `metrics(keywords=[ticker], categories=["fundamentals"], asset_type="tradfi", query="<TICKER> research reports", verbosity="detail", time_range="7d")` ⚠️ warning 误报见 N-21 |
+| **机构研报·结构化**（目标价 / rating_action / thesis / key_caveat / latest_catalyst）| `metrics(keywords=[ticker], categories=["fundamentals"], asset_type="tradfi", query="<TICKER> research reports", verbosity="detail", time_range="7d")` ⚠️ warning 误报见 N-21 |
+| **研报原始文章**（官方尽调编排的 `news(["research"])` 一环，quota=0）| `news(query="<companyName> <ticker>", sources=["research"], time_range="2w", limit=10)` |
 | **信号面 fanout**（内部人 Form 4 + 国会 + 13F + KOL 喊单，**一次 1 额度拿三类**）| `signal(keywords=[ticker], asset_type="tradfi", limit=20)` — **省略 `categories` 才 fanout**（N-22）|
 | 宏观（按行业）| `metrics(keywords=["DGS10"], categories=["macro"], limit=5)` 等（见行业映射表）|
 
