@@ -26,7 +26,7 @@ tools: WebSearch, WebFetch
 
 | 用途 | 调用 | 备注 |
 |------|------|------|
-| FRED 宏观指标 | `metrics(query="<指标中文或英文>", limit=N)` | 不再维护 series_id 映射 |
+| FRED 宏观指标 | `metrics(keywords=["<series_id>"], categories=["macro"], limit=N)` | 🔒 红线 3：先转 series_id 再直查，禁 query 自然语言；字典见 caveats 附表 A |
 | FMP 行情批量 | `metrics(keywords=["DXUSD","GCUSD"], categories=["market"])` | tradfi |
 | ^VIX | `metrics(keywords=["^VIX"], categories=["market"])` | 直接命中 |
 | 纳斯达克 | `metrics(keywords=["^IXIC"], categories=["market"])` | 直接命中 |

@@ -1,13 +1,13 @@
 ---
 name: US Stock Earnings Report
-description: 单股财报三维分析（财务Beat/Miss + 媒体情绪 + 宏观背景）。必须指定具体股票代码或公司名才触发，如"帮我看AAPL财报"、"TSLA earnings"、"英伟达财报分析"。泛问"今天有哪些财报"走情报中心，不在本Skill范围。
+description: 单股财报三维分析（财务Beat/Miss + 媒体情绪 + 宏观背景）。必须指定具体股票代码或公司名才触发，如"帮我看AAPL财报"、"TSLA earnings"、"英伟达财报分析"。泛问"今天有哪些财报"不在本Skill范围（财报日历用 metrics 直查，见 caveats N-2/N-17）。
 trigger: 帮我看XX财报、XX财报分析、XX财报速查、XX earnings、XX earnings report、[股票代码]财报、[公司名]财报、[ticker] earnings、earnings report、earnings analysis、show me [ticker] earnings、look at [ticker] earnings
 not_trigger: 策略信号、KOL、喊单、热点、日报、背离扫描、divergence、strategy、KOL calls、trending、daily brief、divergence scan、morning brief
 mcp: mcp__followin__metrics, mcp__followin__news, mcp__followin__signal
 args: ticker
 ---
 
-# /earnings-report-v2 $ARGUMENTS
+# /earnings-report $ARGUMENTS
 
 单股财报分析 — 财务数据 + 媒体覆盖 + 宏观背景三维（Followin MCP 版）
 
@@ -22,7 +22,7 @@ args: ticker
 | 用户说的 | 走哪个Skill |
 |---------|-----------|
 | XX财报、XX earnings、财报分析 | ✅ 本Skill |
-| CPI影响、非农解读 | ❌ 转 macro-analyzer |
+| CPI影响、非农解读 | ❌ 无专门 Skill——模型直接用 metrics(macro)+news 分析，series_id 字典见 caveats 附表 A |
 | 宏观日报、美股早报 | ❌ 转 morning-brief |
 | 背离扫描 | ❌ 转 divergence-scan |
 

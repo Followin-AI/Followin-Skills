@@ -1,19 +1,19 @@
 # Followin MCP 调用规范 + 已知问题登记（共享 SSOT）
 
-> `.claude/commands/` 下 7 个 Skill（01-07）共享的调用红线与已知问题单一事实源。
+> `.claude/commands/` 下 6 个 Skill（01-06）共享的调用红线与已知问题单一事实源。
 > `skills-community/` 的 c1-c6 同样以本文件为准。
 >
 > 🔗 **上游参照**：官方意图路由与编排基准见 [`followin-routing-primer.md`](./followin-routing-primer.md)。
 > 本文件记录的是在官方 primer 之上、经实测得到的更具体约束与上游 bug——两者不冲突时以 primer 为准，
 > primer 未覆盖或实测与之有出入的细节以本文件为准（差异已在 primer 文末列表说明）。
 > 各 Skill 内联的 caveat 是本文件的本地镜像，**如有冲突以本文件为准**。
-> 维护纪律：MCP 行为每次变更 → 先改本文件 → 再 sweep 7 个 Skill 的内联镜像。
+> 维护纪律：MCP 行为每次变更 → 先改本文件 → 再 sweep 6 个 Skill 的内联镜像。
 
 ## 调用红线（全 Skill 通用）
 
 1. **asset_type 必须显式**：美股/大宗 `asset_type="tradfi"`，加密 `asset_type="crypto"`。不带会 fanout 双返污染（实测 BTC→美股 BTC Inc $33；AMN/WEST→crypto 山寨币 0.005 USDT）。**唯一例外：`news()` 不要传 asset_type**（is_tradfi 字段几乎全 false 老 bug，加 tradfi 返 0 results——0 篇不报错，比报错更危险）。例外扩展（2026-07-22 实测）：news 趋势模式（空 query）传 asset_type="tradfi" 可用且 quota=0；实体搜索亦 quota=0。"不传 asset_type"仅约束搜索模式的过滤语义。
 2. **SSE 并发 ≤4**：单批 ≤4 路 MCP 并行，超了 session 可能挂。
-3. **FRED macro 走 keywords 直查**：`keywords=["<series_id>"]` + `categories=["macro"]`。禁止 query 中文/混合自然语言（4 类语义陷阱：含 series_id 也被错抓 / 中文混淆 / degraded / 静默兜底）。中英文 → series_id 翻译表见 Skill 07。
+3. **FRED macro 走 keywords 直查**：`keywords=["<series_id>"]` + `categories=["macro"]`。禁止 query 中文/混合自然语言（4 类语义陷阱：含 series_id 也被错抓 / 中文混淆 / degraded / 静默兜底）。中英文 → series_id 翻译表见文末附表 A。
 4. **B-31 边界**：FRED macro series **不要批量**（静默丢条目），各自单独 fire；market 行情快照可批量但**上限 10 个 keywords**（实测 2026-06-12：传 18 个被静默截断到 10，`meta.warnings` 有 `keyword_count_over_max` 提示——必须检查该 warning，超出分批）。不要在同一次调用里混 market ticker 和 FRED series。
 5. **news() query 三原则**：2-3 个核心名词；纯中文或纯英文不混搭；不写"影响/解读/分析/impact"等元词（embedding 过拟合 0 results）。单符号会被同名公司劫持（"CPI"→CPI Card PMTS），用双词消歧。news 无 sort_by 参数（相关性走 search_depth，默认 standard）。
 6. **商品 ticker**：黄金 `GCUSD`（GOLD 错抓 Gold.com 美股 $42）；白银 `SIUSD`；原油 `CLUSD`（WTI）/ `BZUSD`（布油）；**不要用 GOLD/SILVER/OIL alias**。⚠️ CLUSD 被 trend-scout 2026-07 实测 402 Special Endpoint；原油优先 BZUSD/USO，CLUSD 待复核（N-11）。
@@ -64,4 +64,32 @@
 | N-19 | 研报榜排名基于 mention count，钻取时可能 `subject_reports=0` 只有 `mention_reports`（实测 GOOGL 榜单第 2、66 篇提及，但主题报告为 0，4 篇全是行业报告里的提及） | 榜单高位≠有专题报告；钻取后必须检查 subject/mention 两层比例，只有 mention 时贴文须写明"是被行业报告提及，不是专题研究" | 实测（2026-07-23） |
 | N-20 | `signal(query="详细仓位")` 不带 ticker 时返回全市场原帖，体积极大（实测 2026-07-23：13.7 万字符 / 139 行），直接读入会撑爆上下文 | 客户端脚本先聚合再消费：按 `source_url` 去重（一帖按提及裂多行，139→96）→ 按 symbol 分组统计多空 → 只保留结构化摘要；或用 limit 收窄 | 实测（2026-07-23 讯号汇总实跑） |
 | N-21 | 研报调用 `meta.warnings` **误报** `default_fanout_fallback`（"no specific topic…returning the CORE fundamentals set"），但 payload 里 `fundamentals.research_reports` 数据齐全 | **该警告是假阴性，不要据此判定失败或重试**——重试白烧 1 次额度。以 `results.fundamentals.research_reports` 是否存在为准，不看 warning | 实测 2026-07-24：`metrics(query="NVDA research reports", verbosity="detail", time_range="7d", asset_type="tradfi")` → 6 篇 subject + 4 篇 mention，含 institution / analyst / target_price / rating_action / thesis / key_caveat / latest_catalyst，quota=1 |
+
+## 附表 A：中英文 → FRED series_id 翻译表
+
+> 红线 3 的配套字典（原宿主 07_macro-analyzer 已删，表迁至此）。用法：用户说指标名 → 查本表转 series_id → `metrics(keywords=["<series_id>"], categories=["macro"], limit=N)` 直查。字典未命中才回退 query 兜底并人工 review 命中的 series。
+
+| 用户可能说 | series_id | 备注 |
+|---|---|---|
+| CPI / 通胀 / 消费者价格指数 | `CPIAUCSL` | |
+| 核心 CPI / Core CPI | `CPILFESL` | |
+| PCE / 个人消费支出物价 | `PCEPILFE` | |
+| 失业率 / Unemployment | `UNRATE` | |
+| 非农 / NFP / 就业人数 | `PAYEMS` | |
+| 联邦基金利率 / Fed Funds | `FEDFUNDS` | |
+| 10 年期国债收益率 / 10Y | `DGS10` | |
+| 2 年期国债 | `DGS2` | |
+| 30 年期国债 | `DGS30` | |
+| 30 年抵押贷款利率 (mortgage) | `MORTGAGE30US` | ⚠️ 不是 DGS30 |
+| 10Y TIPS 实际利率 | `DFII10` | |
+| 通胀预期 / 10Y BEI | `T10YIE` | |
+| 10Y-2Y 利差 / 收益率曲线 | `T10Y2Y` | |
+| M2 货币供应 | `M2SL` | |
+| Fed 资产负债表 / WALCL | `WALCL` | |
+| 财政部 TGA | `WTREGEN` | |
+| 隔夜逆回购 / RRP | `RRPONTSYD` | |
+| 高收益债利差 / 信用利差 | ~~`BAMLH0A0HYM2`~~ | 🚫 **暂不可用（B-33）**：不在 FRED 字典，直查被错抓到 M2SL——拿错数据比没数据更糟。标"数据不可用"，Dev 修复后恢复 |
+| 零售销售 / Retail Sales | `RSAFS` | |
+| WTI 原油 | ~~`CLUSD`~~ | ⚠️ **N-11 实测 402 Special Endpoint**：优先 `BZUSD`（布油）/ `USO`，CLUSD 待复核。market 类，非 FRED |
+| 黄金期货 | `GCUSD` | ⚠️ 不是 GOLD（会错抓 Gold.com 美股）。market 类，非 FRED |
 

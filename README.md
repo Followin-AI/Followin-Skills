@@ -14,7 +14,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 
 | Bundle | Files | For |
 |---|---|---|
-| **[`.claude/commands/`](./.claude/commands/)** | 7 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
+| **[`.claude/commands/`](./.claude/commands/)** | 6 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
 | **[`skills-community/`](./skills-community/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
 | **[`.claude/references/`](./.claude/references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
@@ -93,9 +93,9 @@ Full call red-lines and the known-issues register live in [`.claude/references/f
 
 ---
 
-## Flagship skills (7)
+## Flagship skills (6)
 
-Numbered in recommended onboarding order — 01 is the deepest, 07 the most narrowly scoped.
+Numbered in recommended onboarding order — 01 is the deepest dive, 06 the lightest.
 
 | # | Skill | Ask it | MCP tools |
 |---|---|---|---|
@@ -105,7 +105,6 @@ Numbered in recommended onboarding order — 01 is the deepest, 07 the most narr
 | **04** | [BTC Macro Dashboard](./.claude/commands/04_btc-macro-dashboard.md) | `BTC macro` · `BTC 宏观` | `metrics` |
 | **05** | [Gold Macro Dashboard](./.claude/commands/05_gold-macro-dashboard.md) | `Gold macro` · `黄金宏观` | `metrics` |
 | **06** | [Macro Morning Brief](./.claude/commands/06_macro-morning-brief.md) | `Morning brief` · `宏观早报` | `metrics` `news` |
-| **07** | [Macro Analyzer](./.claude/commands/07_macro-analyzer.md) | `CPI impact` · `CPI 影响` | `metrics` `news` |
 
 ### 01 — Multi-Agent Stock Analysis
 
@@ -126,10 +125,6 @@ Score the current macro environment 0–100 with a layered breakdown, so "how's 
 ### 06 — Macro Morning Brief
 
 Daily macro/US-stock briefing aggregating three sources: macro data, news, and unusual moves. Takes an optional `watchlist`. This is the macro/equities brief — there is no crypto daily skill in this repo.
-
-### 07 — Macro Analyzer
-
-Full chain from an indicator move to sector impact. Needs both an indicator *and* an impact/interpretation intent — `CPI is out, what does it mean for the market` routes here; `what is CPI` does not.
 
 ---
 
@@ -159,7 +154,7 @@ Similar-sounding requests go to different skills:
 | `Divergence scan` / `背离扫描` | 03 Divergence Scan | Price/media/insider inconsistency |
 | `BTC macro` / `BTC 宏观` | 04 BTC Dashboard | Asset-specific macro score |
 | `Morning brief` / `宏观早报` | 06 Macro Morning Brief | Macro/US-stock daily briefing |
-| `CPI impact` / `CPI 影响` | 07 Macro Analyzer | A specific indicator + impact intent |
+| `CPI impact` / `CPI 影响` | *(no dedicated skill)* | Indicator interpretation is model-native — the model calls `metrics`+`news` directly; the FRED series dictionary lives in the caveats reference (Appendix A) |
 
 Each skill's frontmatter carries explicit `trigger` and `not_trigger` lists — that's what keeps neighbours from stealing each other's queries.
 

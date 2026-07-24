@@ -14,7 +14,7 @@
 
 | Bundle | 文件数 | 面向 |
 |---|---|---|
-| **[`.claude/commands/`](./.claude/commands/)** | 7 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
+| **[`.claude/commands/`](./.claude/commands/)** | 6 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
 | **[`skills-community/`](./skills-community/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
 | **[`.claude/references/`](./.claude/references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
@@ -93,9 +93,9 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 
 ---
 
-## 旗舰 Skill（7 个）
+## 旗舰 Skill（6 个）
 
-按推荐入门顺序编号 —— 01 最深，07 最窄。
+按推荐入门顺序编号 —— 01 最深，06 最轻。
 
 | # | Skill | 怎么问 | 依赖工具 |
 |---|---|---|---|
@@ -105,7 +105,6 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 | **04** | [BTC 宏观看盘](./.claude/commands/04_btc-macro-dashboard.md) | `BTC 宏观` · `BTC macro` | `metrics` |
 | **05** | [黄金宏观看盘](./.claude/commands/05_gold-macro-dashboard.md) | `黄金宏观` · `Gold macro` | `metrics` |
 | **06** | [宏观早报](./.claude/commands/06_macro-morning-brief.md) | `宏观早报` · `Morning brief` | `metrics` `news` |
-| **07** | [宏观指标影响](./.claude/commands/07_macro-analyzer.md) | `CPI 影响` · `CPI impact` | `metrics` `news` |
 
 ### 01 —— 多 Agent 深度分析
 
@@ -126,10 +125,6 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 ### 06 —— 宏观早报
 
 宏观 + 新闻 + 异动三源聚合的每日晨间简报，可传 `watchlist`。这是**宏观/美股**维度的早报；本仓库没有加密日报 Skill。
-
-### 07 —— 宏观指标影响
-
-从指标变动到板块影响的全链路。必须同时包含**指标名**和**影响/解读意图** —— "CPI 出来了对市场有什么影响"走这里，"CPI 是多少"不走。
 
 ---
 
@@ -159,7 +154,7 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 | `背离扫描` / `Divergence scan` | 03 背离扫描 | 价格/媒体/内部人不一致 |
 | `BTC 宏观` / `BTC macro` | 04 BTC 看盘 | 单一资产的宏观评分 |
 | `宏观早报` / `Morning brief` | 06 宏观早报 | 宏观/美股维度的每日简报 |
-| `CPI 影响` / `CPI impact` | 07 宏观指标影响 | 具体指标 + 影响意图 |
+| `CPI 影响` / `CPI impact` | *（无专门 Skill）* | 指标解读是模型自带能力——直接调 `metrics`+`news`；FRED 字典见 caveats 附表 A |
 
 每个 Skill 的 frontmatter 都带显式的 `trigger` 与 `not_trigger` 列表 —— 这是相邻 Skill 不互相抢词的关键。
 

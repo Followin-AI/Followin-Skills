@@ -7,7 +7,7 @@ mcp: mcp__followin__metrics, mcp__followin__news
 args: watchlist
 ---
 
-# /morning-brief-v2
+# /morning-brief
 
 每日财经早报 — 三源聚合晨间简报（Followin MCP 版）
 

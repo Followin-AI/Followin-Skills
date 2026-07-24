@@ -7,7 +7,7 @@ mcp: mcp__followin__metrics, mcp__followin__news, mcp__followin__signal
 args: ticker
 ---
 
-# /multi-agent-stock-analysis-v2 $ARGUMENTS
+# /multi-agent-stock-analysis $ARGUMENTS
 
 多 Agent 美股深度分析 — 19 位分析师独立研判 + 风控 + 组合 = **21 Agents**（Followin MCP 版）
 
