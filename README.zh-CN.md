@@ -93,7 +93,7 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 
 ---
 
-## 旗舰 Skill（6 个）
+## 基础 Skill（6 个）
 
 按推荐入门顺序编号 —— 01 最深，06 最轻。
 

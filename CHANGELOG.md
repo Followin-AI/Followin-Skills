@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`07_macro-analyzer` deleted** — same criterion that removed Breaking News: its analysis layer (indicator → sector impact) is model-native reasoning. What made it look skill-worthy was the FRED series_id translation dictionary it hosted — but that is reference data, not workflow, and the caveats SSOT (red line 3) already pointed at it from outside the skill.
 
 ### Changed
+- **Terminology: the individual-trader bundle is now 基础 Skill / Base skills** (was 旗舰 / Flagship) in both READMEs. Historical changelog entries keep the old term.
 - **The 21-entry 中英文 → FRED series_id dictionary moved to the caveats SSOT as Appendix A**, with two dangerous entries corrected in transit: `BAMLH0A0HYM2` (credit spread) marked unusable per B-33 — a direct keywords query silently returns M2SL instead — and `CLUSD` flagged 402 per N-11 with `BZUSD`/`USO` as the working alternatives. The old table listed both with no warning.
 - Red line 3 now points to Appendix A; `02`/`03` intent-routing rows that sent macro-impact queries to `macro-analyzer` now state there is no dedicated skill — the model calls `metrics`+`news` directly.
 

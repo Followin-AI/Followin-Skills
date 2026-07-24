@@ -93,7 +93,7 @@ Full call red-lines and the known-issues register live in [`.claude/references/f
 
 ---
 
-## Flagship skills (6)
+## Base skills (6)
 
 Numbered in recommended onboarding order — 01 is the deepest dive, 06 the lightest.
 
