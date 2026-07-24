@@ -1,7 +1,7 @@
 # Followin MCP 调用规范 + 已知问题登记（共享 SSOT）
 
 > `Base Skill/Skill/` 下 6 个 Skill（01-06）共享的调用红线与已知问题单一事实源。
-> `skills-community/` 的 c1-c6 同样以本文件为准。
+> `Community Skill/` 的 c1-c6 同样以本文件为准。
 >
 > 🔗 **上游参照**：官方意图路由与编排基准见 [`followin-routing-primer.md`](./followin-routing-primer.md)。
 > 本文件记录的是在官方 primer 之上、经实测得到的更具体约束与上游 bug——两者不冲突时以 primer 为准，

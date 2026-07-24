@@ -15,7 +15,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 | Bundle | Files | For |
 |---|---|---|
 | **[`Base Skill/Skill/`](./Base%20Skill/Skill/)** | 6 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
-| **[`skills-community/`](./skills-community/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
+| **[`Community Skill/`](./Community%20Skill/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
 Everything is plain Markdown. There is no build step and no runtime dependency beyond the MCP server.
@@ -130,7 +130,7 @@ Daily macro/US-stock briefing aggregating three sources: macro data, news, and u
 
 ## Community bundle (6)
 
-A separate bundle for **community operators** running a US-stock community for beginners. Output is ready-to-paste Traditional Chinese posts. Full operator handbook — module index, weekly cadence, quota budget, pinned-post templates — in **[`skills-community/README.md`](./skills-community/README.md)**.
+A separate bundle for **community operators** running a US-stock community for beginners. Output is ready-to-paste Traditional Chinese posts. Full operator handbook — module index, weekly cadence, quota budget, pinned-post templates — in **[`Community Skill/README.md`](./Community%20Skill/README.md)**.
 
 | # | Module | Output |
 |---|---|---|

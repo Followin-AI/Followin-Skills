@@ -1,4 +1,4 @@
-# 社群贴文风格规范（skills-community 共享 SSOT）
+# 社群贴文风格规范（Community Skill 共享 SSOT）
 
 > 6 个 c* Skill 共享的对外文风与合规单一事实源。各 Skill 内联镜像本文件条目，
 > 冲突以本文件为准。维护纪律：风格变更 → 先改本文件 → 再 sweep 6 个 Skill 镜像。

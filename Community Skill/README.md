@@ -45,12 +45,12 @@
 
 ## 4️⃣ 安装方式
 
-三种安装方式（路径为 `skills-community/`）：
+三种安装方式（路径为 `Community Skill/`，含空格，shell 里注意引号）：
 
 ### 方法 1：复制到全局 commands 目录（推荐）
 
 ```bash
-cp skills-community/*.md ~/.claude/commands/
+cp "Community Skill"/*.md ~/.claude/commands/
 ```
 
 适用：运营的 Claude Code / Claude Desktop 环境里，所有项目都能触发这套 Skill。
@@ -58,7 +58,7 @@ cp skills-community/*.md ~/.claude/commands/
 ### 方法 2：复制到项目 commands 目录
 
 ```bash
-cp skills-community/*.md /path/to/your-project/.claude/commands/
+cp "Community Skill"/*.md /path/to/your-project/.claude/commands/
 ```
 
 适用：仅当前项目使用。
@@ -68,7 +68,7 @@ cp skills-community/*.md /path/to/your-project/.claude/commands/
 ```bash
 git clone https://github.com/Followin-AI/Followin-Skills.git
 cd Followin-Skills
-cp skills-community/*.md ~/.claude/commands/
+cp "Community Skill"/*.md ~/.claude/commands/
 ```
 
 ### MCP 接入
