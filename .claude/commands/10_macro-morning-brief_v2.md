@@ -38,7 +38,7 @@ args: watchlist
 | 布油 + 美元 + watchlist | `metrics(keywords=["BZUSD","DXUSD","AAPL","TSLA",...], categories=["market"], asset_type="tradfi")` |
 | 经济日历 | `metrics(keywords=["economic calendar"], categories=["macro"])` ⚠️ 不要写"本周经济数据"——实测（2026-06-12）"本周"被解析成 lookback 7 天，返回**上周已发布历史**而非前瞻日历 |
 | 涨跌幅榜 | `metrics(query="biggest gainers"/"biggest losers", asset_type="tradfi", limit=30)` 二次调用补 marketCap |
-| 财经新闻 | `news(query="<2-3 关键词>", time_range="1d", limit=10)` ⚠️ 不要传 asset_type |
+| 财经新闻 | `news(query="<2-3 关键词>", sources=["media"], time_range="1d", limit=10)` ⚠️ 不要传 asset_type；早报取权威报道，**不混 twitter**（推特风向属 c4/14 的情绪层，混入会让早报变成情绪聚合）|
 
 > **关键变化（vs v1）**：
 > - 9 个老调用 → 5-7 个 Followin 调用
@@ -63,8 +63,9 @@ args: watchlist
 ```
 5. metrics(query="biggest gainers", asset_type="tradfi", limit=30)
 6. metrics(query="biggest losers",  asset_type="tradfi", limit=30)
-7. news(query="<根据宏观信号选 query>", time_range="1d", limit=8)
-8. news(query="stock market", time_range="1d", limit=8)    # 泛市场第二路，避免单一主题选题偏置
+7. news(query="<根据宏观信号选 query>", sources=["media"], time_range="1d", limit=8)
+8. news(query="stock market", sources=["media"], time_range="1d", limit=8)    # 泛市场第二路，避免单一主题选题偏置
+   # ⚠️ 两路都显式 sources=["media"]：早报要权威报道，不混 twitter 情绪；news 实体搜索 quota=0，拆两路不增额度
 ```
 
 ⚠️ **`news()` query 设计**（实测验证）：

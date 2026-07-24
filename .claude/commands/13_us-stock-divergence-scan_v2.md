@@ -68,8 +68,12 @@ args: scope, days
    - congress 记录（provenance="congress"）结构不同: type="Purchase" 且 amount 区间下限 ≥ $50K
    - 按 ticker 去重（同一人多笔合并金额）
 3. 排除已上当日涨跌幅榜的 ticker（价格已动 ≠ silent；榜内 ticker 有内部人买入 → 归"多重信号"）
-4. 对剩余 ticker 调 news(query="[companyName] 2-3 词", time_range="1w")
+4. 对剩余 ticker 调 news(query="[companyName] 2-3 词", sources=["media","twitter"], time_range="1w")
+   ⚠️ 本 Skill 必须同时取 media + twitter，**不可收窄成 media-only**：
+      判定依据是"这只票有没有人在说"，只看媒体会把"推特热议但无媒体报道"的票
+      误判成无声异动（假阳性）。research/telegram 不算美股公开报道，故排除
 5. 判定: 主动买入 > $100K 且报道 ≤ 2 篇
+   ⚠️ 报道数必须按红线 11 逐条 LLM 判相关性后计数，不能用 raw count（语义兜底会塞不相关内容）
 ```
 
 ### 信号二：Sentiment Mismatch（情绪错配）

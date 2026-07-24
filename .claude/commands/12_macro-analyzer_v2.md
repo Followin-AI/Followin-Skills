@@ -39,7 +39,7 @@ args: indicator
 | FRED 指标历史数据 | `metrics()` | `keywords=["CPIAUCSL"]`（先查 Step 1 翻译表转 series_id 再 keywords 直查）, `categories=["macro"]`, `limit=12` |
 | ETF 板块批量报价 | `metrics()` | `keywords=["XLE","XLB","XLK"]`, `categories=["market"]` |
 | VIX / 商品 / 国债收益率 | `metrics()` | `keywords=["^VIX"]` 或 `keywords=["GCUSD"]`（⚠️ 不要用 GOLD，会错抓 Gold.com 美股）|
-| 媒体解读 | `news()` | `query="CPI inflation"`, `time_range="1w"`（⚠️ 不写"影响/解读"等元词，见 query 三原则）|
+| 媒体解读 | `news()` | `query="CPI inflation"`, `sources=["media","twitter"]`, `time_range="1w"`（⚠️ 不写"影响/解读"等元词，见 query 三原则）|
 
 > **关键变化（vs v1）**：
 > - 删除 21 个 series_id 别名表 — Followin 自动识别中英文（"CPI"/"核心CPI"/"非农"/"NFP" 全 ✅）
@@ -190,6 +190,8 @@ metrics(
 ```
 news(
   query="[指标核心词 2-3 个]",          # 纯英文或纯中文，不混搭
+  sources=["media","twitter"],         # 媒体给共识、推特给市场即时反应；不取
+                                       # telegram（加密向）与 research（券商研报走 metrics）
   time_range="1w",
   limit=10
   # news 无 sort_by（相关性走 search_depth，默认 standard）
@@ -258,7 +260,7 @@ LLM 读原文做解读，不要把"解读/影响/分析"塞进 query
 - **`metrics()` 自动 alias**：CPI/核心CPI/PCE/非农/NFP/失业率/GDP/Fed Rate/10Y国债/2Y国债/原油/WTI/M2/PMI 等中英文混用都能命中
 - **`metrics()` macro path** 已 100% 命中（32/32 FRED series 验证）
 - **status:partial** 是历史遗留（market 子路由 warning），数据本身仍可用 — 看 `categories_used` 是否含 "macro" 即可
-- **`news()` 自动多源**：覆盖 newsapi / rss / Twitter / TG / 媒体专栏，不用列 user list
+- **`news()` 自动多源**：覆盖 newsapi / rss / Twitter / TG / 媒体专栏，不用列 user list——但**本 Skill 显式传 `sources=["media","twitter"]`**：宏观解读要的是媒体共识 + 推特即时反应，telegram 偏加密、research 属券商研报（研报走 `metrics` 不走 news），放进来只会稀释共识判断
 - **`news()` query 设计三原则**（实测验证）：
   1. **2-3 个核心名词**，不要超过 4 词
   2. **纯中文 or 纯英文**，避免混搭

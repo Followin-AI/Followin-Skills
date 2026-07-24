@@ -73,13 +73,19 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 
 | 工具 | 覆盖范围 |
 |---|---|
-| **`metrics`** | 实时行情与报价（加密 / 美股 / ETF / 全球指数 / 外汇 / 大宗）、历史 OHLCV、技术指标、FRED 宏观指标、经济日历、美股基本面（三表 / 估值 / 同行 / 分析师评级 / Beat-Miss / EPS 预期）|
+| **`metrics`** | 实时行情与报价（加密 / 美股 / ETF / 全球指数 / 外汇 / 大宗）、历史 OHLCV、技术指标、FRED 宏观指标、经济日历、美股基本面（三表 / 估值 / 同行 / 分析师评级 / Beat-Miss / EPS 预期），以及**结构化券商研报**（报告卡 / 目标价 / thesis / catalysts / caveats）|
 | **`news`** | 四源聚合 —— `media` / `twitter` / `telegram` / `research`，含 trending 模式、多语言原文、100+ 加密 TG 频道自动归入 10 类主题 |
 | **`signal`** | KOL 喊单、顶级交易员与鲸鱼持仓、内部人交易（Form 4 + 参议院 + 众议院）、13F 机构持仓 |
 | **`twitter`** | 高级搜索、用户档案与时间线、互关验证、完整线程上下文、地区热门趋势 |
 | **`subscription`** | KOL 喊单标的的关注收件箱 —— 订阅 / 列表 / 未读查询（拉取式，无服务端推送）|
 
-**最关键的一条约定**：美股传 `asset_type="tradfi"`，加密传 `asset_type="crypto"`，且必须显式传 —— 唯一例外是 `news()`，它不应该收到这个参数。完整调用红线与已知问题登记见 [`.claude/references/followin-mcp-caveats.md`](./.claude/references/followin-mcp-caveats.md)。
+**几条关键约定**：
+
+- 美股传 `asset_type="tradfi"`，加密传 `asset_type="crypto"`，且必须显式传 —— 唯一例外是 `news()`，它不应该收到这个参数。
+- **结构化券商研报走 `metrics`，不走 `news`**。`news(sources=["research"])` 是研报来源的**原始文章**检索；报告卡、目标价、thesis/catalyst 这些结构化字段来自 `metrics(categories=["fundamentals"])`。
+- **`signal()` 省略 `categories` 会 fanout** 到内部人交易 + 13F 机构持仓 + KOL 喊单，**三类合计只计 1 次额度** —— 比分三次带过滤条件调用更省，且数据完全相同。
+
+完整调用红线与已知问题登记见 [`.claude/references/followin-mcp-caveats.md`](./.claude/references/followin-mcp-caveats.md)。
 
 ---
 

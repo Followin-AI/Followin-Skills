@@ -73,13 +73,19 @@ Skills are written in Claude Code's slash-command format (YAML frontmatter + Mar
 
 | Tool | Covers |
 |---|---|
-| **`metrics`** | Prices & quotes (crypto / US equities / ETFs / indices / FX / commodities), OHLCV history, technical indicators, FRED macro series, economic calendar, US-stock fundamentals (financials, valuation, peers, analyst ratings, Beat/Miss, EPS estimates) |
+| **`metrics`** | Prices & quotes (crypto / US equities / ETFs / indices / FX / commodities), OHLCV history, technical indicators, FRED macro series, economic calendar, US-stock fundamentals (financials, valuation, peers, analyst ratings, Beat/Miss, EPS estimates), and **structured broker research reports** (report cards, target prices, thesis / catalysts / caveats) |
 | **`news`** | Four-source aggregation — `media` / `twitter` / `telegram` / `research` — with trending mode, multi-language originals, and 100+ crypto TG channels auto-classified into 10 topic buckets |
 | **`signal`** | KOL calls, top-trader & whale positions, insider trading (Form 4 + Senate + House), 13F institutional holdings |
 | **`twitter`** | Advanced search, user profiles & timelines, follow-graph checks, full thread context, regional trends |
 | **`subscription`** | Watchlist inbox for KOL-call symbols — subscribe, list, check unread (pull-based; no server push) |
 
-**Convention that matters:** US stocks are `asset_type="tradfi"`, crypto is `asset_type="crypto"`. Always pass it explicitly — the one exception is `news()`, which should not receive it at all. Full call red-lines and the known-issues register live in [`.claude/references/followin-mcp-caveats.md`](./.claude/references/followin-mcp-caveats.md).
+**Conventions that matter:**
+
+- US stocks are `asset_type="tradfi"`, crypto is `asset_type="crypto"` — always explicit. The one exception is `news()`, which should not receive it at all.
+- **Structured broker research (研报) goes through `metrics`, not `news`.** `news(sources=["research"])` is for raw research-source *article* discovery; report cards, target prices, and thesis/catalyst fields come from `metrics(categories=["fundamentals"])`.
+- **Omitting `categories` on `signal()` fans out** to insider trading + 13F institutional + KOL calls for a single quota unit — cheaper than three filtered calls returning the same data.
+
+Full call red-lines and the known-issues register live in [`.claude/references/followin-mcp-caveats.md`](./.claude/references/followin-mcp-caveats.md).
 
 ---
 

@@ -45,7 +45,7 @@
 | N-4 | signal 不带 categories 默认 fanout 全 4 类且只计 1 额度（省额度利器）；kol_call tradfi 聚合原生可用（top_calls 多空计数） | 不带 categories 时走 fanout 全 4 类、只计 1 额度 | 实测 2026-07-22 |
 | N-5 | kol_call 原帖按提及 fanout 成多行（同 URL 不同 symbol/方向）；按 source_url 去重、symbol 字段归属 | 按 source_url 去重/symbol 归属 | 实测 2026-07-22 |
 | N-6 | insider/congress 行无视 time_range（7d 返回 2020 年记录）；客户端按 transactionDate 过滤强制 | 客户端按 transactionDate 过滤强制 | 实测 2026-07-22 |
-| N-7 | 13F institutional 申报季中期 investorsHolding 环比为残缺假信号（实测 NVDA 6234→1441）；申报季内禁止引用环比 | 申报季禁引环比 | 实测 2026-07-22 |
+| N-7 | 13F institutional 申报季中期 investorsHolding 环比为残缺假信号（实测 NVDA 6234→1441）；申报季内禁止引用环比 | 申报季禁引环比 | 实测 2026-07-22 · **复核 2026-07-24 仍有效**：同一标的 investorsHolding 已回补到 1882（`ownershipPercentChange` −64.4%、`putCallRatioChange` +174% 同为残缺假信号），说明申报季回补持续进行中，环比字段在季内任何时点都不可引用 |
 | N-8 | keywords/categories/sources 数组参数 2026-07-20 起全域被序列化成字符串遭 schema 拒；统一走 query 串，服务端自解析（meta.filters_applied.keywords 可验证） | query 串替代；Dev 修复后回退 | trend-scout v1.11.x + 2026-07-22 复现（N-8）|
 | N-9 | biggest gainers/losers 上游缺 marketCap 且全是仙股，禁用；改 `query="most active stocks"`，但实测（2026-07-22 2026-07-22 回归）board 行亦不带 marketCap（trend-scout 旧版记载已失效），需二次批量快照补市值后过滤；红线 9 的过滤清单继续沿用 | 改 query="most active stocks"；客户端 marketCap ≥$1B 过滤 + 剔杠杆 ETF + 仙股 <$5 | trend-scout 实测（N-9）＋2026-07-22 回归修正 |
 | N-10 | metrics time_range <1d 返一个月前旧数据 bug；小时级用 interval 参数或只用实时快照 | 小时级用 interval/实时快照 | trend-scout 实测（N-10）|
@@ -59,4 +59,8 @@
 | N-18 | 指数 query 串产生重复行：`"^GSPC ^IXIC ^DJI ^VIX"` 解析出 5 个 keywords（多一个裸 VIX），^VIX 返回两条相同行 | 客户端按 symbol 去重后再引用 | 实测（2026-07-23） |
 | N-19 | 研报榜排名基于 mention count，钻取时可能 `subject_reports=0` 只有 `mention_reports`（实测 GOOGL 榜单第 2、66 篇提及，但主题报告为 0，4 篇全是行业报告里的提及） | 榜单高位≠有专题报告；钻取后必须检查 subject/mention 两层比例，只有 mention 时贴文须写明"是被行业报告提及，不是专题研究" | 实测（2026-07-23） |
 | N-20 | `signal(query="详细仓位")` 不带 ticker 时返回全市场原帖，体积极大（实测 2026-07-23：13.7 万字符 / 139 行），直接读入会撑爆上下文 | 客户端脚本先聚合再消费：按 `source_url` 去重（一帖按提及裂多行，139→96）→ 按 symbol 分组统计多空 → 只保留结构化摘要；或用 limit 收窄 | 实测（2026-07-23 讯号汇总实跑） |
+| N-21 | 研报调用 `meta.warnings` **误报** `default_fanout_fallback`（"no specific topic…returning the CORE fundamentals set"），但 payload 里 `fundamentals.research_reports` 数据齐全 | **该警告是假阴性，不要据此判定失败或重试**——重试白烧 1 次额度。以 `results.fundamentals.research_reports` 是否存在为准，不看 warning | 实测 2026-07-24：`metrics(query="NVDA research reports", verbosity="detail", time_range="7d", asset_type="tradfi")` → 6 篇 subject + 4 篇 mention，含 institution / analyst / target_price / rating_action / thesis / key_caveat / latest_catalyst，quota=1 |
+| N-22 | `signal()` **省略 `categories` 会 fanout 到 `insider_trading` + `institutional` + `kol_call` 三类，合计仍只计 1 次额度** | 需要多于一类时**必须单次 fanout，不要分类分次调用**——分 3 次 = 3 倍额度且数据完全相同。只要一类时才显式传 categories | 实测 2026-07-24：两组不同 query 均返回三类全套，`quota.consumed` 均为 1 |
+| N-23 | `kol_call` 多标的推文按 symbol 裂成多条重复返回（同一 `source_url` 的 `$MU $GOOGL $NVDA` 推文返回 3 条，仅 symbol / sector 不同）| 与 N-20 同源：消费前按 `source_url` 去重再做多空统计，否则一条低信号推文会被计成三个标的的独立喊单 | 实测 2026-07-24 |
+| N-24 | **本客户端（Claude Code）数组参数序列化限制**：`categories` / `sources` / `keywords` 传数组被序列化成字符串，服务端报 `-32602 … has type "string", want one of "null, array"`（schema 中这三个参数为无类型 `{}`）| 本客户端下改用 `query=` 自然语言路由兜底（实测可正确路由并自动抽取 keywords）；**Cursor / Claude Desktop 等标准客户端不受影响，Skill 正文保留数组写法为主** | 实测 2026-07-24 |
 
