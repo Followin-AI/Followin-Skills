@@ -44,7 +44,7 @@
 | 主题 | 官方 primer | 工具 description（详细契约）+ 本仓库实测 | 仓库做法 |
 |---|---|---|---|
 | 研报 | 尽调编排里写 `news(["research"])` | `news` 的 BOUNDARIES 明确：`sources=["research"]` 只适合**研报来源的原始文章检索**；**结构化券商研报**（报告卡 / 目标价 / rating_action / thesis / catalysts / caveats）属 `metrics(categories=["fundamentals"])` | **两者都用**：`news(sources=["research"])` 取原始文章（quota=0），`metrics` 取结构化报告字段供输出模板使用（红线 12、N-19、N-21）|
-| signal 分类 | 编排里按类显式传 `categories` | 实测 2026-07-24：**省略 `categories` 会 fanout 到 insider_trading + institutional + kol_call 三类，合计仍只计 1 额度** | 需要多于一类时**单次 fanout**，只要一类时才显式传 categories（N-22）|
+| signal 分类 | 编排里按类显式传 `categories` | 实测 2026-07-24：**省略 `categories` 会 fanout 到 insider_trading + institutional + kol_call 三类，合计仍只计 1 额度** | 需要多于一类时**单次 fanout**，只要一类时才显式传 categories（N-4）|
 | news 的 asset_type | 约定层统一写 tradfi/crypto | 实测：`news()` 传 asset_type 返 0 results（`is_tradfi` 字段几乎全 false 的上游 bug）；趋势模式例外 | **news 搜索模式一律不传 asset_type**（红线 1）|
 
 完整调用红线与已知问题登记见 [`followin-mcp-caveats.md`](./followin-mcp-caveats.md)——那份文件是本仓库

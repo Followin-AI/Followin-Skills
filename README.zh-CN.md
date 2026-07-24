@@ -14,7 +14,7 @@
 
 | Bundle | 文件数 | 面向 |
 |---|---|---|
-| **[`.claude/commands/`](./.claude/commands/)** | 8 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
+| **[`.claude/commands/`](./.claude/commands/)** | 7 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
 | **[`skills-community/`](./skills-community/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
 | **[`.claude/references/`](./.claude/references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
@@ -93,46 +93,43 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 
 ---
 
-## 旗舰 Skill（8 个）
+## 旗舰 Skill（7 个）
+
+按推荐入门顺序编号 —— 01 最深，07 最窄。
 
 | # | Skill | 怎么问 | 依赖工具 |
 |---|---|---|---|
-| **02** | [突发新闻分析](./.claude/commands/02_breaking-news.md) | 粘贴新闻 + `分析一下` | 无（Web 检索可选）|
-| **08** | [BTC 宏观看盘](./.claude/commands/08_btc-macro-dashboard_v2.md) | `BTC 宏观` · `BTC macro` | `metrics` |
-| **09** | [黄金宏观看盘](./.claude/commands/09_gold-macro-dashboard_v2.md) | `黄金宏观` · `Gold macro` | `metrics` |
-| **10** | [宏观早报](./.claude/commands/10_macro-morning-brief_v2.md) | `宏观早报` · `Morning brief` | `metrics` `news` |
-| **11** | [美股财报分析](./.claude/commands/11_us-stock-earnings-report_v2.md) | `AAPL 财报` · `AAPL earnings` | `metrics` `news` |
-| **12** | [宏观指标影响](./.claude/commands/12_macro-analyzer_v2.md) | `CPI 影响` · `CPI impact` | `metrics` `news` |
-| **13** | [美股背离扫描](./.claude/commands/13_us-stock-divergence-scan_v2.md) | `美股背离扫描` · `内部人悄悄买入` | `metrics` `news` `signal` |
-| **14** | [多 Agent 深度分析](./.claude/commands/14_multi-agent-stock-analysis_v2.md) | `NVDA 值不值得买` · `全面分析 NVDA` | `metrics` `news` `signal` |
+| **01** | [多 Agent 深度分析](./.claude/commands/01_multi-agent-stock-analysis.md) | `NVDA 值不值得买` · `全面分析 NVDA` | `metrics` `news` `signal` |
+| **02** | [美股财报分析](./.claude/commands/02_us-stock-earnings-report.md) | `AAPL 财报` · `AAPL earnings` | `metrics` `news` `signal` |
+| **03** | [美股背离扫描](./.claude/commands/03_us-stock-divergence-scan.md) | `美股背离扫描` · `内部人悄悄买入` | `metrics` `news` `signal` |
+| **04** | [BTC 宏观看盘](./.claude/commands/04_btc-macro-dashboard.md) | `BTC 宏观` · `BTC macro` | `metrics` |
+| **05** | [黄金宏观看盘](./.claude/commands/05_gold-macro-dashboard.md) | `黄金宏观` · `Gold macro` | `metrics` |
+| **06** | [宏观早报](./.claude/commands/06_macro-morning-brief.md) | `宏观早报` · `Morning brief` | `metrics` `news` |
+| **07** | [宏观指标影响](./.claude/commands/07_macro-analyzer.md) | `CPI 影响` · `CPI impact` | `metrics` `news` |
 
-### 02 —— 突发新闻分析
+### 01 —— 多 Agent 深度分析
 
-粘贴一条加密新闻或长文，返回：影响哪些标的、利多还是利空、强度多大、持续多久。短输入走快评模式，长文或明确要求走深度模式（完整因果链 + 二阶效应）。每次判断都附带**反方论证** —— 什么条件会证伪它。不依赖 MCP。
+19 位虚拟分析师（8 位传奇投资者 + 5 位现代大师 + 6 位量化分析师）独立打分，风控经理约束仓位，组合经理综合决策 —— 合计 21 个 Agent，对标 ai-hedge-fund 架构。11 路调用序列已完整覆盖官方尽调编排。分析师人设见 [`.claude/references/01_agent-prompts.md`](./.claude/references/01_agent-prompts.md)。
 
-### 08 / 09 —— BTC / 黄金宏观看盘
+### 02 —— 美股财报分析
 
-把当前宏观环境打成 0–100 分并给出分层拆解，让"环境怎么样"有个数而不是一句感觉。两者都通过 `metrics` 拉 FRED 指标与行情快照。
+单股财报三维分析：财务 Beat/Miss + 媒体情绪 + 宏观背景，另加机构研报层与信号面 fanout（内部人 / 13F / KOL 喊单）。必须点名具体代码或公司名才触发。
 
-### 10 —— 宏观早报
-
-宏观 + 新闻 + 异动三源聚合的每日晨间简报，可传 `watchlist`。（这是**宏观/美股**维度的早报，不是加密日报。）
-
-### 11 —— 美股财报分析
-
-单股财报三维分析：财务 Beat/Miss + 媒体情绪 + 宏观背景。必须点名具体代码或公司名才触发。
-
-### 12 —— 宏观指标影响
-
-从指标变动到板块影响的全链路。必须同时包含**指标名**和**影响/解读意图** —— "CPI 出来了对市场有什么影响"走这里，"CPI 是多少"不走。
-
-### 13 —— 美股背离扫描
+### 03 —— 美股背离扫描
 
 发现价格、内部人交易与媒体报道三者之间的不一致 —— 也就是"没人报道却在动"的标的。可传 `scope` 与 `days`。
 
-### 14 —— 多 Agent 深度分析
+### 04 / 05 —— BTC / 黄金宏观看盘
 
-19 位虚拟分析师（8 位传奇投资者 + 5 位现代大师 + 6 位量化分析师）独立打分，风控经理约束仓位，组合经理综合决策 —— 合计 21 个 Agent，对标 ai-hedge-fund 架构。分析师人设见 [`.claude/references/14_agent-prompts.md`](./.claude/references/14_agent-prompts.md)。
+把当前宏观环境打成 0–100 分并给出分层拆解，让"环境怎么样"有个数而不是一句感觉。两者都通过 `metrics` 拉 FRED 指标与行情快照。
+
+### 06 —— 宏观早报
+
+宏观 + 新闻 + 异动三源聚合的每日晨间简报，可传 `watchlist`。这是**宏观/美股**维度的早报；本仓库没有加密日报 Skill。
+
+### 07 —— 宏观指标影响
+
+从指标变动到板块影响的全链路。必须同时包含**指标名**和**影响/解读意图** —— "CPI 出来了对市场有什么影响"走这里，"CPI 是多少"不走。
 
 ---
 
@@ -157,12 +154,12 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 
 | 你说 | 路由到 | 为什么 |
 |---|---|---|
-| `宏观早报` / `Morning brief` | 10 宏观早报 | 宏观/美股维度的每日简报 |
-| `CPI 影响` / `CPI impact` | 12 宏观指标影响 | 具体指标 + 影响意图 |
-| `BTC 宏观` / `BTC macro` | 08 BTC 看盘 | 单一资产的宏观评分 |
-| `背离扫描` / `Divergence scan` | 13 背离扫描 | 价格/媒体/内部人不一致 |
-| `AAPL 财报` / `AAPL earnings` | 11 财报分析 | 点名标的 + 财报 |
-| `NVDA 值不值得买` | 14 多 Agent | 点名标的 + 买卖决策 |
+| `NVDA 值不值得买` | 01 多 Agent | 点名标的 + 买卖决策 |
+| `AAPL 财报` / `AAPL earnings` | 02 财报分析 | 点名标的 + 财报 |
+| `背离扫描` / `Divergence scan` | 03 背离扫描 | 价格/媒体/内部人不一致 |
+| `BTC 宏观` / `BTC macro` | 04 BTC 看盘 | 单一资产的宏观评分 |
+| `宏观早报` / `Morning brief` | 06 宏观早报 | 宏观/美股维度的每日简报 |
+| `CPI 影响` / `CPI impact` | 07 宏观指标影响 | 具体指标 + 影响意图 |
 
 每个 Skill 的 frontmatter 都带显式的 `trigger` 与 `not_trigger` 列表 —— 这是相邻 Skill 不互相抢词的关键。
 

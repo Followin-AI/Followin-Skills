@@ -14,7 +14,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 
 | Bundle | Files | For |
 |---|---|---|
-| **[`.claude/commands/`](./.claude/commands/)** | 8 skills | Individual traders / analysts — macro dashboards, earnings, divergence scans, multi-agent analysis |
+| **[`.claude/commands/`](./.claude/commands/)** | 7 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
 | **[`skills-community/`](./skills-community/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
 | **[`.claude/references/`](./.claude/references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
@@ -93,46 +93,43 @@ Full call red-lines and the known-issues register live in [`.claude/references/f
 
 ---
 
-## Flagship skills (8)
+## Flagship skills (7)
+
+Numbered in recommended onboarding order — 01 is the deepest, 07 the most narrowly scoped.
 
 | # | Skill | Ask it | MCP tools |
 |---|---|---|---|
-| **02** | [Breaking News Analysis](./.claude/commands/02_breaking-news.md) | Paste a news snippet + `Analyze this` | none (web search optional) |
-| **08** | [BTC Macro Dashboard](./.claude/commands/08_btc-macro-dashboard_v2.md) | `BTC macro` · `BTC 宏观` | `metrics` |
-| **09** | [Gold Macro Dashboard](./.claude/commands/09_gold-macro-dashboard_v2.md) | `Gold macro` · `黄金宏观` | `metrics` |
-| **10** | [Macro Morning Brief](./.claude/commands/10_macro-morning-brief_v2.md) | `Morning brief` · `宏观早报` | `metrics` `news` |
-| **11** | [US Stock Earnings Report](./.claude/commands/11_us-stock-earnings-report_v2.md) | `AAPL earnings` · `AAPL 财报` | `metrics` `news` |
-| **12** | [Macro Analyzer](./.claude/commands/12_macro-analyzer_v2.md) | `CPI impact` · `CPI 影响` | `metrics` `news` |
-| **13** | [US Stock Divergence Scan](./.claude/commands/13_us-stock-divergence-scan_v2.md) | `Divergence scan` · `美股背离扫描` | `metrics` `news` `signal` |
-| **14** | [Multi-Agent Stock Analysis](./.claude/commands/14_multi-agent-stock-analysis_v2.md) | `Should I buy NVDA` · `全面分析 NVDA` | `metrics` `news` `signal` |
+| **01** | [Multi-Agent Stock Analysis](./.claude/commands/01_multi-agent-stock-analysis.md) | `Should I buy NVDA` · `全面分析 NVDA` | `metrics` `news` `signal` |
+| **02** | [US Stock Earnings Report](./.claude/commands/02_us-stock-earnings-report.md) | `AAPL earnings` · `AAPL 财报` | `metrics` `news` `signal` |
+| **03** | [US Stock Divergence Scan](./.claude/commands/03_us-stock-divergence-scan.md) | `Divergence scan` · `美股背离扫描` | `metrics` `news` `signal` |
+| **04** | [BTC Macro Dashboard](./.claude/commands/04_btc-macro-dashboard.md) | `BTC macro` · `BTC 宏观` | `metrics` |
+| **05** | [Gold Macro Dashboard](./.claude/commands/05_gold-macro-dashboard.md) | `Gold macro` · `黄金宏观` | `metrics` |
+| **06** | [Macro Morning Brief](./.claude/commands/06_macro-morning-brief.md) | `Morning brief` · `宏观早报` | `metrics` `news` |
+| **07** | [Macro Analyzer](./.claude/commands/07_macro-analyzer.md) | `CPI impact` · `CPI 影响` | `metrics` `news` |
 
-### 02 — Breaking News Analysis
+### 01 — Multi-Agent Stock Analysis
 
-Paste a crypto headline or article; get which tokens are affected, bullish or bearish, how strong, and for how long. Short input gets a flash call; long input or an explicit ask gets the full causal chain and second-order effects. Every call includes the counter-argument — what would invalidate it. No MCP dependency.
+19 virtual analysts (8 legendary investors + 5 modern masters + 6 quant analysts) score independently, a risk manager constrains position size, and a portfolio manager makes the call — 21 agents total. Modeled on the ai-hedge-fund architecture. Its 11-call sequence covers the full official due-diligence orchestration. Analyst personas live in [`.claude/references/01_agent-prompts.md`](./.claude/references/01_agent-prompts.md).
 
-### 08 / 09 — BTC & Gold Macro Dashboards
+### 02 — US Stock Earnings Report
 
-Score the current macro environment 0–100 with a layered breakdown, so "how's the backdrop" gets a number instead of a vibe. Both pull FRED series and market snapshots through `metrics`.
+Three-dimensional single-stock earnings review: financial Beat/Miss + media sentiment + macro backdrop, plus broker research and a signal fanout (insiders / 13F / KOL calls). Requires a specific ticker or company name.
 
-### 10 — Macro Morning Brief
-
-Daily macro/US-stock briefing aggregating three sources: macro data, news, and unusual moves. Takes an optional `watchlist`. (This is the macro/equities brief — not a crypto daily.)
-
-### 11 — US Stock Earnings Report
-
-Three-dimensional single-stock earnings review: financial Beat/Miss + media sentiment + macro backdrop. Requires a specific ticker or company name.
-
-### 12 — Macro Analyzer
-
-Full chain from an indicator move to sector impact. Needs both an indicator *and* an impact/interpretation intent — `CPI is out, what does it mean for the market` routes here; `what is CPI` does not.
-
-### 13 — US Stock Divergence Scan
+### 03 — US Stock Divergence Scan
 
 Finds inconsistencies between price, insider trading, and media coverage — the silent movers. Takes `scope` and `days`.
 
-### 14 — Multi-Agent Stock Analysis
+### 04 / 05 — BTC & Gold Macro Dashboards
 
-19 virtual analysts (8 legendary investors + 5 modern masters + 6 quant analysts) score independently, a risk manager constrains position size, and a portfolio manager makes the call — 21 agents total. Modeled on the ai-hedge-fund architecture. Analyst personas live in [`.claude/references/14_agent-prompts.md`](./.claude/references/14_agent-prompts.md).
+Score the current macro environment 0–100 with a layered breakdown, so "how's the backdrop" gets a number instead of a vibe. Both pull FRED series and market snapshots through `metrics`.
+
+### 06 — Macro Morning Brief
+
+Daily macro/US-stock briefing aggregating three sources: macro data, news, and unusual moves. Takes an optional `watchlist`. This is the macro/equities brief — there is no crypto daily skill in this repo.
+
+### 07 — Macro Analyzer
+
+Full chain from an indicator move to sector impact. Needs both an indicator *and* an impact/interpretation intent — `CPI is out, what does it mean for the market` routes here; `what is CPI` does not.
 
 ---
 
@@ -157,12 +154,12 @@ Similar-sounding requests go to different skills:
 
 | You say | Routes to | Why |
 |---|---|---|
-| `Morning brief` / `宏观早报` | 10 Macro Morning Brief | Macro/US-stock daily briefing |
-| `CPI impact` / `CPI 影响` | 12 Macro Analyzer | A specific indicator + impact intent |
-| `BTC macro` / `BTC 宏观` | 08 BTC Dashboard | Asset-specific macro score |
-| `Divergence scan` / `背离扫描` | 13 Divergence Scan | Price/media/insider inconsistency |
-| `AAPL earnings` / `AAPL 财报` | 11 Earnings Report | Named ticker + earnings |
-| `Should I buy NVDA` / `NVDA 值不值得买` | 14 Multi-Agent | Named ticker + buy/sell decision |
+| `Should I buy NVDA` / `NVDA 值不值得买` | 01 Multi-Agent | Named ticker + buy/sell decision |
+| `AAPL earnings` / `AAPL 财报` | 02 Earnings Report | Named ticker + earnings |
+| `Divergence scan` / `背离扫描` | 03 Divergence Scan | Price/media/insider inconsistency |
+| `BTC macro` / `BTC 宏观` | 04 BTC Dashboard | Asset-specific macro score |
+| `Morning brief` / `宏观早报` | 06 Macro Morning Brief | Macro/US-stock daily briefing |
+| `CPI impact` / `CPI 影响` | 07 Macro Analyzer | A specific indicator + impact intent |
 
 Each skill's frontmatter carries explicit `trigger` and `not_trigger` lists — that's what keeps neighbours from stealing each other's queries.
 

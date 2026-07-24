@@ -1,5 +1,5 @@
 ---
-name: Gold Macro Dashboard (v2 — Followin MCP)
+name: Gold Macro Dashboard
 description: 评估黄金当前宏观环境，输出0-100综合评分和分层分析。当用户问"黄金宏观怎么样"、"黄金环境如何"、"黄金现在几分"时触发。
 trigger: 黄金宏观、黄金宏观看盘、黄金宏观评分、黄金宏观环境、gold macro、gold macro dashboard、gold macro score、gold macro environment、how is gold macro
 not_trigger: 策略信号、KOL、喊单、热点、TG频道、日报、代币舆情、BTC、比特币、行情、价格、strategy、KOL calls、trending、TG channels、daily brief、bitcoin、token news
@@ -26,7 +26,7 @@ tools: WebSearch, WebFetch
 
 | 用途 | 调用 |
 |------|------|
-| FRED 宏观指标 | `metrics(keywords=["<series_id>"], categories=["macro"], limit=N)` 直查（🔒 v3 同 Skill 08：禁止 query 中文/混合自然语言，语义陷阱已实测；且 FRED series 单独 fire 不批量，B-31）|
+| FRED 宏观指标 | `metrics(keywords=["<series_id>"], categories=["macro"], limit=N)` 直查（🔒 v3 同 Skill 04：禁止 query 中文/混合自然语言，语义陷阱已实测；且 FRED series 单独 fire 不批量，B-31）|
 | 金/银/DXY/日元 批量 | `metrics(keywords=["GCUSD","SIUSD","DXUSD","USDJPY"], categories=["market"])`（market 快照可批量但上限 10 个 keywords，实测 18→10 静默截断）|
 | VIX | `metrics(keywords=["^VIX"], categories=["market"])` |
 | 经济日历 | `metrics(keywords=["economic calendar"], categories=["macro"])` ⚠️ 不要写"本周经济数据"——实测"本周"被解析成 lookback 7 天返回已发布历史 |

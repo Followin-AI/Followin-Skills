@@ -1,5 +1,5 @@
 ---
-name: Multi-Agent Stock Analysis (v2 — Followin MCP)
+name: Multi-Agent Stock Analysis
 description: 多Agent美股深度分析 — 19位虚拟分析师（8位传奇投资者+5位现代大师+6位量化分析师）独立打分，风控经理约束仓位，组合经理LLM综合决策。对标ai-hedge-fund架构。必须指定具体股票代码，如"帮我全面分析AAPL"、"多维度看TSLA"、"NVDA值不值得买"。
 trigger: 多维度分析、多角度分析、全面分析、深度分析、值不值得买、能不能买、该不该买、综合分析、multi-agent分析、AI分析、投资分析、全方位分析、帮我分析一下XX、XX怎么样、XX能买吗、multi-agent analysis、full analysis、comprehensive analysis、should I buy、deep dive、stock analysis、investment analysis
 not_trigger: 策略信号、KOL、喊单、热点、日报、背离扫描、财报速查、宏观指标、BTC宏观、黄金宏观、strategy、KOL calls、trending、daily brief、divergence、earnings report、macro、morning brief
@@ -47,7 +47,7 @@ args: ticker
 | 行情快照（price / change / volume / dayHigh/Low / yearHigh/Low / marketCap）| `metrics(keywords=[T], categories=["market"], asset_type="tradfi")` |
 | 历史 OHLCV（用于多周期涨跌 + 技术指标自算）| `metrics(keywords=[T], categories=["market"], asset_type="tradfi", query="历史走势 30 day chart", time_range="1y")` |
 | 技术指标（RSI / EMA / SMA）| `metrics(keywords=[T], categories=["market"], asset_type="tradfi", query="RSI 14")` 或 `query="EMA 50"` |
-| **信号面 fanout**（内部人 Form 4 + senate + house，**外加 13F institutional + KOL 喊单**——省略 `categories` 一次拿三类，仍只计 1 额度，N-22）| `signal(keywords=[T], asset_type="tradfi", limit=20)` |
+| **信号面 fanout**（内部人 Form 4 + senate + house，**外加 13F institutional + KOL 喊单**——省略 `categories` 一次拿三类，仍只计 1 额度，N-4）| `signal(keywords=[T], asset_type="tradfi", limit=20)` |
 | **机构研报**（目标价 / rating_action / thesis / key_caveat / latest_catalyst）| `metrics(keywords=[T], categories=["fundamentals"], asset_type="tradfi", query="<TICKER> research reports", verbosity="detail", time_range="7d")` ⚠️ warning 误报见 N-21 |
 | 媒体覆盖 | `news(query="<companyName> <ticker>", sources=["media"], time_range="1m", limit=10)` |
 | 推特风向 | `news(query="<companyName> <ticker>", sources=["twitter"], time_range="1w", limit=10)` |
@@ -78,9 +78,9 @@ args: ticker
 ```
 5. signal(keywords=[T], asset_type="tradfi", limit=20)
    → ⚠️ 省略 categories 才 fanout：corporate Form 4 + senate + house
-     + institutional(13F) + kol_call 三类一次拿全，仍只计 1 额度（N-22）
+     + institutional(13F) + kol_call 三类一次拿全，仍只计 1 额度（N-4）
    → 13F 环比字段季内不可引用，只取绝对值与持仓结构（N-7）
-   → kol_call 统计多空前按 source_url 去重（N-23）
+   → kol_call 统计多空前按 source_url 去重（N-5）
 6. metrics(keywords=[T], categories=["fundamentals"], asset_type="tradfi",
            query="<TICKER> research reports", verbosity="detail", time_range="7d")
    → subject_reports（专题）+ mention_reports（行业报告提及）两层
@@ -130,7 +130,7 @@ SMA(200) = 简单 200 日均线
 - **置信度**: 0-100
 - **核心理由**: 2-3 条关键论据
 
-> 19 个 Agent 的 prompt（哲学 + 关注数据 + 评分框架）**完全保留 v1**，执行前先 Read 引用附件 `~/.claude/references/14_agent-prompts.md`（仓库内对应 `.claude/references/14_agent-prompts.md`）。每个 Agent 从同一数据池中按需取数。
+> 19 个 Agent 的 prompt（哲学 + 关注数据 + 评分框架）**完全保留 v1**，执行前先 Read 引用附件 `~/.claude/references/01_agent-prompts.md`（仓库内对应 `.claude/references/01_agent-prompts.md`）。每个 Agent 从同一数据池中按需取数。
 
 ### Step 4: ⑳ 风控经理（Risk Manager）
 
@@ -203,9 +203,9 @@ SMA(200) = 简单 200 日均线
 - ✅ **comprehensive 真聚合**：**必须显式 `query="全面分析"`** 才走 comprehensive intent（不带 query 走 default 只返 5 block）；带 query 时返 14 block（仅缺 stock_peers）
 - ✅ **insider 已含 corporate Form 4 + senate + house 三路 fanout**，Group C Sentiment 可用政客买入信号
 - ✅ **历史 OHLCV** 用 `query="历史走势 30 day chart"` + `time_range="1y"`；**技术指标** 用 `query="RSI 14"` 或 `query="EMA 50"` 各自单调（不要靠 fanout，撞错路径无 fallback）
-- 🆕 **signal 必须省略 `categories`（N-22）**：省略即 fanout 到 insider_trading + institutional(13F) + kol_call 三类，**合计仍只计 1 额度**。按类分 3 次调 = 3 倍额度且数据完全相同
+- 🆕 **signal 必须省略 `categories`（N-4）**：省略即 fanout 到 insider_trading + institutional(13F) + kol_call 三类，**合计仍只计 1 额度**。按类分 3 次调 = 3 倍额度且数据完全相同
 - 🆕 **13F 环比字段季内不可引用（N-7，2026-07-24 复核仍有效）**：`investorsHolding` / `ownershipPercentChange` / `putCallRatioChange` 在申报季中期是残缺假信号（实测 NVDA 6234→1441→1882 持续回补）。Group C 只能引用绝对持仓与结构，**任何环比一律不用**
-- 🆕 **KOL 喊单先按 `source_url` 去重（N-23）**：多标的推文按 symbol 裂成多条，不去重会把一条低信号推文计成三个独立喊单，直接污染 Sentiment 分析师输入
+- 🆕 **KOL 喊单先按 `source_url` 去重（N-5）**：多标的推文按 symbol 裂成多条，不去重会把一条低信号推文计成三个独立喊单，直接污染 Sentiment 分析师输入
 - 🆕 **研报层 warning 是误报（N-21）**：`meta.warnings` 报 `default_fanout_fallback` 时 payload 里 `research_reports` 仍然齐全，**以 payload 为准不要重试**；另 `subject_reports=0` 只有 mention 时不能当作"有机构专题覆盖"（N-19）
 - 19 个 Agent prompt 业务逻辑保持稳定（不在 MCP 层）
 
@@ -217,7 +217,7 @@ SMA(200) = 简单 200 日均线
 - 评分框架（如 Buffett 护城河 / Graham NCAV / Wood 颠覆性创新）
 - 信号阈值
 
-以及 ⑳ 风控经理 / ㉑ 组合经理的完整决策逻辑，全部在引用附件 **`14_agent-prompts.md`**（路径：`~/.claude/references/14_agent-prompts.md`，仓库内 `.claude/references/14_agent-prompts.md`）。**执行 Step 3 前必须先 Read 该文件**，不要凭分析师名字现编评分框架。
+以及 ⑳ 风控经理 / ㉑ 组合经理的完整决策逻辑，全部在引用附件 **`01_agent-prompts.md`**（路径：`~/.claude/references/01_agent-prompts.md`，仓库内 `.claude/references/01_agent-prompts.md`）。**执行 Step 3 前必须先 Read 该文件**，不要凭分析师名字现编评分框架。
 
 ## 输出约束
 

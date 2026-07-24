@@ -1,6 +1,6 @@
 ---
-name: Macro Morning Brief (v2 — Followin MCP)
-description: 每日财经早报（宏观/美股维度）— 宏观+新闻+异动三源聚合晨间简报。触发词：宏观日报、宏观早报、美股早报、美股日报、morning brief、morning briefing、今日市场。纯"日报"/"加密日报"走 04，不在本 Skill 范围内。
+name: Macro Morning Brief
+description: 每日财经早报（宏观/美股维度）— 宏观+新闻+异动三源聚合晨间简报。触发词：宏观日报、宏观早报、美股早报、美股日报、morning brief、morning briefing、今日市场。纯"日报"/"加密日报"不在本 Skill 范围内（本仓库无加密日报 Skill）。
 trigger: 宏观日报、宏观早报、美股早报、美股日报、morning brief、morning briefing、今日市场、每日财经简报、macro morning brief、US stock daily、macro daily、financial morning brief
 not_trigger: 策略信号、KOL、喊单、热点、加密日报、加密早报、日报、BTC宏观、黄金宏观、财报、earnings、strategy、KOL calls、trending、crypto daily、crypto brief、BTC macro、gold macro、earnings report
 mcp: mcp__followin__metrics, mcp__followin__news
@@ -16,9 +16,9 @@ args: watchlist
 | 用户说的 | 走哪个 |
 |---|---|
 | 宏观日报 / 宏观早报 / 美股日报 / 美股早报 / morning brief / 今日市场 | ✅ 本 Skill |
-| 日报 / 加密日报 / 加密早报 | ❌ 转 Skill 04 crypto-daily-brief |
+| 日报 / 加密日报 / 加密早报 | ❌ 不在本 Skill 范围——本仓库已无加密日报 Skill，如实告知用户并建议改问宏观/美股早报，或直接用 `news()` 趋势模式（空 query + `asset_type="crypto"`，0 额度）|
 
-不带"宏观/美股"修饰的纯"日报" → 默认加密日报。
+不带"宏观/美股"修饰的纯"日报" → 默认指加密日报，属本 Skill 范围外。
 
 ## 参数
 
@@ -78,7 +78,7 @@ args: watchlist
   - 有重要日历事件 → query="<事件名>"，例 "CPI inflation" / "Fed FOMC"
   - 地缘热点 → query="tariff trade" / "Iran"
 
-### Step 2: 涨跌榜过滤（同 Skill 13 v2）
+### Step 2: 涨跌榜过滤（同 Skill 03）
 
 mover 榜不返 marketCap，必须二次调用：
 ```

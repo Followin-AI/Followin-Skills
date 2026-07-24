@@ -1,5 +1,5 @@
 ---
-name: US Stock Earnings Report (v2 — Followin MCP)
+name: US Stock Earnings Report
 description: 单股财报三维分析（财务Beat/Miss + 媒体情绪 + 宏观背景）。必须指定具体股票代码或公司名才触发，如"帮我看AAPL财报"、"TSLA earnings"、"英伟达财报分析"。泛问"今天有哪些财报"走情报中心，不在本Skill范围。
 trigger: 帮我看XX财报、XX财报分析、XX财报速查、XX earnings、XX earnings report、[股票代码]财报、[公司名]财报、[ticker] earnings、earnings report、earnings analysis、show me [ticker] earnings、look at [ticker] earnings
 not_trigger: 策略信号、KOL、喊单、热点、日报、背离扫描、divergence、strategy、KOL calls、trending、daily brief、divergence scan、morning brief
@@ -42,7 +42,7 @@ args: ticker
 | 推特风向（可选）| `news(query="<companyName> <ticker>", sources=["twitter"], time_range="1w", limit=10)` |
 | **机构研报·结构化**（目标价 / rating_action / thesis / key_caveat / latest_catalyst）| `metrics(keywords=[ticker], categories=["fundamentals"], asset_type="tradfi", query="<TICKER> research reports", verbosity="detail", time_range="7d")` ⚠️ warning 误报见 N-21 |
 | **研报原始文章**（官方尽调编排的 `news(["research"])` 一环，quota=0）| `news(query="<companyName> <ticker>", sources=["research"], time_range="2w", limit=10)` |
-| **信号面 fanout**（内部人 Form 4 + 国会 + 13F + KOL 喊单，**一次 1 额度拿三类**）| `signal(keywords=[ticker], asset_type="tradfi", limit=20)` — **省略 `categories` 才 fanout**（N-22）|
+| **信号面 fanout**（内部人 Form 4 + 国会 + 13F + KOL 喊单，**一次 1 额度拿三类**）| `signal(keywords=[ticker], asset_type="tradfi", limit=20)` — **省略 `categories` 才 fanout**（N-4）|
 | 宏观（按行业）| `metrics(keywords=["DGS10"], categories=["macro"], limit=5)` 等（见行业映射表）|
 
 ## EPS 数据源说明（保留 v1）
@@ -280,6 +280,6 @@ PE: XX.X | PS: X.X | ROE: XX.X% | D/E: X.X | Gross Margin: XX.X%
 - **避免高并发**：单批 ≤ 4 路并发，否则 SSE 可能挂
 - **`metrics()` FRED 字典未命中走 fred_search_fallback** → 改用 `keywords=["<series_id>"]` 兜底
 - 🆕 **研报层 warning 是误报（N-21）**：研报调用的 `meta.warnings` 会报 `default_fanout_fallback`／"returning the CORE fundamentals set"，但 `results.fundamentals.research_reports` 数据齐全。**以 payload 为准，不要因为这条 warning 重试**——重试白烧 1 次额度
-- 🆕 **信号面必须单次 fanout（N-22）**：`signal()` **省略 `categories`** 即一次返回 `insider_trading` + `institutional`(13F) + `kol_call` 三类，**合计只计 1 次额度**。按类分 3 次调 = 3 倍额度且数据完全相同
+- 🆕 **信号面必须单次 fanout（N-4）**：`signal()` **省略 `categories`** 即一次返回 `insider_trading` + `institutional`(13F) + `kol_call` 三类，**合计只计 1 次额度**。按类分 3 次调 = 3 倍额度且数据完全相同
 - 🆕 **13F 环比字段季内不可引用（N-7，2026-07-24 复核仍有效）**：`investorsHolding` / `ownershipPercentChange` / `putCallRatioChange` 在申报季中期是残缺假信号（实测 NVDA 6234→1441→1882 持续回补）。**只引用绝对值与持仓结构，不引用任何环比**
-- 🆕 **KOL 喊单先去重（N-23）**：多标的推文按 symbol 裂成多条（同一 `source_url` 出现 3 次），统计多空前必须按 `source_url` 去重，否则一条低信号推文被计成三个独立喊单
+- 🆕 **KOL 喊单先去重（N-5）**：多标的推文按 symbol 裂成多条（同一 `source_url` 出现 3 次），统计多空前必须按 `source_url` 去重，否则一条低信号推文被计成三个独立喊单

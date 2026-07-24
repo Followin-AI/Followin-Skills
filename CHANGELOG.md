@@ -19,6 +19,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2026-07-24] — Flagship skills renumbered 01–07 ⚠️ breaking
+
+### Removed
+- **`02_breaking-news` (Breaking News Analysis) deleted.** It was the last skill with no MCP dependency — pure prompt-level analysis that the model does without a skill file.
+
+### Changed
+- **All flagship skills renumbered into recommended-onboarding order, and the `_v2` filename suffix dropped** (it no longer distinguished anything once `skills-v2/` was removed). Anyone who copied these into `~/.claude/commands/` should delete the old files before copying the new ones — otherwise both sets will be live and compete for the same triggers.
+
+  | New | Old | Skill |
+  |---|---|---|
+  | `01_multi-agent-stock-analysis` | `14_…_v2` | Multi-Agent Stock Analysis |
+  | `02_us-stock-earnings-report` | `11_…_v2` | US Stock Earnings Report |
+  | `03_us-stock-divergence-scan` | `13_…_v2` | US Stock Divergence Scan |
+  | `04_btc-macro-dashboard` | `08_…_v2` | BTC Macro Dashboard |
+  | `05_gold-macro-dashboard` | `09_…_v2` | Gold Macro Dashboard |
+  | `06_macro-morning-brief` | `10_…_v2` | Macro Morning Brief |
+  | `07_macro-analyzer` | `12_…_v2` | Macro Analyzer |
+
+- `.claude/references/14_agent-prompts.md` → `01_agent-prompts.md`, matching its owning skill.
+- Cross-references swept: skill-to-skill citations, the caveats SSOT header and its B-33 rollback instructions, and both READMEs' skill tables and routing guides.
+
+### Fixed
+- **Dangling route to a deleted skill.** `06_macro-morning-brief` sent crypto-daily requests to "Skill 04 crypto-daily-brief" — that skill was deleted back in `bd978a6`, and after renumbering `04` is the BTC Macro Dashboard, so the pointer had become actively wrong. It now states plainly that this repo has no crypto-daily skill.
+- **Duplicate caveat entries removed.** N-22/N-23/N-24, added earlier the same day, restated N-4 (signal fanout quota), N-5 (kol_call `source_url` splitting), and N-8 (array-param serialization) — all already registered on 2026-07-22. The 2026-07-24 re-verifications were merged into the original entries instead, including a correction: N-4's "fanout 全 4 类" returned only three categories in this run because `trader_position` had no rows for the ticker, so consumers must key off what actually comes back rather than assuming all four.
+
+---
+
 ## [2026-07-24] — Repository cleanup
 
 ### Removed
