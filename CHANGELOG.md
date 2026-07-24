@@ -17,6 +17,7 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
 ## [2026-07-24] — `skills-community/` → `Community Skill/`
 
 ### Changed
+- **`Base Skill/Skill/` flattened to `Base Skill/`** — the nested "Skill" folder was redundant; both bundles now keep their .md files at the top of their own folder. Install command: `cp "Base Skill"/*.md ~/.claude/commands/`.
 - Bundle folders now named symmetrically: **`Base Skill/` + `Community Skill/`**, shared assets in `references/`. Future scenario bundles get their own top-level folder — one repo as the shelf, folders as the products (decided against a repo split: both bundles share the caveats SSOT, and split copies are how `skills-v2/` rotted).
 - Install command in the community README is now `cp "Community Skill"/*.md ~/.claude/commands/` (folder name contains a space).
 

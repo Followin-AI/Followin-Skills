@@ -14,7 +14,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 
 | Bundle | Files | For |
 |---|---|---|
-| **[`Base Skill/Skill/`](./Base%20Skill/Skill/)** | 6 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
+| **[`Base Skill/`](./Base%20Skill/)** | 6 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
 | **[`Community Skill/`](./Community%20Skill/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
@@ -64,7 +64,7 @@ Restart your client after editing.
 **3. Install the skill files** (optional) — copy what you want into your client's command directory:
 
 ```bash
-cp "Base Skill/Skill"/*.md ~/.claude/commands/
+cp "Base Skill"/*.md ~/.claude/commands/
 ```
 
 Skills are written in Claude Code's slash-command format (YAML frontmatter + Markdown body). They drop straight into Claude Code and OpenCode. For Cursor / Windsurf / Cline, copy each body into that tool's native rule format — the Markdown is fully portable.
@@ -99,12 +99,12 @@ Numbered in recommended onboarding order — 01 is the deepest dive, 06 the ligh
 
 | # | Skill | Ask it | MCP tools |
 |---|---|---|---|
-| **01** | [Multi-Agent Stock Analysis](./Base%20Skill/Skill/01_multi-agent-stock-analysis.md) | `Should I buy NVDA` · `全面分析 NVDA` | `metrics` `news` `signal` |
-| **02** | [US Stock Earnings Report](./Base%20Skill/Skill/02_us-stock-earnings-report.md) | `AAPL earnings` · `AAPL 财报` | `metrics` `news` `signal` |
-| **03** | [US Stock Divergence Scan](./Base%20Skill/Skill/03_us-stock-divergence-scan.md) | `Divergence scan` · `美股背离扫描` | `metrics` `news` `signal` |
-| **04** | [BTC Macro Dashboard](./Base%20Skill/Skill/04_btc-macro-dashboard.md) | `BTC macro` · `BTC 宏观` | `metrics` |
-| **05** | [Gold Macro Dashboard](./Base%20Skill/Skill/05_gold-macro-dashboard.md) | `Gold macro` · `黄金宏观` | `metrics` |
-| **06** | [Macro Morning Brief](./Base%20Skill/Skill/06_macro-morning-brief.md) | `Morning brief` · `宏观早报` | `metrics` `news` |
+| **01** | [Multi-Agent Stock Analysis](./Base%20Skill/01_multi-agent-stock-analysis.md) | `Should I buy NVDA` · `全面分析 NVDA` | `metrics` `news` `signal` |
+| **02** | [US Stock Earnings Report](./Base%20Skill/02_us-stock-earnings-report.md) | `AAPL earnings` · `AAPL 财报` | `metrics` `news` `signal` |
+| **03** | [US Stock Divergence Scan](./Base%20Skill/03_us-stock-divergence-scan.md) | `Divergence scan` · `美股背离扫描` | `metrics` `news` `signal` |
+| **04** | [BTC Macro Dashboard](./Base%20Skill/04_btc-macro-dashboard.md) | `BTC macro` · `BTC 宏观` | `metrics` |
+| **05** | [Gold Macro Dashboard](./Base%20Skill/05_gold-macro-dashboard.md) | `Gold macro` · `黄金宏观` | `metrics` |
+| **06** | [Macro Morning Brief](./Base%20Skill/06_macro-morning-brief.md) | `Morning brief` · `宏观早报` | `metrics` `news` |
 
 ### 01 — Multi-Agent Stock Analysis
 

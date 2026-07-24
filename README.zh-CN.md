@@ -14,7 +14,7 @@
 
 | Bundle | 文件数 | 面向 |
 |---|---|---|
-| **[`Base Skill/Skill/`](./Base%20Skill/Skill/)** | 6 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
+| **[`Base Skill/`](./Base%20Skill/)** | 6 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
 | **[`Community Skill/`](./Community%20Skill/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
 | **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
@@ -64,7 +64,7 @@ claude mcp add followin https://mcp.followin.io/v2/mcp --scope user --transport 
 **3. 安装 Skill 文件**（可选）—— 把需要的文件复制进客户端的命令目录：
 
 ```bash
-cp "Base Skill/Skill"/*.md ~/.claude/commands/
+cp "Base Skill"/*.md ~/.claude/commands/
 ```
 
 Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 正文），可直接放入 Claude Code 与 OpenCode。Cursor / Windsurf / Cline 需要把正文复制进各自的原生规则格式 —— Markdown 本身完全可移植。
@@ -99,12 +99,12 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 
 | # | Skill | 怎么问 | 依赖工具 |
 |---|---|---|---|
-| **01** | [多 Agent 深度分析](./Base%20Skill/Skill/01_multi-agent-stock-analysis.md) | `NVDA 值不值得买` · `全面分析 NVDA` | `metrics` `news` `signal` |
-| **02** | [美股财报分析](./Base%20Skill/Skill/02_us-stock-earnings-report.md) | `AAPL 财报` · `AAPL earnings` | `metrics` `news` `signal` |
-| **03** | [美股背离扫描](./Base%20Skill/Skill/03_us-stock-divergence-scan.md) | `美股背离扫描` · `内部人悄悄买入` | `metrics` `news` `signal` |
-| **04** | [BTC 宏观看盘](./Base%20Skill/Skill/04_btc-macro-dashboard.md) | `BTC 宏观` · `BTC macro` | `metrics` |
-| **05** | [黄金宏观看盘](./Base%20Skill/Skill/05_gold-macro-dashboard.md) | `黄金宏观` · `Gold macro` | `metrics` |
-| **06** | [宏观早报](./Base%20Skill/Skill/06_macro-morning-brief.md) | `宏观早报` · `Morning brief` | `metrics` `news` |
+| **01** | [多 Agent 深度分析](./Base%20Skill/01_multi-agent-stock-analysis.md) | `NVDA 值不值得买` · `全面分析 NVDA` | `metrics` `news` `signal` |
+| **02** | [美股财报分析](./Base%20Skill/02_us-stock-earnings-report.md) | `AAPL 财报` · `AAPL earnings` | `metrics` `news` `signal` |
+| **03** | [美股背离扫描](./Base%20Skill/03_us-stock-divergence-scan.md) | `美股背离扫描` · `内部人悄悄买入` | `metrics` `news` `signal` |
+| **04** | [BTC 宏观看盘](./Base%20Skill/04_btc-macro-dashboard.md) | `BTC 宏观` · `BTC macro` | `metrics` |
+| **05** | [黄金宏观看盘](./Base%20Skill/05_gold-macro-dashboard.md) | `黄金宏观` · `Gold macro` | `metrics` |
+| **06** | [宏观早报](./Base%20Skill/06_macro-morning-brief.md) | `宏观早报` · `Morning brief` | `metrics` `news` |
 
 ### 01 —— 多 Agent 深度分析
 
