@@ -33,7 +33,7 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 | 2 | （按需）对头条事件 `news(query="<核心名词×2>", time_range="24h")` 补细节，≤3 次 | 0（实测） |
 | 3 | `metrics(query="most active stocks", asset_type="tradfi")` 异动榜——**弃用 biggest gainers/losers**（trend-scout v1.8.0 实测：上游缺 marketCap 且全是仙股）；**2026-07-22 回归实测更正**：该 board 行本身也不带 marketCap 字段（10/10 行仅有 price/change/name/symbol），需对候选 ticker 另发一次批量 `metrics(query="<TICKER1> <TICKER2> ...", asset_type="tradfi")` 补 snapshot 取 marketCap 后再套用 ≥$1B 过滤（≤10 个一批；query 串批量会静默丢部分 ticker，需核对 `meta.filters_applied.keywords` 是否齐全，缺的单独补查） | 2 |
 | 4 | `signal(query="consensus", asset_type="tradfi", time_range="24h")` 无 categories 一次拿全：喊单榜+多空比+内部人大额动向 | 1 |
-| 5 | `metrics(query="earnings calendar", asset_type="tradfi", date_from=今日, date_to=明日, limit=100)` 当日财报名单，按 c2 同款规则过滤 + 重点标的日期二次核实（见 c2）；**limit 必须调大并做交叉验证，见下方 N-17** | 1 |
+| 5 | ⚠️ **原市场级财报日历已废弃（N-22）** → 改为对关注池逐批查 `metrics(query="<T1>…<T5> next earnings date", asset_type="tradfi")`，取 `next_earnings_estimate.date` = 今日的；做法与铁律见 c2 第 2 节 | 关注池数 ÷5 |
 | 6 | `metrics(query="economic calendar upcoming releases")` 当日宏观数据发布（2026-07-22 回归实测确认可用：query 路径能路由，返回调用当下自然日的日历，满足"当日"需求；date_from/date_to 不影响窗口宽度，传或不传都只回传锚定日当天，见 c2 关于多日窗口限制的记载） | 1 |
 | 7 | 大盘指数 ^GSPC ^IXIC ^DJI ^VIX（trend-scout 实测可用）+ 过滤后重点股快照，按批量降级梯执行（§2 调用形态铁律） | 1-4 |
 
@@ -56,7 +56,8 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 4. signal(query="consensus", asset_type="tradfi", time_range="24h")
    # 不带 categories 一次拿全 4 类（喊单/多空比/内部人/实盘），仍计 1 额度
 
-5. metrics(query="earnings calendar", asset_type="tradfi", date_from="<今日>", date_to="<明日>")
+5. 对关注池逐批（≤5 只）：metrics(query="<T1>…<T5> next earnings date", asset_type="tradfi")
+   # 取 next_earnings_estimate.date = 今日的；市场级日历已废弃见 N-22
 
 6. metrics(query="economic calendar upcoming releases")
    # 宏观日历，非个股查询不传 asset_type；query 严禁带"本周"（红线 10，会返历史而非前瞻）；2026-07-22 实测确认：不带 date_from/date_to 时默认即返回当天日历（当日已发布+待发布混排），满足 c1"当日"需求即可，date_from/date_to 传了也不会扩大窗口（见 c2 关于多日窗口限制的记载）
@@ -108,7 +109,10 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 - **代币化+加密噪音白名单剔除**：趋势榜内容含代币化股票与加密混排（实测 SKHYx、LAB 代币），按"美股正股白名单"原则剔除。（来源：c1 本次实测命中 SKHYx、LAB）
 - **news 搜索不传 asset_type、趋势可传**：news 搜索模式不传 asset_type（红线 1）；趋势模式（空 query）可传，见新 caveat N-1。（N-1：news 趋势模式［空 query］传 asset_type="tradfi" 可用且 0 额度；"news 不传 asset_type" 红线仅适用搜索模式；实体搜索［query="NVDA Nvidia"］实测也 0 额度）
 - **内部人 transactionDate=昨日，只认 S-Sale/P-Purchase**：步骤 4 的内部人行按 N-6 客户端过滤 transactionDate=昨日，且只认 S-Sale/P-Purchase（F-InKind/M-Exempt 剔除）。（N-6：insider/congress 行无视 time_range，7d 窗口可能返回 2020 年记录；客户端按 transactionDate 过滤为强制要求，Dev 待修。F-InKind/M-Exempt 是缴税代扣/豁免行使，非主动交易，对外只认 S-Sale 当卖出、P-Purchase 当买入）
-- **财报日历会漏掉当天最重要的美股（N-17，2026-07-23 实测）**：当日 30 条返回被印度/欧洲/OTC 小票占满，而同一时刻 `fundamentals.next_earnings_estimate` 明确显示 AAL 当天发财报，该股却不在日历返回里。补救三步：① `limit` 至少 100；② 客户端只留无交易所后缀的美股 symbol 并剔除优先股（含 `-P` 字样，如 DLR-PJ）；③ **对当日涨跌榜/热点里出现的标的，用其 `next_earnings_estimate.date` 交叉验证是否等于今天**——日历漏了但个股字段有，这是唯一能补回大票的路径。宁可在贴文里承认"今日财报名单可能不全"，也不能把小票名单当成当天全貌。
+- **❌ 市场级财报日历已废弃，不要再用（N-22，2026-07-27 实测推翻 N-17 的补救方案）**：
+  旧版补救三步里，**第 ① 步「`limit` 至少 100」是无效的**——接口不尊重 `limit`，传 20 返 20，传 100/300 均返 50，`total` 恒为 50。真实机制是 `ORDER BY date ASC, symbol ASC LIMIT 50`：请求多天只返回第 1 天（当天 >50 行时）或第 1 天 + 第 2 天零头；字母序又让美股大票（GOOGL/MSFT/NVDA/TSLA）在密集日必然出局。**连"按天拆开调用"都救不了**——实测 07-29（MSFT/META 发财报当天）单日调用仍砍在 `0KAB.L`，没进美股字母区。
+  → **改用关注池 + `next_earnings_estimate` 核实**，做法见 c2 第 2 节。
+  🔒 **对外发布铁律**：贴文写「今天我们盯的这几家发财报」，**严禁写「今日财报一览」**。旧版那句"宁可承认名单可能不全"已经不够——现在的问题不是"不全"，是**系统性只返回某一天的字母前段**，把它当"当天全貌"的任何变体都是错的。
 - **指数快照会出现重复行（N-18，2026-07-23 实测）**：query 串 `"^GSPC ^IXIC ^DJI ^VIX"` 被解析成 5 个 keywords（多出一个裸 `VIX`），返回里 ^VIX 出现两条完全相同的行。写贴文前必须按 `symbol` 去重，否则"大盤一眼"会把同一个指数写两次。
 - **原油只能用 `USO`（N-30，2026-07-27 复核结案）**：原四种写法实测三死一活——`CLUSD` 返 0 结果（非 402）、`BZUSD` 在 query 串里被**静默丢弃**（不报错也不返数据，最阴险）、`OIL` alias 返回 iPath 原油 ETN（市值 5300 万的错标的），**只剩 `USO` 可用**。⚠️ USO 是 WTI 近月期货 ETF，属**代理指标非现货价**，贴文引用必须写清楚（例：「追蹤原油的 USO 基金」而不是「原油價格」）。指数类 `^GSPC ^IXIC ^DJI ^VIX` 照常可用。
 - **S-7 五铁律（全文镜像，五条均对本 skill 生效）**：

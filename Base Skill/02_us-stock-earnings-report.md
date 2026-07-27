@@ -1,6 +1,6 @@
 ---
 name: US Stock Earnings Report
-description: 单股财报三维分析（财务Beat/Miss + 媒体情绪 + 宏观背景）。必须指定具体股票代码或公司名才触发，如"帮我看AAPL财报"、"TSLA earnings"、"英伟达财报分析"。泛问"今天有哪些财报"不在本Skill范围（财报日历用 metrics 直查，见 caveats N-2/N-17）。
+description: 单股财报三维分析（财务Beat/Miss + 媒体情绪 + 宏观背景）。必须指定具体股票代码或公司名才触发，如"帮我看AAPL财报"、"TSLA earnings"、"英伟达财报分析"。泛问"今天有哪些财报"不在本Skill范围——⚠️ 且**市场级财报日历已实测不可用（N-22）**，不要直查；要按名单核实财报日期请用 next_earnings_estimate 逐只查。
 trigger: 帮我看XX财报、XX财报分析、XX财报速查、XX earnings、XX earnings report、[股票代码]财报、[公司名]财报、[ticker] earnings、earnings report、earnings analysis、show me [ticker] earnings、look at [ticker] earnings
 not_trigger: 策略信号、KOL、喊单、热点、日报、背离扫描、divergence、strategy、KOL calls、trending、daily brief、divergence scan、morning brief
 mcp: mcp__followin__metrics, mcp__followin__news, mcp__followin__signal
