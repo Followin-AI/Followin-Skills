@@ -1,7 +1,35 @@
 # 财报季超预期扫描 Skill 设计稿（earnings-season-screener）
 
 - 日期：2026-07-27
-- 状态：**已实现**（`~/.claude/commands/15_earnings-season-screener.md`），待财报季端到端验收
+- 状态：**已实现并通过端到端验收**（`~/.claude/commands/15_earnings-season-screener.md`，v1.1）
+
+## ✅ 验收结论（2026-07-27 实跑，days=7 top=3）
+
+设计稿第 8 节 5 条标准**全过**：候选池 20 个送验 ｜ Top 3 逐字稿原生获取无降级 ｜ 🎯 标的 7 类关键词全附原文+发言人 ｜ 未爆上下文 ｜ 额度 12 次（≤20）。
+
+产出一个 🎯：**INTC**，营收 +11.7%、7/7 类关键词命中且多为 CEO/CFO 主动陈述带量化（「Strong demand for our products continue to outpace our growing supply.」— Lip-Bu Tan, CEO），当日 −8% 形成业绩/盘面分歧。
+
+验收同时暴露 **12 条缺陷（3×P0 + 4×P1 + 5×P2）已全部修复**，要点：
+
+| 级别 | 缺陷 | 修法 |
+|---|---|---|
+| **P0** | **闸门算术不自洽**：Step 3 放行线（营收+2% 且 EPS+5%）对应业绩闸仅 16 分，而 🎯 要求 ≥24——卡在及格线的候选无论逐字稿写什么都进不了终榜。实测 CMCSA 白烧 1 额度 + 52KB 上下文 | Step 3 直接算业绩闸得分并要求 **≥24**，闸门与终判自对齐；改打分口径必须同步改闸门 |
+| **P0** | **无财报新鲜度闸**，`days` 只管新闻腿：GRAB 用 2026-05-05 旧季数据通过全部数值闸 | 增闸④：`beat_miss.date` 须在窗口内；窗口外但确有近期财报的转 N-15 降级通道 |
+| **P0** | **补调 workaround 反向浪费额度**：JBLU/CUBI/ONDS 补调必失败（上游字典缺失，非批量截断），一轮 12 次额度里 3 次是注定失败的补调 | 最多补调 1 次，`keywords:null` 即判字典缺失立即放弃；N-23 定性改写 |
+| **P1** | ETF 过滤规则**写错了**：TQQQ/SQQQ 的 name 不含 "ETF" 字串，单词规则漏网 | 正则扩为 `ETF\|ETN\|UltraPro\|Ultra\|Leveraged\|\dX\|Bull\|Bear\|Daily` + 指数代号黑名单 |
+| **P1** | 价格闸误杀：GRAB $3.31 但市值 $131 亿 | **删除价格闸**，市值闸是更准的同类过滤 |
+| **P1** | 反向关键词库**对 AI 财报季主导空头叙事失明**：INTC 当日 −8%、GAAP 净亏 $110.3 亿，反向命中 0，而 CFO 亲口上修 CapEx | 补一组资本开支/盈利质量反向词（CapEx raised、margin dilution、FCF pressure…）|
+| **P1** | 正向词假命中：CMCSA「strong adoption… **which is initially dilutive**」字面命中语义相反 | 语境维度加第三态"负面语境作废（×0）"|
+| **P2** | GAAP 扭曲阈值开区间漏掉 INTC 恰好 100.0%；且漏掉更典型的口径错位 | 改闭区间 ≥100%，新增 `epsActual` 与 `latest_quarter.eps` **反号**判定（N-29）|
+| **P2** | N-15 与 N-26 的 query 句式规则打架 | 明确 N-26 只管 Step 2 无实体捞取，定向降级走"公司名+TICKER"双词 |
+| **P2** | 新闻腿不分"已发布/预告"，一篇前瞻文带进 6 个未发财报的票 | 增预告负向规则（will release / stocks to watch this week…）|
+| **P2** | `_meta.freshness` 恒为 q-1 属误导（N-28）｜ 输出模板候选池计数不自洽 | 改看 `transcript[0].date`；模板改"独有+独有+双腿命中=总数" |
+
+**修复效果回测**（用验收数据）：CMCSA(16 分)、GOOGL(18 分) 会在 Step 3 被拦下，省 2 次逐字稿调用与 ~100KB 上下文，且不误杀 INTC(30 分)。
+
+新增 caveats 登记：**N-22~N-29 共 8 条**。
+
+---
 
 ## ⚠️ 实现期修订（2026-07-27，实测驱动）
 
