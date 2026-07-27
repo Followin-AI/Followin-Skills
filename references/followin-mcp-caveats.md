@@ -65,6 +65,17 @@
 | N-20 | `signal(query="详细仓位")` 不带 ticker 时返回全市场原帖，体积极大（实测 2026-07-23：13.7 万字符 / 139 行），直接读入会撑爆上下文 | 客户端脚本先聚合再消费：按 `source_url` 去重（一帖按提及裂多行，139→96）→ 按 symbol 分组统计多空 → 只保留结构化摘要；或用 limit 收窄 | 实测（2026-07-23 讯号汇总实跑） |
 | N-21 | 研报调用 `meta.warnings` **误报** `default_fanout_fallback`（"no specific topic…returning the CORE fundamentals set"），但 payload 里 `fundamentals.research_reports` 数据齐全 | **该警告是假阴性，不要据此判定失败或重试**——重试白烧 1 次额度。以 `results.fundamentals.research_reports` 是否存在为准，不看 warning | 实测 2026-07-24：`metrics(query="NVDA research reports", verbosity="detail", time_range="7d", asset_type="tradfi")` → 6 篇 subject + 4 篇 mention，含 institution / analyst / target_price / rating_action / thesis / key_caveat / latest_catalyst，quota=1 |
 
+### 2026-07-27 财报季扫描器实测新增（N-22~N-26）
+
+| 编号 | 内容 | Workaround | 来源 |
+|---|---|---|---|
+| N-22 | **earnings_calendar 不可作发现腿**（⚠️ 本条升级 N-2「市场级可用」与 N-17「漏大票」的定性——问题比"漏"严重）：三重硬伤叠加 —— ①`limit` **50 行硬封顶**（传 100/300 均返 50 行，`total` 恒为 50）②只覆盖 `date_from` **当天**（请求 07-20~07-27 八天，50 行全是 07-20）③按 symbol **字符串升序**截断，实测砍在 `CBKD.L`（字母 C 前）；单独查 07-22 更砍在 `456040.KS`，连字母区都没进。**GOOGL 这类 G 开头的票在任何日期都进不来** | **发现层改用 `query="most active stocks"` 异动榜 + `news()` 双腿**；日历仅可用于对**已知 ticker** 的单点日期核对。GOOGL 的 beat_miss 只能走 keyword 腿（`fundamentals.concise`）拿 | 实测 2026-07-27（date_from=2026-07-20/to=07-27 + 单日 07-22 双向验证） |
+| N-23 | **metrics query 串 ticker 上限 = 5 个**（N-12「会静默丢弃」的定量化）：传 8 个只解析前 5 个，无 warning。另**部分中小盘静默解析失败**——实测 `NUE RCL MRVL BKR CUBI GOOGL MSFT` 解析出 `[NUE,RCL,MRVL,BKR,GOOGL]`，第 5 位的 CUBI（Customers Bancorp，真实 NYSE 股）被跳过、第 6 位 GOOGL 顶上 | 每批 **≤5 个 ticker**；调用后把 `meta.filters_applied.keywords` 与请求清单**做差集**，缺失者单独补调；补调仍失败的记入数据缺口 | 实测 2026-07-27 |
+| N-24 | **fundamentals 三档体积**：①`query="<T> next earnings date"` → **~5 KB/票**（concise: beat_miss/consensus_price/eps_trend/latest_quarter/next_earnings_estimate + market.snapshot 含 marketCap，附赠 10 行无关 earnings_calendar）②`query="<T>"` 或 `"<T> 财报"` 或 `"<T> 财报 超预期"` → **~8.7 KB/票**（三者 byte 级完全相同，多出 balance_sheet×4 + cash_flow×4 + profile + valuation；中文意图词对返回**零影响**，纯废字符）③`query="<T> earnings call transcript"` → **~56 KB/票**（含完整逐字稿）。**transcript 仅在 query 明确含 `earnings call transcript` 时才拉取**，其余 query 绝不误带 | 批量验证用 ①（省 3 倍 context，且 marketCap 顺带拿到，可省掉独立行情调用）；只在 Top N 深扫时用 ③ | 实测 2026-07-27 |
+| N-25 | `news(limit=N)` 实际返回 **2N 条**（N 篇 `articles` + N 条 `social`，`total`=2N）。且 **social 桶的美股 ticker 密度高于 articles 桶** | 估算返回体积按 2N 算；抽 ticker 时两个桶都要解析，别只看 articles | 实测 2026-07-27 |
+| N-26 | news query 句式决定命中率（同为 7d/limit=10）：**陈述业绩事实**句式 `record quarterly revenue results` = 13/20 有效；`earnings beat raised guidance` = 8/20；**情绪涨跌**句式 `earnings surprise stock surges` = **3/20**（被日韩欧股+加密+纯宏观淹没）。另 `beat` 一词在 news 侧会撞上**棒球比分报道**与加密代币 $BEAT | 用陈述业绩事实的句式；避开 surge/soar/jump 等涨跌词与 beat | 实测 2026-07-27 |
+| N-27 | `verbosity` 参数对 metrics **无效**：`concise` 与 `standard` 返回 payload 一字不差，仅 `meta.verbosity` 字段变化 | 不用传（传了也不省 context）；省 context 靠 N-24 的 query 后缀 | 实测 2026-07-27 |
+
 ## 附表 A：中英文 → FRED series_id 翻译表
 
 > 红线 3 的配套字典（原宿主 07_macro-analyzer 已删，表迁至此）。用法：用户说指标名 → 查本表转 series_id → `metrics(keywords=["<series_id>"], categories=["macro"], limit=N)` 直查。字典未命中才回退 query 兜底并人工 review 命中的 series。
