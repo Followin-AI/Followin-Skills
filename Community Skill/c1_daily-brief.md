@@ -110,7 +110,7 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 - **内部人 transactionDate=昨日，只认 S-Sale/P-Purchase**：步骤 4 的内部人行按 N-6 客户端过滤 transactionDate=昨日，且只认 S-Sale/P-Purchase（F-InKind/M-Exempt 剔除）。（N-6：insider/congress 行无视 time_range，7d 窗口可能返回 2020 年记录；客户端按 transactionDate 过滤为强制要求，Dev 待修。F-InKind/M-Exempt 是缴税代扣/豁免行使，非主动交易，对外只认 S-Sale 当卖出、P-Purchase 当买入）
 - **财报日历会漏掉当天最重要的美股（N-17，2026-07-23 实测）**：当日 30 条返回被印度/欧洲/OTC 小票占满，而同一时刻 `fundamentals.next_earnings_estimate` 明确显示 AAL 当天发财报，该股却不在日历返回里。补救三步：① `limit` 至少 100；② 客户端只留无交易所后缀的美股 symbol 并剔除优先股（含 `-P` 字样，如 DLR-PJ）；③ **对当日涨跌榜/热点里出现的标的，用其 `next_earnings_estimate.date` 交叉验证是否等于今天**——日历漏了但个股字段有，这是唯一能补回大票的路径。宁可在贴文里承认"今日财报名单可能不全"，也不能把小票名单当成当天全貌。
 - **指数快照会出现重复行（N-18，2026-07-23 实测）**：query 串 `"^GSPC ^IXIC ^DJI ^VIX"` 被解析成 5 个 keywords（多出一个裸 `VIX`），返回里 ^VIX 出现两条完全相同的行。写贴文前必须按 `symbol` 去重，否则"大盤一眼"会把同一个指数写两次。
-- **原油用 BZUSD/USO**：原油如需引用：用 BZUSD/USO——CLUSD 被 trend-scout 实测 402（与红线 6 冲突，实现时复核后回写 SSOT）。（N-11：指数类 ^GSPC ^IXIC ^DJI ^VIX 可用；^DXY/CLUSD/NGUSD 为 402 Special Endpoint 禁调，与红线 6 的 CLUSD 记载冲突，实现时复核后统一 SSOT——复核完成前一律避开 CLUSD）
+- **原油只能用 `USO`（N-30，2026-07-27 复核结案）**：原四种写法实测三死一活——`CLUSD` 返 0 结果（非 402）、`BZUSD` 在 query 串里被**静默丢弃**（不报错也不返数据，最阴险）、`OIL` alias 返回 iPath 原油 ETN（市值 5300 万的错标的），**只剩 `USO` 可用**。⚠️ USO 是 WTI 近月期货 ETF，属**代理指标非现货价**，贴文引用必须写清楚（例：「追蹤原油的 USO 基金」而不是「原油價格」）。指数类 `^GSPC ^IXIC ^DJI ^VIX` 照常可用。
 - **S-7 五铁律（全文镜像，五条均对本 skill 生效）**：
   - 铁律1 单源：地缘/政策/监管大消息 ≥2 独立信源才当事实，否则标「消息尚待確認」。
   - 铁律2 价格：当前价/涨跌幅只引本次 MCP 返回值；新闻与 KOL 转述的百分比是二手，必经快照核实。

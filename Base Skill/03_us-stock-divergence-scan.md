@@ -38,8 +38,7 @@ args: scope, days
 
 | 用途 | 调用 | 参数 |
 |------|------|------|
-| 当日涨幅榜 | `metrics()` | `query="biggest gainers"`, **`asset_type="tradfi"`** |
-| 当日跌幅榜 | `metrics()` | `query="biggest losers"`, **`asset_type="tradfi"`** |
+| 当日异动榜（涨跌合一）| `metrics()` | 🔄 `query="most active stocks"`, **`asset_type="tradfi"`**, `limit=30` —— ⚠️ **`biggest gainers/losers` 已弃用**（2026-07-27 实测返 VYNE +2656%、SGLY +1429%、"Fidelity 短期债券 ETF" +2009%，全是仙股与数据错误）。异动榜一次同时含涨跌两侧，按 `changesPercentage` 正负分组，**省掉原来的两次调用** |
 | 个股报价 + 市值 | `metrics()` | `keywords=["AAPL","TSLA",...]`, `categories=["market"]`, **`asset_type="tradfi"`** 一次最多 **10 个**（实测 18→10 静默截断，超出分批并检查 `keyword_count_over_max` warning）|
 | 多时间框架历史 | `metrics()` | `keywords=["AAPL"]`, `categories=["market"]`, `query="历史走势 30 day chart"`, `time_range="1m"`, **`asset_type="tradfi"`** |
 | 内部人交易 | `signal()` | `categories=["insider_trading"]`, `keywords=["AAPL"]`, **`asset_type="tradfi"`** |
@@ -81,8 +80,8 @@ args: scope, days
 
 ```
 检测:
-1. metrics(query="biggest gainers", asset_type="tradfi") + metrics(query="biggest losers", asset_type="tradfi") 拿涨跌幅榜
-2. 客户端过滤: marketCap > $1B（snapshot 已带）
+1. metrics(query="most active stocks", asset_type="tradfi", limit=30) 拿异动榜（🔄 一次含涨跌两侧）
+2. 客户端过滤: 先剔 ETF/杠杆，再二次调用补 marketCap > $1B（⚠️ 异动榜行**不带** marketCap）
 3. 对每个 ticker 调 news 拿 5-10 篇
 4. Claude 根据 title + content 判断情绪
 5. 判定:
@@ -95,8 +94,8 @@ args: scope, days
 
 ```
 检测:
-1. metrics(query="biggest losers", asset_type="tradfi") 跌幅榜
-2. 客户端过滤 marketCap > $1B
+1. metrics(query="most active stocks", asset_type="tradfi", limit=30) 取 changesPercentage < 0 一侧（🔄 可复用上一信号的结果，不必重调）
+2. 客户端过滤 marketCap > $1B（需二次调用补）
 3. 对每个 ticker 调 news
 4. 判定: 跌幅 >8% 且报道 ≤ 3 篇
 ```
@@ -106,8 +105,8 @@ args: scope, days
 
 ```
 检测:
-1. metrics(query="biggest gainers", asset_type="tradfi") 涨幅榜
-2. 客户端过滤 marketCap > $500M（注意默认返回的是 NASDAQ 微盘妖股 AEHL +135%、YMAT +110% 等，必须过滤）
+1. metrics(query="most active stocks", asset_type="tradfi", limit=30) 取 changesPercentage > 0 一侧（🔄 可复用前面的结果）
+2. 客户端过滤 marketCap > $500M（⚠️ 需二次调用补市值；微盘妖股问题在异动榜依然存在，2026-07-27 实测 STAK +602% 市值仅 $0.93 亿）
 3. 对每个 ticker 调 news
 4. 判定: 涨幅 >20% 且报道 ≤ 2 篇
 ```
@@ -117,8 +116,8 @@ args: scope, days
 ### Step 1: 拉涨跌幅榜 + 全量内部人扫描（3 路并行）
 
 ```
-1. metrics(query="biggest gainers", asset_type="tradfi", limit=30)
-2. metrics(query="biggest losers",  asset_type="tradfi", limit=30)
+1. metrics(query="most active stocks", asset_type="tradfi", limit=30)   # 🔄 一次含涨跌两侧，替代原来的 gainers + losers 两次调用
+2. （原 biggest losers 一路已并入上面，省 1 次调用）
 3. signal(categories=["insider_trading"], asset_type="tradfi", time_range="1w",
           limit=50, sort_by="amount")
 ```
@@ -291,8 +290,10 @@ Unreported Surge:  Δ > +20% && mktCap > $500M && articles ≤ 2
 
 - 🔒 **本 Skill 全程美股，所有 metrics/signal 调用必须带 `asset_type="tradfi"`** —— 实测 AMN/WEST 等 ticker 不带会错路由到 crypto 山寨币（AMN→0.00479 USDT / WEST→0.00541 USDT）
 - ⚠️ **`news()` 例外：不要传 asset_type**（实测加 tradfi 返 0 results，is_tradfi 字段几乎全 false 老 bug）——0 篇会让四种信号的"报道 ≤ N"判定全部假阳性
-- **mover 榜（`query="biggest gainers"` / `query="biggest losers"`）只返回 7 个字段**，**marketCap 缺失**（不要传 `min_market_cap` 参数 — 上游 marketCap 为 null 会被全屠），必须 keywords 二次调用补市值
-- **gainers/losers 三类污染必须过滤**：(1) 微盘妖股（AEHL/YMAT) (2) 仙股 < $5 (3) 杠杆 ETF（含 2X/3X/Long/Short/Bull/Bear/Daily/Leveraged 关键词的 name）
+- 🔄 **mover 榜改用 `query="most active stocks"`**：`biggest gainers/losers` 已弃用（2026-07-27 实测全是仙股与数据错误，连"Fidelity 短期债券 ETF"都显示 +2009%）。异动榜同样**marketCap 缺失**（不要传 `min_market_cap` — 上游 null 会被全屠），必须二次调用补市值
+- **异动榜三类污染必须过滤**：(1) 微盘妖股（实测 STAK +602% 市值 $0.93 亿）(2) 杠杆 ETF (3) 仙股
+  - ⚠️ ETF 正则须为 `ETF|ETN|UltraPro|Ultra|Leveraged|\dX|Bull|Bear|Daily` —— **只判 "ETF" 单词会漏**（`ProShares UltraPro QQQ`/TQQQ 与 `ProShares - UltraPro Short QQQ`/SQQQ 的 name 都不含 "ETF"）
+  - ⚠️ **慎用"仙股 <$5"闸**：实测误杀 GRAB（$3.31 但市值 $131 亿）。市值闸更准，价格闸只在市值不可得时兜底
 - **`signal(insider_trading)` 全量扫描有聚簇但可用**（旧实测 20 条全 SHFS；2026-06-12 复测 50 条中 SPCX Form 3 占 13 条、仍有 30+ distinct ticker）——对策：`limit=50` + `sort_by="amount"` + 客户端按 ticker 去重 + 只留 `formType="4"` 的 `P-Purchase`（Form 3 是初始申报不是交易）。**不要回退到按榜单 ticker 单查**：既扫不到真 Silent Buy，调用数还多 ~15 倍
 - **`signal(insider_trading)` 三源 fanout 完整**（已实测 2026-05-27 重新验证）：SEC Form 4（公司高管，14 条 / NVDA 1m）+ congress 政客披露（Pelosi 配偶 NVDA $1M-$5M Sale）一次返 15 条
 - **`news()` query 三原则**：2-3 核心名词 / 不混搭中英 / 不写元词（影响/解读/impact）

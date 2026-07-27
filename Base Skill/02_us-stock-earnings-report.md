@@ -142,8 +142,8 @@ news(
 | Sector | 调用 |
 |---|---|
 | Technology | `metrics(keywords=["DGS10","^VIX"], categories=["market"], asset_type="tradfi")` |
-| Semiconductors | + `metrics(keywords=["CLUSD"], categories=["market"], asset_type="tradfi")` + `metrics(keywords=["PCEPILFE"], categories=["macro"], limit=5)` |
-| Energy | `metrics(keywords=["CLUSD"], categories=["market"], asset_type="tradfi")` |
+| Semiconductors | + `metrics(query="USO", asset_type="tradfi")` 🔄 + `metrics(keywords=["PCEPILFE"], categories=["macro"], limit=5)` |
+| Energy | `metrics(query="USO", asset_type="tradfi")` 🔄 ⚠️ CLUSD 已失效，见 N-30 |
 | Financials | `metrics(keywords=["DGS10","DGS2"], categories=["macro"], limit=5)` |
 | Consumer | `metrics(keywords=["RSAFS"], categories=["macro"], limit=5)` + `metrics(keywords=["CPIAUCSL"], categories=["macro"], limit=5)` |
 | Real Estate | `metrics(keywords=["MORTGAGE30US"], categories=["macro"], limit=5)` ⚠️ 不要写 "30 年抵押贷款" |

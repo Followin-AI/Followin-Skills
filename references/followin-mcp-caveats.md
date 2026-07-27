@@ -3,6 +3,10 @@
 > `Base Skill/` 下 6 个 Skill（01-06）共享的调用红线与已知问题单一事实源。
 > `Community Skill/` 的 c1-c6 同样以本文件为准。
 >
+> 🔗 **本地消费方（2026-07-27 起）**：`~/.claude/commands/` 下的 08–15 号 Skill 也读本文件——
+> `~/.claude/references/followin-mcp-caveats.md` 已改为指向本文件的**软链接**，两份副本不再分叉。
+> （此前该路径是 2026-07-22 之前的独立旧版，导致 7 个 v2 Skill 长期读不到 N 系列，已修正。）
+>
 > 🔗 **上游参照**：官方意图路由与编排基准见 [`followin-routing-primer.md`](./followin-routing-primer.md)。
 > 本文件记录的是在官方 primer 之上、经实测得到的更具体约束与上游 bug——两者不冲突时以 primer 为准，
 > primer 未覆盖或实测与之有出入的细节以本文件为准（差异已在 primer 文末列表说明）。
@@ -13,13 +17,13 @@
 
 1. **asset_type 必须显式**：美股/大宗 `asset_type="tradfi"`，加密 `asset_type="crypto"`。不带会 fanout 双返污染（实测 BTC→美股 BTC Inc $33；AMN/WEST→crypto 山寨币 0.005 USDT）。**唯一例外：`news()` 不要传 asset_type**（is_tradfi 字段几乎全 false 老 bug，加 tradfi 返 0 results——0 篇不报错，比报错更危险）。例外扩展（2026-07-22 实测）：news 趋势模式（空 query）传 asset_type="tradfi" 可用且 quota=0；实体搜索亦 quota=0。"不传 asset_type"仅约束搜索模式的过滤语义。
 2. **SSE 并发 ≤4**：单批 ≤4 路 MCP 并行，超了 session 可能挂。
-3. **FRED macro 走 keywords 直查**：`keywords=["<series_id>"]` + `categories=["macro"]`。禁止 query 中文/混合自然语言（4 类语义陷阱：含 series_id 也被错抓 / 中文混淆 / degraded / 静默兜底）。中英文 → series_id 翻译表见文末附表 A。
-4. **B-31 边界**：FRED macro series **不要批量**（静默丢条目），各自单独 fire；market 行情快照可批量但**上限 10 个 keywords**（实测 2026-06-12：传 18 个被静默截断到 10，`meta.warnings` 有 `keyword_count_over_max` 提示——必须检查该 warning，超出分批）。不要在同一次调用里混 market ticker 和 FRED series。
+3. **FRED macro 走 series_id 直查**：⚠️ **写法已变**（N-8）——`keywords=[...]` 数组被 schema 拒，改走 `query="<series_id>"`（实测 `query="DGS10"` 服务端正确回填 `keywords:["DGS10"]` 并返数据）。原写法 `keywords=["<series_id>"]` + `categories=["macro"]` 仅在 Dev 修好数组入参后恢复。禁止 query 中文/混合自然语言（4 类语义陷阱：含 series_id 也被错抓 / 中文混淆 / degraded / 静默兜底）。中英文 → series_id 翻译表见文末附表 A。
+4. **B-31 边界**：FRED macro series **不要批量**（静默丢条目），各自单独 fire；market 行情快照可批量但**上限 5 个**（⚠️ 2026-07-27 实测修正：走 query 串时传 8 个被静默截断到 5，**且无任何 warning**；旧记载的"10 个上限 + `keyword_count_over_max` warning"是 keywords 数组时代的行为，该写法现已失效。见 N-23）。不要在同一次调用里混 market ticker 和 FRED series。
 5. **news() query 三原则**：2-3 个核心名词；纯中文或纯英文不混搭；不写"影响/解读/分析/impact"等元词（embedding 过拟合 0 results）。单符号会被同名公司劫持（"CPI"→CPI Card PMTS），用双词消歧。news 无 sort_by 参数（相关性走 search_depth，默认 standard）。
-6. **商品 ticker**：黄金 `GCUSD`（GOLD 错抓 Gold.com 美股 $42）；白银 `SIUSD`；原油 `CLUSD`（WTI）/ `BZUSD`（布油）；**不要用 GOLD/SILVER/OIL alias**。⚠️ CLUSD 被 trend-scout 2026-07 实测 402 Special Endpoint；原油优先 BZUSD/USO，CLUSD 待复核（N-11）。
+6. **商品 ticker**：黄金 `GCUSD`（GOLD 错抓 Gold.com 美股 $42）；白银 `SIUSD`；**原油走 `USO`**；**不要用 GOLD/SILVER/OIL alias**。⚠️ **原油记载已于 2026-07-27 全面改写（N-30）**：`CLUSD` 返 0 结果、`BZUSD` 静默丢弃、`OIL` alias 返回 iPath ETN——三者均不可用，只剩 USO（WTI 近月期货 ETF，**属代理指标非现货价**，引用须说明口径）。
 7. **fundamentals comprehensive 必须显式 `query="全面分析"`**（或 `"comprehensive analysis"` 精确双词）：不带 query 走 default 只返 5 block；带 query 返 14 block（仅缺 stock_peers）。`query="comprehensive"` 单词无效。
 8. **历史 OHLCV / 技术指标各自单调**：历史必须 `query="历史走势 30 day chart"` + `time_range`；RSI/EMA/SMA 用 `query="RSI 14"` / `"EMA 50"` / `"SMA 200"` 单独调，不要靠默认 fanout（撞错路径无 fallback）。历史路径支持多 ticker 批量（实测 2026-06-12：3 ticker × limit 各自完整返回，无丢条；~20 个上限未实测）。
-9. **mover 榜**：biggest gainers/losers 上游缺 marketCap 且全是仙股（trend-scout v1.8.0 实测）——弃用；改 `query="most active stocks"`，但实测（2026-07-22 2026-07-22 回归）board 行亦不带 marketCap（trend-scout 旧版记载已失效）——候选 ticker 需二次批量快照补市值后再过滤：marketCap ≥$1B + 剔杠杆 ETF（name 含 2X/3X/Long/Short/Bull/Bear/Daily/Leveraged）+ 仙股 <$5。movers 仅美股。
+9. **mover 榜**：biggest gainers/losers 上游缺 marketCap 且全是仙股（trend-scout v1.8.0 实测）——弃用；改 `query="most active stocks"`，但实测（2026-07-22 2026-07-22 回归）board 行亦不带 marketCap（trend-scout 旧版记载已失效）——候选 ticker 需二次批量快照补市值后再过滤：marketCap ≥$1B + 剔杠杆 ETF。movers 仅美股。<br>⚠️ **2026-07-27 实测修正两点**：①ETF 过滤正则须为 `ETF\|ETN\|UltraPro\|Ultra\|Leveraged\|\dX\|Bull\|Bear\|Daily`——**只判 "ETF" 单词会漏**（`ProShares UltraPro QQQ`/TQQQ 与 `ProShares - UltraPro Short QQQ`/SQQQ 的 name 都不含 "ETF"）；②**慎用"仙股 <$5"闸**，实测误杀 GRAB（$3.31 但市值 $131 亿），市值闸是更准的同类过滤，价格闸只在市值不可得时兜底。
 10. **经济日历**：`metrics(keywords=["economic calendar"], categories=["macro"])`。query 别带"本周"——实测（2026-06-12）"本周"被解析成 lookback 7 天，返回**已发布历史**而非前瞻日历。
 11. **news() 无匹配时不返回空，返回语义兜底的不相关内容**（实测 2026-06-12：查 Quhuo/Navios 返回的是 BoJ/伊朗等宏观新闻填充）。**所有"报道 ≤ N"类判定必须按 LLM 逐条判断后的相关报道数计数，不能用 raw count**——否则填充内容会把"无声异动"误判成"有报道"。
 12. **研报查询 query 必须含研报意图词**（"research reports" / "研报"等）：实测（2026-07-15）query 只放报告标题（如 `query="Can semi cap work if memory doesn't"` + keywords=["MU"]）**不会路由到 research-report 路径**，掉进 CORE fundamentals 默认全家桶（三表/估值/profile），且照常计 1 次额度。**钻取指定报告的正确姿势 = 保持 `query="research reports"` + `verbosity="detail"` 重查，客户端从结果挑目标报告**；无按 event_id/标题取单份的入参。返回分 `subject_reports`（主题报告）与 `mention_reports`（提及报告）两层。
@@ -33,7 +37,7 @@
 | B-33 | BAMLH0A0HYM2 不在 FRED 字典，keywords 直查被错抓到 M2SL；CPIMEDSL 同类（被错抓 headline CPI）| Dev 待修 | 05 ⑦ 信用利差标"不可用"+ 权重重分配；02 Healthcare 退用 CPIAUCSL | 05 Batch 1 恢复调用 + ⑦ 恢复 5% 权重；02 Healthcare 换回 CPIMEDSL |
 | — | news() 传 asset_type 返 0 results（is_tradfi 几乎全 false）| Dev 待修 | news 一律不传 asset_type | 各 Skill news 调用恢复 asset_type 过滤（防 crypto 混入）|
 | — | fundamentals comprehensive 缺 stock_peers | 已上报 | 输出"同行"部分标数据不可用 | 恢复 peers 展示 |
-| — | OIL/GOLD/SILVER alias 错路由 | Dev 待修 | 用 CLUSD/BZUSD/GCUSD/SIUSD 具体 ticker | 可继续用具体 ticker（无需回滚）|
+| — | OIL/GOLD/SILVER alias 错路由 | Dev 待修 | 金银用 `GCUSD`/`SIUSD` 具体 ticker；**原油的具体 ticker 现已全部失效，只能用 USO 代理（N-30）** | 金银可继续用具体 ticker；**原油需 Dev 修复 CLUSD/BZUSD 才能拿回现货价** |
 | — | insider 全量扫描聚簇（同公司多笔 filing 连排；2026-06-12 实测 SPCX Form 3 占 50 条中 13 条）| 数据特性 | `limit=50` + `sort_by="amount"` + 客户端按 ticker 去重 + 只留 formType="4" 的 P-Purchase；F-InKind/M-Exempt 为缴税代扣非主动交易；对外表述"内部人卖出"只认 S-Sale，买入只认 P-Purchase。 | —（数据特性，非 bug）|
 | — | 经济日历 query 带"本周"触发 lookback 返历史 | 行为特性 | 用 keywords 形式（红线 10）| —（语义解析特性）|
 | — | 研报无单份钻取入参：query 放报告标题会掉 fundamentals 默认集（红线 12，实测 2026-07-15）| 建议 Dev 增 event_id 入参（P2）| 保持研报意图词 + detail 重查 | Dev 支持 event_id 后可按 ID 直取 |
@@ -53,7 +57,7 @@
 | N-8 | keywords/categories/sources 数组参数 2026-07-20 起全域被序列化成字符串遭 schema 拒；统一走 query 串，服务端自解析（meta.filters_applied.keywords 可验证） | query 串替代；Dev 修复后回退 | trend-scout v1.11.x + 2026-07-22 复现 · **复核 2026-07-24 仍未修复**：`categories=["institutional"]` / `sources=["twitter"]` 均报 `-32602 … has type "string", want one of "null, array"`；根因是这三个入参在 tool schema 中为无类型 `{}`，客户端无从判断该序列化成数组。改走 query 串后服务端正确回填 `meta.filters_applied.keywords=["NVDA"]` |
 | N-9 | biggest gainers/losers 上游缺 marketCap 且全是仙股，禁用；改 `query="most active stocks"`，但实测（2026-07-22 2026-07-22 回归）board 行亦不带 marketCap（trend-scout 旧版记载已失效），需二次批量快照补市值后过滤；红线 9 的过滤清单继续沿用 | 改 query="most active stocks"；客户端 marketCap ≥$1B 过滤 + 剔杠杆 ETF + 仙股 <$5 | trend-scout 实测（N-9）＋2026-07-22 回归修正 |
 | N-10 | metrics time_range <1d 返一个月前旧数据 bug；小时级用 interval 参数或只用实时快照 | 小时级用 interval/实时快照 | trend-scout 实测（N-10）|
-| N-11 | 指数类 ^GSPC ^IXIC ^DJI ^VIX 可用；^DXY/CLUSD/NGUSD 为 402 Special Endpoint 禁调——与红线 6 的 CLUSD 记载冲突，实现时复核后统一 SSOT | 指数白名单 ^GSPC ^IXIC ^DJI ^VIX 可用；^DXY/CLUSD/NGUSD 402 | trend-scout 实测（N-11）|
+| N-11 | ~~指数类 ^GSPC ^IXIC ^DJI ^VIX 可用；^DXY/CLUSD/NGUSD 为 402 Special Endpoint 禁调——与红线 6 的 CLUSD 记载冲突，实现时复核后统一 SSOT~~ **✅ 2026-07-27 复核结案，见 N-30**：CLUSD 现象已非 402 而是 `no_match` 返 0 结果 | 指数白名单 ^GSPC ^IXIC ^DJI ^VIX 可用；**原油相关一律见 N-30** | trend-scout 实测 · **2026-07-27 复核结案** |
 | N-12 | query 串批量会静默丢弃部分 ticker（实测 2026-07-22：9 个 ticker 空格拼串仅解析出 5 个，ONDS 连续两次被跳过且无任何 warning） | 批量调用后必须核对 `meta.filters_applied.keywords` 与请求清单一致，缺失者单独补调 | 实测（2026-07-22 回归） |
 | N-13 | signal consensus 聚合疑似对 time_range 不敏感（3d 与 24h 共四次调用返回 total_posts/多空比/榜单完全一致；可能数据池小到收敛，证据不足定性） | 对外表述窗口用词保守（"近幾日"而非精确小时数）；后续以 3d vs 30d 大窗口差异复验 | 实测（2026-07-22 回归，待复验） |
 | N-14 | query 串里的普通英文词会被当 ticker 抽取：实测 `query="GOOGL earnings beat miss analyst ratings"` 解析出 `keywords=["GOOGL","BEAT"]`，把仙股 HeartBeam(BEAT,$0.55) 行情混入快照 | query 只放 ticker + 中文意图词（如 `"GOOGL 财报 分析师评级"`）；禁用 beat/miss/hold/buy/now/all 等会撞 ticker 的英文词；调用后核对 `meta.filters_applied.keywords` | 实测（2026-07-23 GOOGL 财报夜实跑） |
@@ -77,6 +81,8 @@
 | N-27 | `verbosity` 参数对 metrics **无效**：`concise` 与 `standard` 返回 payload 一字不差，仅 `meta.verbosity` 字段变化 | 不用传（传了也不省 context）；省 context 靠 N-24 的 query 后缀 | 实测 2026-07-27 |
 | N-28 | transcript 的 `_meta.freshness` 字段**恒为 `"q-1"` 属误导**：实测 INTC / GOOGL / CMCSA 三份逐字稿的 freshness 全是 `q-1`，但同层 `date`/`period`/`year` 显示均为**本次财报**（Q2 2026）。照字面信会误判逐字稿过期而触发不必要的降级 | 核对逐字稿新鲜度一律看 `transcript[0].date` / `period` / `year`，**不看 `_meta.freshness`** | 实测 2026-07-27（三份逐字稿交叉验证）|
 | N-29 | **同一 payload 内 GAAP 与非 GAAP EPS 并存且互相矛盾，无字段标明口径**：实测 INTC `beat_miss.epsActual = 0.42`（非 GAAP，对预期 +100%）与 `latest_quarter.eps = −2.16` / `netIncome = −$110.3 亿`（GAAP 巨亏）同处一个返回。只看 beat_miss 会把巨亏季读成"完美超预期" | 凡引用 `beat_miss.epsActual` 必须同时取 `latest_quarter.eps` 比对：**两者反号即判定口径错位**，对外表述强制标注"该超预期为非 GAAP 口径"；营收 surprise 才是可信主锚 | 实测 2026-07-27 |
+| N-30 | **原油符号四种写法实测三死一活**（结案 N-11 与红线 6 的长期冲突）：`CLUSD` → `no_match` 返 **0 结果**（不是 402）｜`BZUSD` → query 串里被**静默丢弃**（实测 `query="BZUSD USO"` 只解析出 USO，不报错不返数据）｜`OIL` alias → 返回 **iPath Pure Beta Crude Oil ETN**（symbol OIL，$28.42，市值 5300 万）而非原油价格，且附带诡异 warning `asset_type=tradfi but all keywords resolved to other families (crypto)`｜**`USO` → 唯一可用**（United States Oil Fund，$136.52，市值 $163 亿，跟踪 WTI 近月期货）| 原油一律走 `query="USO"` + `asset_type="tradfi"`。⚠️ **USO 是期货 ETF 代理指标，不是现货价**，对外引用必须说明口径。红线 6 的"CLUSD(WTI)/BZUSD(布油)"记载已**全部作废**；10 号 Skill 原"布油 100% 命中"的记载是过期假声明（静默失败，跑了也不知道没拿到）| 实测 2026-07-27（四种写法逐一验证）|
+| N-31 | **7 个 v2 Skill 的 `keywords=[...]` 写法全域失效**（N-8 的影响面盘点）：`~/.claude/commands/` 下 08/09/10/11/12/13/14 共 **107 处** `keywords=[...]` 调用示例，按 N-8 全部会被 schema 拒（`-32602`）。模型实跑时会撞错一次再自行改写成 query 串，属"可恢复但每次白烧一次失败调用"| 正确替代形态实测确认：FRED 指标 `query="DGS10"`（服务端正确回填 `keywords:["DGS10"]` 并返数据）；行情 `query="<T1> <T2> ... 行情"`（≤5 个）。**尚未 sweep，待专项处理** | 实测 2026-07-27（keywords 数组复现被拒 + query 替代形态验证） |
 
 ## 附表 A：中英文 → FRED series_id 翻译表
 

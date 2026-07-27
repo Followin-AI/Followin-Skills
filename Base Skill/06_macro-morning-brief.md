@@ -35,9 +35,9 @@ args: watchlist
 | 国债收益率（全期限）| `metrics(query="treasury rates 美债收益率曲线", categories=["macro"])` 一次返 yield curve 全期限 |
 | 2Y / 10Y 美债 | `metrics(keywords=["DGS2"], categories=["macro"], limit=5)` + `metrics(keywords=["DGS10"], categories=["macro"], limit=5)` 兜底（⚠️ FRED series 单独 fire，批量会静默丢条目 B-31）|
 | VIX 实时 | `metrics(keywords=["^VIX"], categories=["market"], asset_type="tradfi")` |
-| 布油 + 美元 + watchlist | `metrics(keywords=["BZUSD","DXUSD","AAPL","TSLA",...], categories=["market"], asset_type="tradfi")` |
+| 原油 + 美元 + watchlist | 🔄 `metrics(query="USO DXUSD AAPL TSLA ...", asset_type="tradfi")` ⚠️ **`BZUSD` 已失效（静默丢弃，不报错）**，改用 USO；**一批最多 5 个 symbol**（超出静默截断，N-23）|
 | 经济日历 | `metrics(keywords=["economic calendar"], categories=["macro"])` ⚠️ 不要写"本周经济数据"——实测（2026-06-12）"本周"被解析成 lookback 7 天，返回**上周已发布历史**而非前瞻日历 |
-| 涨跌幅榜 | `metrics(query="biggest gainers"/"biggest losers", asset_type="tradfi", limit=30)` 二次调用补 marketCap |
+| 异动榜 | 🔄 `metrics(query="most active stocks", asset_type="tradfi", limit=30)` ⚠️ **`biggest gainers/losers` 已弃用**（2026-07-27 实测返回 VYNE +2656%、SGLY +1429%，连"Fidelity 短期债券 ETF"都显示 +2009%，全是垃圾数据）。仍需二次调用补 marketCap |
 | 财经新闻 | `news(query="<2-3 关键词>", sources=["media"], time_range="1d", limit=10)` ⚠️ 不要传 asset_type；早报取权威报道，**不混 twitter**（推特风向属 c4/14 的情绪层，混入会让早报变成情绪聚合）|
 
 > **关键变化（vs v1）**：
@@ -55,14 +55,14 @@ args: watchlist
 ```
 1. metrics(query="treasury rates 美债收益率曲线", categories=["macro"])
 2. metrics(keywords=["^VIX"], categories=["market"], asset_type="tradfi")
-3. metrics(keywords=["BZUSD","DXUSD"]+watchlist, categories=["market"], asset_type="tradfi")
+3. metrics(query="USO DXUSD "+watchlist, asset_type="tradfi")   # 🔄 BZUSD 已失效；每批 ≤5 symbol
 4. metrics(keywords=["economic calendar"], categories=["macro"])   # ⚠️ 别带"本周"，会变 lookback 历史
 ```
 
 **Batch 2：涨跌榜 + 新闻（4 个并行）**
 ```
-5. metrics(query="biggest gainers", asset_type="tradfi", limit=30)
-6. metrics(query="biggest losers",  asset_type="tradfi", limit=30)
+5. metrics(query="most active stocks", asset_type="tradfi", limit=30)   # 🔄 biggest gainers/losers 已弃用（返垃圾数据）
+6. （原 biggest losers 一路并入上面的异动榜，省 1 次调用）
 7. news(query="<根据宏观信号选 query>", sources=["media"], time_range="1d", limit=8)
 8. news(query="stock market", sources=["media"], time_range="1d", limit=8)    # 泛市场第二路，避免单一主题选题偏置
    # ⚠️ 两路都显式 sources=["media"]：早报要权威报道，不混 twitter 情绪；news 实体搜索 quota=0，拆两路不增额度
@@ -157,9 +157,10 @@ metrics(keywords=[gainers/losers tickers], categories=["market"], asset_type="tr
 
 - 🔒 美股调用必须带 `asset_type="tradfi"`（除 BTC/ETH 等 crypto symbol）
 - ⚠️ **`news()` 不要传 asset_type**（实测加 tradfi 返 0 results）
-- ⚠️ **mover 榜（`query="biggest gainers"` / `query="biggest losers"`）不返 marketCap**（不要传 `min_market_cap` 参数 — 上游 marketCap 为 null 会被全屠），必须 keywords 二次调用补
-- ⚠️ **杠杆 ETF 污染**（涨幅榜 17.5% 是 2X/3X 衍生品），客户端过滤 LEVERAGED_KEYWORDS
-- ✅ **国债 / VIX / 布油 / 美元 / 经济日历都已 100% 命中**（实测验证）
+- 🔄 **mover 榜改用 `query="most active stocks"`**：`biggest gainers/losers` 已弃用（实测返 VYNE +2656%、"Fidelity 短期债券 ETF" +2009% 等垃圾数据）。异动榜同样**不返 marketCap**（不要传 `min_market_cap` — 上游 null 会被全屠），必须二次调用补
+- ⚠️ **杠杆 ETF 污染**：过滤正则用 `name` 命中 `ETF|ETN|UltraPro|Ultra|Leveraged|\dX|Bull|Bear|Daily` 任一即剔 —— ⚠️ **不要只判 "ETF" 单词**，实测 `ProShares UltraPro QQQ`(TQQQ) / `ProShares - UltraPro Short QQQ`(SQQQ) 的 name 都不含 "ETF" 字串
+- ✅ **国债 / VIX / 美元 / 经济日历命中正常**（实测验证）
+- ❌ **布油 `BZUSD` 已失效**（2026-07-27 实测：query 串里被静默丢弃，不报错也不返数据——原"100% 命中"的记载已过期）。原油改用 `USO`（WTI 近月期货 ETF 代理，非现货价，引用须说明口径）
 - ✅ **FRED 字典未命中走 fred_search_fallback** → 改用 `keywords=["<series_id>"]` 兜底
 - ⚠️ **B-31 边界**：FRED macro series **不要批量**（静默丢条目），DGS2/DGS10 等各自单独 fire；market 行情快照可批量但**上限 10 个**（实测 18→10 静默截断，watchlist 长时分批并检查 keyword_count_over_max warning）
 - 避免高并发：单批 ≤ 4 防 SSE 挂
