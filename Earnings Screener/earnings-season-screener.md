@@ -53,6 +53,8 @@ args: days, top, watchlist
 | 宏观早报、今日市场 | ❌ 转 `Base Skill/06_macro-morning-brief` |
 
 > 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
+>
+> 📐 **架构选型与验收依据**：见同目录 [`design.md`](./design.md)。
 
 ---
 
