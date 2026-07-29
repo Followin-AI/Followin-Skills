@@ -18,6 +18,7 @@
 | **[`Community Skill/`](./Community%20Skill/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 个独立 Skill | 财报季发现器——不属于任何 bundle，可单独取用（含[目录 README](./Earnings%20Screener/)：方法论映射 + 被否决方案） |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 个独立 Skill | 美股盘前自选追踪——按自选股、持仓和时区创建周期报告或即时盘前分析 |
+| **[`Research Signal/`](./Research%20Signal/)** | 3 个 Skill | 研报信号三件套——研报能不能信 / 信到什么程度 / 接下来盯哪天（含[目录 README](./Research%20Signal/)：为什么不做扫描器） |
 | **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
 全部为纯 Markdown，无构建步骤，除 MCP 服务器外无任何运行时依赖。
@@ -165,6 +166,27 @@ cp "Premarket Tracker/premarket-watchlist-automation.md" ~/.claude/commands/
 
 ---
 
+## 研报信号三件套（3 个）
+
+**券商研报说的话，到底能不能信、该信到什么程度、接下来该盯哪天。** 完整说明见 **[`Research Signal/README.md`](./Research%20Signal/README.md)**。
+
+| # | 模块 | 干什么 |
+|---|---|---|
+| **r1** | 跨源印证信号卡 | 一份研报说"目标价 350"该不该信——拿全街共识、股价走势、网红与高管动向、最近一季财报四边对撞。**四边对得上才叫信号** |
+| **r2** | 口径审计器 | 不看结论，只看结论的地基：这话是分析师查出来的还是**管理层路演时自己说的**？对比图是实测还是分析师建模算的？报告自己承认了什么对不上？ |
+| **r3** | 催化剂时间线 | 研报点名的未来节点排成一条线——新品量产、竞品发布会、投资付款日，**公开财报日历里一个都没有** |
+
+**为什么没有"研报扫描器"**：实测发现这份数据的强项是深度不是广度——排行榜**没有时间概念**（查 24 小时和查 7 天返回一模一样）、
+榜上的"看多"被"顺带提一句"污染（福特有 3 份报告提到它，专门研究它的**是 0 篇**，全是别人家的电池行业报告顺带点名）、
+每只股票**最多只返回 10 篇**去重后常只剩三到五家机构。所以三支全是深度工具，一支扫描器都没有——
+**是数据不支持，不是做个打折版糊弄过去**。理由与实测证据见目录 README。
+
+⚠️ 有个上限躲不掉：每只股票最多 10 篇、去重后常 3–5 家。**任何"N 家机构怎么看"都是下限不是全街**，三支都被要求把这句写进输出。
+
+✅ **三支都做过端到端实跑**（NVDA 勘探 + INTC/GOOGL/F 换标的验证，规格写成脚本真撞数据），**抓出并修掉 6 个规格缺陷**——包括两条我一开始写错的断言。清单见目录 README。
+
+---
+
 ## 社群运营 Bundle（6 个）
 
 面向**运营人员**的独立 bundle，服务美股新手社群，产出为可直接复制粘贴的繁体中文贴文。完整操作手册 —— 模块索引、每周运营节奏、额度预算、置顶帖模板 —— 见 **[`Community Skill/README.md`](./Community%20Skill/README.md)**。
@@ -193,6 +215,9 @@ cp "Premarket Tracker/premarket-watchlist-automation.md" ~/.claude/commands/
 | `宏观早报` / `Morning brief` | 06 宏观早报 | 宏观/美股维度的每日简报 |
 | `财报季扫描` / `earnings screener` | [财报季扫描](./Earnings%20Screener/earnings-season-screener.md)（独立）| **无 ticker 的发现器**；点名单股走 Base Skill 02 |
 | `每天盘前跟踪我的自选` / `premarket watchlist` | [盘前自选追踪](./Premarket%20Tracker/premarket-watchlist-automation.md)（独立） | 自选股 + 持仓 + 周期任务或即时盘前报告 |
+| `这个目标价能信吗` / `研报信号` | [r1 跨源印证](./Research%20Signal/r1_cross-source-signal-card.md) | 研报结论 + 四边对撞；只看研报讲了什么走 c3 |
+| `这份研报靠谱吗` / `基准是谁` | [r2 口径审计](./Research%20Signal/r2_research-caveat-audit.md) | 审地基不复述结论 |
+| `接下来盯什么` / `有什么催化剂` | [r3 催化剂时间线](./Research%20Signal/r3_catalyst-timeline.md) | 研报点名的节点；"XX 哪天发财报"不走这里（日历已判废，见 caveats N-22）|
 | `CPI 影响` / `CPI impact` | *（无专门 Skill）* | 指标解读是模型自带能力——直接调 `metrics`+`news`；FRED 字典见 caveats 附表 A |
 
 每个 Skill 的 frontmatter 都带显式的 `trigger` 与 `not_trigger` 列表 —— 这是相邻 Skill 不互相抢词的关键。

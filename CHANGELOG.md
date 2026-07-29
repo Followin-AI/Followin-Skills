@@ -13,6 +13,41 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
   `twitter` 只处理命名账号/指定推文，`signal` 省略 categories 做 fanout，`subscription` 明确为拉取式未读箱。
 - 新增盘前数据边界：美东 04:00 前不把最近收盘或实时快照称为真实盘前成交；休市日明确标注。
 
+## 2026-07-29 — 新增 `Research Signal/`：研报信号三件套
+
+- **新增 [`Research Signal/`](./Research%20Signal/)**（3 个 Skill，独立目录）：
+  **r1 跨源印证信号卡**（研报候选 × 共识/市场/KOL 与内部人/基本面四维对撞，3 额度，输出校准读法不给买卖建议）、
+  **r2 口径审计器**（只审结论的地基：基准是谁 / 口径边界 / 自陈偏差，可复用 r1 返回 0 额度）、
+  **r3 催化剂时间线**（`detail.catalysts[].time_std` 归一后按精度分桶，补 N-22 财报日历判废留下的前瞻腿缺口）。
+- **⚠️ 明确不做研报扫描器**，理由是数据可见性而非实现难度。库内四族信号（错位/时钟/信念/水分）建立在状态层全量折叠之上，
+  **实测只有水分族（TP 离散）能干净地搬到 MCP 侧**，已并入 r1 当检查项；错位族与信念族因只有 3–5 家可见而不成立。
+  （停覆信号最初判为"MCP 无对应字段"，**同日第二轮实测推翻**——见下方 N-43。）
+- **caveats 登记表新增 N-37 ~ N-41 共 5 条**（含 request_id 与复现方式）：
+  研报榜 `time_range` 完全无效（24h/3d/7d 逐字相同，实为全量累计榜）、钻取硬顶 `report_limit=10` 且 `limit`/`time_range` 双双失效、
+  榜单 `net_direction` 被连带污染不可当方向共识、`signal()` 的 kol_call 可能整个缺失目标 ticker 自己的行（须回读 `content`）、
+  `catalysts[].time_std.sort` 格式 ≥6 种且含 `"9999"` 哨兵。
+- **⚠️ 顺带发现一处对外表述错误**：`Community Skill/c3_research-hot` 把研报榜称为「本週研報熱點 / 過去 7 天」，
+  而该榜实为建库以来累计（N-37）。**c3 文案待修，本次未改动**。
+- **正面发现（省额度）**：`metrics(query="<T> analyst ratings price target")` 一次调用即返回
+  `consensus_price` + `analyst_grades` + `beat_miss` + `eps_trend` + `next_earnings_estimate` + `valuation_block` + `market.snapshot`，
+  跨源印证的维度 1 + 维度 4 + 价格腿一次拿全。
+
+### 同日第二轮：端到端实跑（INTC / GOOGL / F）修 6 个规格缺陷
+
+把三支 Skill 的客户端规格**写成脚本对真数据实跑**，并刻意换标的（NVDA 是写规格时的样本，自测等于过拟合）。暴露并修正：
+
+- **N-42（新）**：N-3 的「机构+标题+日期」去重**去不掉「快评 + 完整版」**——GS 对 INTC 同日发两篇同 TP、标题不同的报告，5 家被读成 7 家。追加「同机构+同日+同 TP 强制合并」。
+- **N-33 同季判据修正**：`beat_miss.date`（公布日）与 `latest_quarter.date`（财季结束日）**天然不等**，朴素比日期会把每个正常样本判成"不同季"，**作废掉本该生效的 N-29 GAAP 错位检测**。改用 N-34 的 `gap < 90 天`。INTC 实测 gap=26 天 → 检测生效，抓出 `epsActual 0.42`(非GAAP,+100%) vs `latest_quarter.eps −2.16`(GAAP 净亏 110 亿) 的反号。
+- **N-41 改写**：初版按单标的（NVDA 20 条）写的 `time_std` 归一规则，换标的后**覆盖率仅 77%**。按三标的 **60 条**重写：`sort` **10 种形态**（新增 ISO datetime / `YYYY-QN` / `YYYY-FQN` / 开区间 / 语义后缀）、`type` **22 种取值**（不是 12 种）含三组同义异写。**最大的坑是精度降级**：初版只防 `type=year`，被 `type=quarter` 打穿——`sort="2026-09-30"` 被渲染成"9 月 30 日"，实为"Q3 末某时"，凭空造精确度。
+- **N-43（新）**：`revision_summary.list_changes[]` **字段确实存在**，此前写"MCP 无此字段、停覆信号做不了"是**错误断言**。实测只见 `initiate`/`add`，未见停覆类 action → 改为「样本内未出现，机制上可能支持」。
+- **N-44（新）**：`subject_reports` 数量**日间剧变**——N-19 记的「GOOGL subject=0」（07-23）在 **07-29 复测为 6**；同日 **F 才是 subject=0** 且只返回 3 篇。判定逻辑仍成立，**但举的例子已过期**。
+- **r2 四轴分类不可规则化**：写成正则跑 INTC 7 篇**错 4 篇**（Bernstein "强是靠 mix/ASP 不是销量" 这条教科书级口径边界被判成 🟢）。改为 LLM 语义判断 + 校准样本库，正则降级为召回提示。
+- **另两条**：`valuation_block.dcf` 亏损期给荒谬值（INTC `2.95` vs 现价 `86.57`，差 29 倍）且无失效标注 → 列入不可引用；`rating_action` 全 `reiterate` ≠ 无修正（INTC 大摩 75→84 +12%、伯恩斯坦 100→110 +10%），两者须分开读。
+- **顺带**：r1 的水分族检查首次真触发——INTC TP 84–200 离散 **2.38x**，并抓出真多空对决（同日 HSBC Buy $200 vs 大摩 Equal-weight $84，后者低于当时股价 3%）。
+
+**修正后已用同一脚本复验**：去重 INTC 7→6→**5 家**（N-42 生效）｜同季判据 INTC/NVDA gap=26/24 天 → 闸1 均正确生效｜催化剂归一 **77% → 97%**（58/60），精度降级拦下 8 条假精确日期。
+⚠️ **连带修正一处自伤的数字**：r3 原写"只有 10% 精确到日"——那是坏归一器造成的假象（23% 被误扔进待锚定桶）。修好后真实分布为**日 40% / 月 17% / 季 17% / 半年 8% / 年 15% / 待锚定 3%**，README 与 Skill 正文均已改。「不是日历」的结论不变（仍有 60% 粗于日级）。
+
 ## 2026-07-29 — 新增独立 Skill：财报季超预期扫描
 
 - **新增 [`Earnings Screener/`](./Earnings%20Screener/earnings-season-screener.md)**（根目录独立 Skill，不属于任何 bundle）：
