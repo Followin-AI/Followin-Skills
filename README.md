@@ -17,6 +17,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 | **[`Base Skill/`](./Base%20Skill/)** | 6 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
 | **[`Community Skill/`](./Community%20Skill/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own (incl. a [folder README](./Earnings%20Screener/): methodology mapping + rejected alternatives) |
+| **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 standalone skill | US-stock premarket watchlist tracking — scheduled or immediate reports based on tickers, positions, and timezone |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
 Everything is plain Markdown. There is no build step and no runtime dependency beyond the MCP server.
@@ -157,6 +158,20 @@ arithmetic was once internally inconsistent and wasted transcript quota; the tra
 
 ---
 
+## Standalone skill — Premarket Watchlist Tracker
+
+Give the agent a watchlist, current positions, and premarket time. It uses Followin MCP to assemble market context, ticker-level moves, major news, broker research, and public signals, then returns conditional plans appropriate to empty, long, short, or options positions.
+
+Clients with automation support create or update a recurring task; other clients run the same report once. Before 04:00 ET, prices are labeled as last-close/realtime snapshots rather than true premarket trades, and market holidays are called out explicitly. Install with:
+
+```bash
+cp "Premarket Tracker/premarket-watchlist-automation.md" ~/.claude/commands/
+```
+
+See [`Premarket Tracker/README.md`](./Premarket%20Tracker/) for usage.
+
+---
+
 ## Community bundle (6)
 
 A separate bundle for **community operators** running a US-stock community for beginners. Output is ready-to-paste Traditional Chinese posts. Full operator handbook — module index, weekly cadence, quota budget, pinned-post templates — in **[`Community Skill/README.md`](./Community%20Skill/README.md)**.
@@ -184,6 +199,7 @@ Similar-sounding requests go to different skills:
 | `BTC macro` / `BTC 宏观` | 04 BTC Dashboard | Asset-specific macro score |
 | `Morning brief` / `宏观早报` | 06 Macro Morning Brief | Macro/US-stock daily briefing |
 | `earnings screener` / `财报季扫描` | [Earnings Season Screener](./Earnings%20Screener/earnings-season-screener.md) (standalone) | **No-ticker discovery**; a named ticker routes to Base Skill 02 |
+| `Premarket watchlist` / `每天盘前跟踪我的自选` | [Premarket Tracker](./Premarket%20Tracker/premarket-watchlist-automation.md) (standalone) | Watchlist + positions + recurring or immediate premarket report |
 | `CPI impact` / `CPI 影响` | *(no dedicated skill)* | Indicator interpretation is model-native — the model calls `metrics`+`news` directly; the FRED series dictionary lives in the caveats reference (Appendix A) |
 
 Each skill's frontmatter carries explicit `trigger` and `not_trigger` lists — that's what keeps neighbours from stealing each other's queries.

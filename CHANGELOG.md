@@ -4,6 +4,15 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-07-29 — 新增独立 Skill：美股盘前自选追踪
+
+- **新增 [`Premarket Tracker/`](./Premarket%20Tracker/premarket-watchlist-automation.md)**：
+  根据自选股、持仓、时区与时间创建或更新盘前周期任务；无自动化能力时降级为即时报告。
+- 报告固定覆盖市场背景、单票异动/催化、持仓对应计划、组合相关性风险、来源与刷新条件。
+- 对齐 Followin 当前工具路由：结构化行情/研报走 `metrics`，一般社媒热度走 `news(twitter)`，
+  `twitter` 只处理命名账号/指定推文，`signal` 省略 categories 做 fanout，`subscription` 明确为拉取式未读箱。
+- 新增盘前数据边界：美东 04:00 前不把最近收盘或实时快照称为真实盘前成交；休市日明确标注。
+
 ## 2026-07-29 — 新增独立 Skill：财报季超预期扫描
 
 - **新增 [`Earnings Screener/`](./Earnings%20Screener/earnings-season-screener.md)**（根目录独立 Skill，不属于任何 bundle）：

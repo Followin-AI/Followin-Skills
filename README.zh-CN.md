@@ -17,6 +17,7 @@
 | **[`Base Skill/`](./Base%20Skill/)** | 6 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
 | **[`Community Skill/`](./Community%20Skill/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 个独立 Skill | 财报季发现器——不属于任何 bundle，可单独取用（含[目录 README](./Earnings%20Screener/)：方法论映射 + 被否决方案） |
+| **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 个独立 Skill | 美股盘前自选追踪——按自选股、持仓和时区创建周期报告或即时盘前分析 |
 | **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
 全部为纯 Markdown，无构建步骤，除 MCP 服务器外无任何运行时依赖。
@@ -150,6 +151,20 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 
 ---
 
+## 独立 Skill —— 美股盘前自选追踪
+
+告诉 AI 自选股、当前持仓和盘前时间，它会用 Followin MCP 整理市场背景、单票异动、重大新闻、研报与公开信号，并按空仓、多仓、空头或期权状态给出条件化计划。
+
+带自动化能力的客户端会创建或更新周期任务；其他客户端立即运行一次同结构报告。美东 04:00 前没有真实盘前成交时只标“最近收盘/实时快照”，休市日不会把旧价格冒充当日盘前。安装：
+
+```bash
+cp "Premarket Tracker/premarket-watchlist-automation.md" ~/.claude/commands/
+```
+
+完整说明见 [`Premarket Tracker/README.md`](./Premarket%20Tracker/)。
+
+---
+
 ## 社群运营 Bundle（6 个）
 
 面向**运营人员**的独立 bundle，服务美股新手社群，产出为可直接复制粘贴的繁体中文贴文。完整操作手册 —— 模块索引、每周运营节奏、额度预算、置顶帖模板 —— 见 **[`Community Skill/README.md`](./Community%20Skill/README.md)**。
@@ -177,6 +192,7 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 | `BTC 宏观` / `BTC macro` | 04 BTC 看盘 | 单一资产的宏观评分 |
 | `宏观早报` / `Morning brief` | 06 宏观早报 | 宏观/美股维度的每日简报 |
 | `财报季扫描` / `earnings screener` | [财报季扫描](./Earnings%20Screener/earnings-season-screener.md)（独立）| **无 ticker 的发现器**；点名单股走 Base Skill 02 |
+| `每天盘前跟踪我的自选` / `premarket watchlist` | [盘前自选追踪](./Premarket%20Tracker/premarket-watchlist-automation.md)（独立） | 自选股 + 持仓 + 周期任务或即时盘前报告 |
 | `CPI 影响` / `CPI impact` | *（无专门 Skill）* | 指标解读是模型自带能力——直接调 `metrics`+`news`；FRED 字典见 caveats 附表 A |
 
 每个 Skill 的 frontmatter 都带显式的 `trigger` 与 `not_trigger` 列表 —— 这是相邻 Skill 不互相抢词的关键。
