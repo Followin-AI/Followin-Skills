@@ -133,15 +133,23 @@ Daily macro/US-stock briefing aggregating three sources: macro data, news, and u
 
 ## Standalone skill — Earnings Season Screener
 
-Automates a well-known retail heuristic: during earnings season, work through the big beats and check whether
-the call emphasised tight supply / strong demand. **A discovery tool — no ticker required.** Two discovery legs
-(most-active board + news reverse-sweep) → four hard performance gates → top-N transcript deep-scan →
-**only names clearing both the performance gate and the keyword gate qualify**.
+**Each earnings season, out of the hundreds of US companies that just reported, it finds the few that both
+beat Wall Street's expectations by a wide margin *and* had management say on the call that they can't make
+the product fast enough — and hands you the actual quotes.**
 
-Two things the original heuristic lacks: **negative-keyword scoring** (against confirmation bias — one measured
-name hit all seven positive classes while its CFO simultaneously raised CapEx guidance and disclosed inventory
-write-downs) and **GAAP/non-GAAP mismatch detection** (so a quarter carrying an $11B GAAP loss isn't read as a
-perfect beat).
+Doing this by hand means first sifting the numbers for genuine beats, then reading each company's earnings-call
+transcript — 40,000+ words apiece — for lines like "backlog into next year", "capacity can't keep up",
+"pricing still has room". Nobody gets through more than a handful a quarter.
+
+**No ticker required — it goes and finds them.** Two discovery legs (most-active board + recent earnings
+coverage) → verify how far each actually beat → read the full transcript for the best few →
+**only names clearing both the numbers gate and the language gate make the list**.
+
+Two things a human pass usually skips: **looking for the counter-evidence too** — one measured name hit all
+seven positive classes while the same CFO, in the same call, raised CapEx guidance sharply and disclosed
+inventory write-downs; and **checking which earnings figure you're reading** — the upstream payload carries two
+different EPS conventions with nothing marking which is which, and one name showed a "+100% beat" while the
+same data carried an **$11B GAAP net loss**.
 
 ⚠️ **Every parameter is backed by a measured counter-example** — including ones that were overturned: the gate
 arithmetic was once internally inconsistent and wasted transcript quota; the transcript-lag threshold was set at
