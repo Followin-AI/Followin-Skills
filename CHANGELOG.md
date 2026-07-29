@@ -4,6 +4,19 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-07-29 — 新增 Base Skill 07 财报季超预期扫描
+
+- **新增 [`Base Skill/07_earnings-season-screener.md`](./Base%20Skill/07_earnings-season-screener.md)**：
+  无需指定 ticker 的财报季发现器。异动榜 + 新闻反向捞双腿发现 → 四道业绩硬闸 → Top N 逐字稿深扫 →
+  业绩闸与关键词闸叠加判定。含反向关键词减分与 GAAP 口径错位检测。
+- **⚠️ 废弃市场级财报日历**：实测其等效 `ORDER BY date ASC, symbol ASC LIMIT 50` 且 `limit` 入参不被尊重，
+  按字母序截断导致 GOOGL/MSFT/NVDA/TSLA 在密集日必然出局；客户端五种杠杆全部无效。
+  受影响的 `Base Skill/02`、`Community Skill/c1`、`c2` 已改为「关注池 + `next_earnings_estimate` 核实」，
+  并写入对外发布铁律：只能写「我们盯的这几家」，严禁写「今日/本周财报一览」。
+- **caveats 登记表新增 N-22 ~ N-36 共 15 条**，另作废 N-2、结案 N-11、强化 N-28。
+  其中多条修正了此前的错误定性（如 N-23 从"批量截断"拆分为"截断 + 上游字典缺失"两种独立故障）。
+- **原油符号全面改写**：`CLUSD` 返 0 结果、`BZUSD` 静默丢弃、`OIL` alias 返回 ETN，只剩 `USO` 可用。
+- `mover` 榜从 `biggest gainers/losers` 改为 `most active stocks`（前者实测返回垃圾数据）。
 
 ## [Unreleased]
 

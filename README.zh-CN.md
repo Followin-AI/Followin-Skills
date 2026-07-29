@@ -14,7 +14,7 @@
 
 | Bundle | 文件数 | 面向 |
 |---|---|---|
-| **[`Base Skill/`](./Base%20Skill/)** | 6 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
+| **[`Base Skill/`](./Base%20Skill/)** | 7 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
 | **[`Community Skill/`](./Community%20Skill/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
 | **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
@@ -93,9 +93,9 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 
 ---
 
-## 基础 Skill（6 个）
+## 基础 Skill（7 个）
 
-按推荐入门顺序编号 —— 01 最深，06 最轻。
+按推荐入门顺序编号 —— 01 最深，07 实测密集度最高。
 
 | # | Skill | 怎么问 | 依赖工具 |
 |---|---|---|---|
@@ -105,6 +105,7 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 | **04** | [BTC 宏观看盘](./Base%20Skill/04_btc-macro-dashboard.md) | `BTC 宏观` · `BTC macro` | `metrics` |
 | **05** | [黄金宏观看盘](./Base%20Skill/05_gold-macro-dashboard.md) | `黄金宏观` · `Gold macro` | `metrics` |
 | **06** | [宏观早报](./Base%20Skill/06_macro-morning-brief.md) | `宏观早报` · `Morning brief` | `metrics` `news` |
+| **07** | [财报季超预期扫描](./Base%20Skill/07_earnings-season-screener.md) | `财报季扫描` · `本周谁业绩大增` · `earnings screener` | `metrics` `news` |
 
 ### 01 —— 多 Agent 深度分析
 
@@ -125,6 +126,18 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 ### 06 —— 宏观早报
 
 宏观 + 新闻 + 异动三源聚合的每日晨间简报，可传 `watchlist`。这是**宏观/美股**维度的早报；本仓库没有加密日报 Skill。
+
+
+### 07 —— 财报季超预期扫描
+
+把「财报季挨个看业绩大增公司、扫电话会高景气表述」这套人肉选股法自动化。**无需指定 ticker 的发现器**：
+异动榜 + 新闻反向捞双腿发现 → 四道业绩硬闸 → Top N 逐字稿深扫 → **业绩闸与关键词闸叠加**才算数。
+
+比原方法多两样：**反向关键词减分**（防确认偏误——实测某标的七类正向词全中，但 CapEx 上修与库存减记同样出自 CFO 之口）
+和 **GAAP 口径错位检测**（防把 GAAP 净亏 110 亿美元的季度读成「完美超预期」）。
+
+⚠️ **每个参数都有实测反例支撑**，包括几条被推翻过的：闸门算术曾不自洽导致白烧逐字稿额度；
+逐字稿滞后阈值先取 60 天，后被中概 ADR 证伪改为 90 天。版本历史见 [`CHANGELOG.md`](./CHANGELOG.md)。
 
 ---
 
@@ -154,6 +167,7 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 | `背离扫描` / `Divergence scan` | 03 背离扫描 | 价格/媒体/内部人不一致 |
 | `BTC 宏观` / `BTC macro` | 04 BTC 看盘 | 单一资产的宏观评分 |
 | `宏观早报` / `Morning brief` | 06 宏观早报 | 宏观/美股维度的每日简报 |
+| `财报季扫描` / `earnings screener` | 07 财报季扫描 | **无 ticker 的发现器**；点名单股走 02 |
 | `CPI 影响` / `CPI impact` | *（无专门 Skill）* | 指标解读是模型自带能力——直接调 `metrics`+`news`；FRED 字典见 caveats 附表 A |
 
 每个 Skill 的 frontmatter 都带显式的 `trigger` 与 `not_trigger` 列表 —— 这是相邻 Skill 不互相抢词的关键。
