@@ -54,7 +54,7 @@ args: days, top, watchlist
 
 > 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
 >
-> 📐 **架构选型与验收依据**：见同目录 [`design.md`](./design.md)。
+> 📐 **方法论映射与被否决的方案**：见同目录 [`README.md`](./README.md)。
 
 ---
 
