@@ -18,7 +18,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 | **[`Community Skill/`](./Community%20Skill/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own (incl. a [folder README](./Earnings%20Screener/): methodology mapping + rejected alternatives) |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 standalone skill | US-stock premarket watchlist tracking — scheduled or immediate reports based on tickers, positions, and timezone |
-| **[`Research Desk/`](./Research%20Desk/)** | 4 skills | Research-report signals — can you trust the call, how far, what date to watch next, and who else gets pulled in (incl. a [folder README](./Research%20Desk/): three counterintuitive findings) |
+| **[`Research Desk/`](./Research%20Desk/)** | 4 skills | Reading sell-side research on one ticker — can you trust the call, how far, what date to watch next, who else gets pulled in (incl. a [folder README](./Research%20Desk/) and [sample outputs](./docs/研报投研台样张.md)) |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
 Everything is plain Markdown. There is no build step and no runtime dependency beyond the MCP server.
@@ -198,7 +198,7 @@ cp "Research Desk"/*.md ~/.claude/commands/
 ⚠️ **It won't pick stocks for you** — every skill needs a ticker to start. For discovery use the Earnings Screener or the Divergence Scan.
 ⚠️ At most 10 reports come back per ticker, often 3–5 institutions after dedup. **Any "N institutions think X" is a floor, not the street** — all four are required to say so in their output.
 
-Full write-up in **[`Research Desk/README.md`](./Research%20Desk/README.md)**.
+Full write-up in **[`Research Desk/README.md`](./Research%20Desk/README.md)**; real sample outputs from one live INTC run in **[`docs/研报投研台样张.md`](./docs/研报投研台样张.md)**.
 
 ---
 

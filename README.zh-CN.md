@@ -18,7 +18,7 @@
 | **[`Community Skill/`](./Community%20Skill/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 个独立 Skill | 财报季发现器——不属于任何 bundle，可单独取用（含[目录 README](./Earnings%20Screener/)：方法论映射 + 被否决方案） |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 个独立 Skill | 美股盘前自选追踪——按自选股、持仓和时区创建周期报告或即时盘前分析 |
-| **[`Research Desk/`](./Research%20Desk/)** | 4 个 Skill | 研报投研台——研报能不能信 / 信到什么程度 / 接下来盯哪天 / 还有谁被卷进来（含[目录 README](./Research%20Desk/)：三个反直觉的实测发现） |
+| **[`Research Desk/`](./Research%20Desk/)** | 4 个 Skill | 研报投研台——单标的研报深读：能不能信 / 信到什么程度 / 接下来盯哪天 / 还有谁被卷进来（含[目录 README](./Research%20Desk/) 与[产出样张](./docs/研报投研台样张.md)）|
 | **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
 全部为纯 Markdown，无构建步骤，除 MCP 服务器外无任何运行时依赖。
@@ -189,7 +189,7 @@ cp "Research Desk"/*.md ~/.claude/commands/
 ⚠️ **它不帮你选股**——四支都得先点名一只票才开工。找标的用财报季扫描或背离扫描。
 ⚠️ 每只股票最多返回 10 份报告，去重后常剩三到五家。**任何"N 家机构怎么看"都是下限不是全街**，四支都被要求把这句写进输出。
 
-完整说明见 **[`Research Desk/README.md`](./Research%20Desk/README.md)**。
+完整说明见 **[`Research Desk/README.md`](./Research%20Desk/README.md)**；四支的实际产出样张（英特尔全链路实跑）见 **[`docs/研报投研台样张.md`](./docs/研报投研台样张.md)**。
 
 ---
 

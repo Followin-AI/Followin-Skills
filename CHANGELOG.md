@@ -4,6 +4,13 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-07-29 — Research Desk 文档面向用户重写 + 新增产出样张
+
+- **README 改成给用户看的**：目录 README 178 → 134 行。删掉三轮实测过程叙述、6 个规格缺陷表、「为什么库内四族信号搬不过来」整节、每条结论后挂的实测证据——这些是维护者视角，已在本 CHANGELOG 与 caveats 里，README 只留指路链接。结构改为：**解决什么问题 → 四支各干什么 → 跑出来长什么样 → 怎么用 → 两条用前须知**。根 README 两处同步压缩。
+- **新增 [`docs/研报投研台样张.md`](./docs/研报投研台样张.md)**：沿用 `docs/产出样张集.md` 的规格（真实数据、标日期与额度、非示意稿）。英特尔单票、2026-07-29 一次跑动、3 次计费调用，四支产出全放出——r1 完整读数卡（含四维对撞表与净信号三问）、r2 七篇逐篇地基 + 交叉读法、r3 时间线（本标的 + 关联标的 + 分布读法）、r4 关系边 + 16 条同链修正。
+- 样张文末附「这批样张暴露的真实约束」三条（枢纽票反而没产出 / 同框名字彼此无关 / 最理想字段拿不到），与社群样张集同一体例。
+- 目录 README 内联 r1 领读段作为预览，其余指向样张集。
+
 ## 2026-07-29 — `Research Signal/` → `Research Desk/`（改名 + 改定位）
 
 **名字比东西大，改回来。** 四支 Skill 里没有一支是 signal——按库内自己的定义，signal 是**规则触发、离散、能扫描**的（错位/时钟/信念/水分，拿一个池子跑一遍看谁亮灯）。而 r1–r4 全都**必须先点名一只票才开工**，没有任何一支能主动告诉你"这只票现在有情况"。它们是**投研工具**：校准读法（r1）／文本审计（r2）／信息整理（r3）／关系抽取（r4）。
