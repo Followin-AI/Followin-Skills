@@ -4,6 +4,16 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-07-29 — `Research Signal/` → `Research Desk/`（改名 + 改定位）
+
+**名字比东西大，改回来。** 四支 Skill 里没有一支是 signal——按库内自己的定义，signal 是**规则触发、离散、能扫描**的（错位/时钟/信念/水分，拿一个池子跑一遍看谁亮灯）。而 r1–r4 全都**必须先点名一只票才开工**，没有任何一支能主动告诉你"这只票现在有情况"。它们是**投研工具**：校准读法（r1）／文本审计（r2）／信息整理（r3）／关系抽取（r4）。
+
+- **目录改名**：`Research Signal/` → `Research Desk/`（研报投研台）；`r1_cross-source-signal-card.md` → `r1_cross-source-readout.md`，产物「信号卡」→「读数卡」。安装路径随之变为 `cp "Research Desk"/*.md ~/.claude/commands/`。
+- **触发词修正**：r1 的 `研报信号` / `research signal` 移除——**这个错配会在真实使用里咬人**：喊"信号"的人期待的是**发现**（告诉我哪只票有情况），拿到的却是"请先告诉我看哪只"。
+- **⚠️ 保留的 signal 原语**：r1 里的四个告警（TP 离散 >1.8x、孤儿、GAAP 口径错位、真修正检出）**是货真价实的规则触发闸**，但它们只能对已选定的票亮灯、扫不了池子，所以**没有发现价值，降级为 checklist 勾选项**。这不是"做得不够 signal"，是**这份数据不支持 signal 形态**（N-37/38/39 三座山）。
+- 命名源自最初的《信号生成器·Signal 板块旗舰引擎》方案，当时假设能做发现型——该假设已被实测证伪，名字此前没跟着改。
+- 历史 CHANGELOG 条目中的路径已一并更新以保持链接可用；条目里的"Research Desk"在当时实为"Research Signal"。
+
 ## 2026-07-29 — 新增独立 Skill：美股盘前自选追踪
 
 - **新增 [`Premarket Tracker/`](./Premarket%20Tracker/premarket-watchlist-automation.md)**：
@@ -13,9 +23,9 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
   `twitter` 只处理命名账号/指定推文，`signal` 省略 categories 做 fanout，`subscription` 明确为拉取式未读箱。
 - 新增盘前数据边界：美东 04:00 前不把最近收盘或实时快照称为真实盘前成交；休市日明确标注。
 
-## 2026-07-29 — `Research Signal/` 新增 r4 产业链读穿（三件套 → 四件套）
+## 2026-07-29 — `Research Desk/` 新增 r4 产业链读穿（三件套 → 四件套）
 
-- **新增 [`r4_supply-chain-readthrough.md`](./Research%20Signal/r4_supply-chain-readthrough.md)**：单标的产业链关联图。
+- **新增 [`r4_supply-chain-readthrough.md`](./Research%20Desk/r4_supply-chain-readthrough.md)**：单标的产业链关联图。
   三层产出——**关系边**（`mention_context.rationale`，为什么这份报告提到它 + 方向）、**同链修正**（过闸后的 `by_name`，链上谁被改了价）、
   **跨标的催化剂**（`catalysts[].security ≠ ticker`）。与 r1–r3 共用同一次研报调用，**0 额外额度**。
 - **⚠️ 本支是先撞完数据才动笔的——原设计被实测推翻两次**（caveats N-45/N-46/N-47）：
@@ -25,10 +35,10 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
 - **同批两条数据特性**：`by_name` 的 `old_target_price` 覆盖率仅 **26%**（25/96）——"当前目标价"≠"被改价"，须分开表述；`catalysts[].security` **不保证是 ticker**（实测出现板块名 `"AI SEMICONDUCTOR SUPPLY CHAIN"` 与逗号多值）。
 - **正面发现**：`mention_context.rationale` 质量远超预期，是**带方向的机制描述**而非标签（"英伟达是诺基亚 AI-RAN 平台的开发伙伴"）。⚠️ 但**必须读全句**——实测有自带否定的边（"…是 UMC 的潜在 3nm 伙伴，**但 Bernstein 认为不太可能**"）。副产品：过闸后可顺带白拿链上其他标的目标价（查 INTC 得到 NVDA $315 / AVGO $550 / AAPL $350），但那是单家读数非共识。
 
-## 2026-07-29 — 新增 `Research Signal/`：研报信号三件套
+## 2026-07-29 — 新增 `Research Desk/`：研报投研台
 
-- **新增 [`Research Signal/`](./Research%20Signal/)**（3 个 Skill，独立目录）：
-  **r1 跨源印证信号卡**（研报候选 × 共识/市场/KOL 与内部人/基本面四维对撞，3 额度，输出校准读法不给买卖建议）、
+- **新增 [`Research Desk/`](./Research%20Desk/)**（3 个 Skill，独立目录）：
+  **r1 跨源印证读数卡**（研报候选 × 共识/市场/KOL 与内部人/基本面四维对撞，3 额度，输出校准读法不给买卖建议）、
   **r2 口径审计器**（只审结论的地基：基准是谁 / 口径边界 / 自陈偏差，可复用 r1 返回 0 额度）、
   **r3 催化剂时间线**（`detail.catalysts[].time_std` 归一后按精度分桶，补 N-22 财报日历判废留下的前瞻腿缺口）。
 - **⚠️ 明确不做研报扫描器**，理由是数据可见性而非实现难度。库内四族信号（错位/时钟/信念/水分）建立在状态层全量折叠之上，

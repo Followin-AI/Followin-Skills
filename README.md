@@ -18,7 +18,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 | **[`Community Skill/`](./Community%20Skill/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own (incl. a [folder README](./Earnings%20Screener/): methodology mapping + rejected alternatives) |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 standalone skill | US-stock premarket watchlist tracking — scheduled or immediate reports based on tickers, positions, and timezone |
-| **[`Research Signal/`](./Research%20Signal/)** | 4 skills | Research-report signals — can you trust the call, how far, what date to watch next, and who else gets pulled in (incl. a [folder README](./Research%20Signal/): three counterintuitive findings) |
+| **[`Research Desk/`](./Research%20Desk/)** | 4 skills | Research-report signals — can you trust the call, how far, what date to watch next, and who else gets pulled in (incl. a [folder README](./Research%20Desk/): three counterintuitive findings) |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
 Everything is plain Markdown. There is no build step and no runtime dependency beyond the MCP server.
@@ -173,13 +173,13 @@ See [`Premarket Tracker/README.md`](./Premarket%20Tracker/) for usage.
 
 ---
 
-## Research Signal set (4)
+## Research Desk (4 skills)
 
-**Can you trust what the sell-side report says, how far, and what date should you watch next.** Full write-up in **[`Research Signal/README.md`](./Research%20Signal/README.md)**.
+**Can you trust what the sell-side report says, how far, and what date should you watch next.** Full write-up in **[`Research Desk/README.md`](./Research%20Desk/README.md)**.
 
 | # | Module | What it does |
 |---|---|---|
-| **r1** | Cross-Source Signal Card | A report says "$350 target" — should you believe it? Collides the call against street consensus, price action, KOL/insider positioning, and last quarter's actuals. **Only when all four line up is it a signal.** |
+| **r1** | Cross-Source Readout | A report says "$350 target" — should you believe it? Collides the call against street consensus, price action, KOL/insider positioning, and last quarter's actuals. **Only when all four line up is it a signal.** |
 | **r2** | Caveat Audit | Ignores the conclusion, audits its foundation: was this analyst research or **management talking on a non-deal roadshow**? Is that benchmark chart measured or modeled? What does the report itself admit doesn't reconcile? |
 | **r3** | Catalyst Timeline | Future checkpoints named inside reports — product ramps, competitor events, financing dates. **None of these exist in a public earnings calendar.** |
 | **r4** | Supply-Chain Read-Through | Where other people's reports place your ticker — who mentions it, as beneficiary or casualty, **and why**, plus **who else on that chain just got repriced**. Measured: one INTC query also yielded UMC's target raised 87%, VSMC 55%. |
@@ -225,9 +225,9 @@ Similar-sounding requests go to different skills:
 | `Morning brief` / `宏观早报` | 06 Macro Morning Brief | Macro/US-stock daily briefing |
 | `earnings screener` / `财报季扫描` | [Earnings Season Screener](./Earnings%20Screener/earnings-season-screener.md) (standalone) | **No-ticker discovery**; a named ticker routes to Base Skill 02 |
 | `Premarket watchlist` / `每天盘前跟踪我的自选` | [Premarket Tracker](./Premarket%20Tracker/premarket-watchlist-automation.md) (standalone) | Watchlist + positions + recurring or immediate premarket report |
-| `Can I trust this target` / `研报信号` | [r1 Cross-Source Signal Card](./Research%20Signal/r1_cross-source-signal-card.md) | Report call + four-way collision; "what does the report say" routes to c3 |
-| `Is this report solid` / `基准是谁` | [r2 Caveat Audit](./Research%20Signal/r2_research-caveat-audit.md) | Audits the foundation, never restates the conclusion |
-| `What catalysts are next` / `接下来盯什么` | [r3 Catalyst Timeline](./Research%20Signal/r3_catalyst-timeline.md) | Report-named checkpoints; "when does X report earnings" does **not** route here (calendar is unusable — caveats N-22) |
+| `Can I trust this target` / `研报解读` | [r1 Cross-Source Readout](./Research%20Desk/r1_cross-source-readout.md) | Report call + four-way collision; "what does the report say" routes to c3 |
+| `Is this report solid` / `基准是谁` | [r2 Caveat Audit](./Research%20Desk/r2_research-caveat-audit.md) | Audits the foundation, never restates the conclusion |
+| `What catalysts are next` / `接下来盯什么` | [r3 Catalyst Timeline](./Research%20Desk/r3_catalyst-timeline.md) | Report-named checkpoints; "when does X report earnings" does **not** route here (calendar is unusable — caveats N-22) |
 | `CPI impact` / `CPI 影响` | *(no dedicated skill)* | Indicator interpretation is model-native — the model calls `metrics`+`news` directly; the FRED series dictionary lives in the caveats reference (Appendix A) |
 
 Each skill's frontmatter carries explicit `trigger` and `not_trigger` lists — that's what keeps neighbours from stealing each other's queries.

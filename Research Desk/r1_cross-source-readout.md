@@ -1,13 +1,13 @@
 ---
-name: Research Cross-Source Signal Card (r1 — 研报跨源印证信号卡)
-description: 单标的研报信号旗舰。把卖方研报的结论当「有偏候选」，再用 Followin 四维活数据（共识 / 市场 / KOL 与内部人 / 基本面）对撞印证，铸成一张校准后的信号卡。输出不是买卖建议，只回答三问：锚哪个价、背离什么性质、盯什么反向信号。必须点名标的才触发。
-trigger: 研报信号、印证一下XX的研报、XX研报靠不靠谱、跨源印证、信号卡、研报校准、这个目标价能信吗、research signal、cross-source
+name: Research Cross-Source Readout (r1 — 研报跨源印证读数卡)
+description: 单标的研报解读旗舰。把卖方研报的结论当「有偏候选」，再用 Followin 四维活数据（共识 / 市场 / KOL 与内部人 / 基本面）对撞印证，铸成一张校准后的读数卡。输出不是买卖建议，只回答三问：锚哪个价、背离什么性质、盯什么反向信号。必须点名标的才触发。
+trigger: 印证一下XX的研报、XX研报靠不靠谱、跨源印证、读数卡、研报校准、这个目标价能信吗、research readout、cross-source
 not_trigger: 研报榜/本周研报（→ Community c3）、单纯问目标价（→ Base 02）、催化剂日历（→ r3）、只想看报告口径（→ r2）、财报季扫描（→ Earnings Screener）、背离扫描（→ Base 03）
 mcp: mcp__followin__metrics, mcp__followin__signal, mcp__followin__news
 args: ticker(必填), window(可选，默认 30d，仅用于客户端过滤报告日期)
 ---
 
-# /r1-cross-source-signal-card $ARGUMENTS
+# /r1-cross-source-readout $ARGUMENTS
 
 **研报库单独不产信号，只产候选。信号是候选被跨源印证或证伪的那一刻才铸成的。**
 
@@ -32,13 +32,13 @@ args: ticker(必填), window(可选，默认 30d，仅用于客户端过滤报�
 
 单篇卖方研报**系统性偏多**，所以它只是有偏候选。这解释了一个反直觉结论：**同一批 9 篇同机构研报不能自成信号**——一家之言构成的是「假共识」。真共识、真背离，只能从跨源对撞里来。
 
-MCP 侧还额外叠了一层削弱：**每票最多看得到 10 篇、去重后常只剩 3–5 家机构**（N-38 + N-42；实测 NVDA 3 家、INTC 5 家、GOOGL 5 家）。所以本 Skill 的研报侧读数**天然是下界**，这一点必须写进每张信号卡。
+MCP 侧还额外叠了一层削弱：**每票最多看得到 10 篇、去重后常只剩 3–5 家机构**（N-38 + N-42；实测 NVDA 3 家、INTC 5 家、GOOGL 5 家）。所以本 Skill 的研报侧读数**天然是下界**，这一点必须写进每张读数卡。
 
 ## 意图路由
 
 | 用户说的 | 走哪 |
 |---------|------|
-| 印证 XX 的研报、这个目标价能信吗、研报信号 | ✅ 本 Skill |
+| 印证 XX 的研报、这个目标价能信吗 | ✅ 本 Skill |
 | 本周研报榜、谁被提得最多 | ❌ 转 `Community Skill/c3_research-hot`（⚠️ 并提醒它是累计榜不是周榜，N-37）|
 | 这份报告哪里没说清、口径边界 | ❌ 转 [`r2_research-caveat-audit`](./r2_research-caveat-audit.md) |
 | 接下来有什么催化剂 | ❌ 转 [`r3_catalyst-timeline`](./r3_catalyst-timeline.md) |
@@ -75,7 +75,7 @@ metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradf
 4. **按 `report_date` 过滤到 window 内**，并记下被滤掉几篇。
 5. **分层**：只有 `subject_reports` 能用于评级/目标价统计（N-19）。`mention_reports` 只能当叙事背景，**其 `mention_context.rationale` 可引用为"某行业报告里被点名的理由"，但绝不能标成"机构评级"**。
    ⚠️ **`subject_reports=0` 是真实分支，必须处理**：实测 F(Ford) 返回 `report_returned_count=3`，**全部是 mention，subject 为 0**。
-   此时**不出信号卡**——候选层不成立。降级输出："本标的近期无专题研究，只在 N 份行业报告里被点名"，附 `mention_context.rationale`。
+   此时**不出读数卡**——候选层不成立。降级输出："本标的近期无专题研究，只在 N 份行业报告里被点名"，附 `mention_context.rationale`。
    ⚠️ 但 **N-19 的「GOOGL subject=0」是时点现象不是恒定特性**：2026-07-23 实测 GOOGL subject=0，**2026-07-29 复测 subject=6**（Barclays/MS/Bernstein/Citi×2/GS）。**每次当场看返回，不要照抄历史结论。**
 
 **候选强度读数**（全部标成下界）：
@@ -164,7 +164,7 @@ signal(query="<TICKER>", asset_type="tradfi")
 | `insider_trading` | 只认 `formType=="4"` 的 `P-Purchase`（买）与 `S-Sale`（卖）| `G-Gift` / `F-InKind` / `M-Exempt` **不是主动交易**（赠与、缴税代扣），剔除。`formType=="3"` 是首次申报，非交易。<br>**国会交易与公司内部人混在同一个 key 下**，按 `provenance` 分开（`congress` / `corporate_insider`）。<br>⚠️ `time_range` 被无视（N-6），客户端按 `transactionDate` 强制过滤。<br>⚠️ **同一份 PTR 披露会裂成多行**：实测 Cleo Fields 一份 PDF 出 3 行（`assetDescription` 为 `"NVIDIA Corporation"` / `"(1)"` / `"(2)"`，link 与日期完全相同）。**按 (姓名, 日期) 去重算人数，按行算笔数**，否则 1 位议员会被报成 3 位 |
 | `institutional` | 绝对持仓 | ⛔ **申报季内禁引任何环比**（N-7）。实测 NVDA `investorsHolding` 2497 vs 上期 6234、`ownershipPercentChange −63.77%`、`putCallRatioChange +178%`——**全是回补未完成造成的残缺假信号**，不是真的机构跑了 |
 
-**判定**：基本面/研报看多 × A 级 KOL 或内部人反向 → **分裂**，这是信号卡里最该顶出来的一行。
+**判定**：基本面/研报看多 × A 级 KOL 或内部人反向 → **分裂**，这是读数卡里最该顶出来的一行。
 
 ### 步骤 4 · 维度 2：背离是什么性质（0 额度）
 
@@ -190,12 +190,12 @@ news(query="<公司名> <TICKER>")
 
 ---
 
-## 输出：信号卡
+## 输出：读数卡
 
 固定五段。**净信号不是「买入/卖出」**——只回答三个问题。
 
 ```
-📇 <TICKER> 研报跨源印证信号卡 · <日期>
+📇 <TICKER> 研报跨源印证读数卡 · <日期>
 
 【🔎 领读】（先写这段，不是最后补）
 <2–4 句。这张卡最该停下来看的是哪一条、为什么；以及哪些看着显眼其实可忽略。
@@ -265,4 +265,4 @@ news(query="<公司名> <TICKER>")
 | 榜单 `net_direction` 不可用 | 连带污染（N-39）| 本 Skill 全程不读榜单方向，只读钻取后的 `subject_reports` |
 | **停止覆盖信号：未证实，不是做不了** | ⚠️ **2026-07-29 修正此前的错误断言**：`revision_summary.list_changes[]` **字段确实存在**（结构 `{action, list, security}`），此前写"MCP 无此字段"是错的 | 实测三标的只见到 `action` 为 `initiate`（Bernstein 07-27 组合名单）与 `add`（J.P. Morgan 加入 Positive Catalyst Watch），**未见到停覆类 action**。→ 表述为"**样本内未出现，机制上可能支持**"，出现时按库内时钟族读法处理；**不承诺一定能抓到** |
 | 方向翻转（错位族）做不了 | 需同机构前后比对，而只有 3–5 家可见、`rating_history` 只带 TP 不带 rating | 不做。**但 `revision_summary` 的 old→new TP 是可用的替代**（实测 INTC 两家真上调），已并入候选强度 |
-| `subject_reports=0` | 真实分支（实测 F 全 mention）| 不出信号卡，降级为 mention 叙事。**且该状态会变**——GOOGL 07-23 为 0、07-29 为 6 |
+| `subject_reports=0` | 真实分支（实测 F 全 mention）| 不出读数卡，降级为 mention 叙事。**且该状态会变**——GOOGL 07-23 为 0、07-29 为 6 |

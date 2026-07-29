@@ -1,8 +1,8 @@
 ---
 name: Research Caveat Audit (r2 — 研报口径审计器)
-description: 拆一份（或一个标的的一批）卖方研报的口径，回答三件不会被媒体转述抄走的事：结论的基准是谁、数字的口径边界在哪、报告自己承认了什么偏差。输出可信度分档 + 高危表述清单，可独立跑，也可当 r1 信号卡的降权器。不复述结论，只审结论的地基。
+description: 拆一份（或一个标的的一批）卖方研报的口径，回答三件不会被媒体转述抄走的事：结论的基准是谁、数字的口径边界在哪、报告自己承认了什么偏差。输出可信度分档 + 高危表述清单，可独立跑，也可当 r1 读数卡的降权器。不复述结论，只审结论的地基。
 trigger: 口径审计、这份研报靠谱吗、基准是谁、口径边界、研报可信度、自陈偏差、报告哪里没说、审一下研报、caveat audit、research audit
-not_trigger: 研报讲了什么/帮我总结研报（→ Community c3）、跨源印证信号卡（→ r1）、催化剂（→ r3）、财报分析（→ Base 02）
+not_trigger: 研报讲了什么/帮我总结研报（→ Community c3）、跨源印证读数卡（→ r1）、催化剂（→ r3）、财报分析（→ Base 02）
 mcp: mcp__followin__metrics
 args: ticker(必填), focus(可选：报告标题关键词，只审匹配的那几篇)
 ---
@@ -35,7 +35,7 @@ args: ticker(必填), focus(可选：报告标题关键词，只审匹配的那�
 |---------|------|
 | 这份研报靠谱吗、基准是谁、哪里没说清 | ✅ 本 Skill |
 | 研报讲了什么、帮我总结 | ❌ 转 `Community Skill/c3_research-hot` |
-| 这个目标价能信吗（要跨源印证）| ❌ 转 [`r1_cross-source-signal-card`](./r1_cross-source-signal-card.md) |
+| 这个目标价能信吗（要跨源印证）| ❌ 转 [`r1_cross-source-readout`](./r1_cross-source-readout.md) |
 | 接下来有什么催化剂 | ❌ 转 [`r3_catalyst-timeline`](./r3_catalyst-timeline.md) |
 
 ---

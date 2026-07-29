@@ -51,7 +51,7 @@ args: ticker(必填，可多个，每个 1 额度), horizon(可选，默认 180d
 | 接下来盯什么、有什么催化剂 | ✅ 本 Skill |
 | XX 什么时候发财报 | ❌ 走 `fundamentals.next_earnings_estimate.date` 对关注池逐个核实（N-22：**绝不可用日历做全市场发现**）|
 | 研报讲了什么 | ❌ 转 `Community Skill/c3_research-hot` |
-| 这个目标价能信吗 | ❌ 转 [`r1_cross-source-signal-card`](./r1_cross-source-signal-card.md) |
+| 这个目标价能信吗 | ❌ 转 [`r1_cross-source-readout`](./r1_cross-source-readout.md) |
 
 ---
 
@@ -190,7 +190,7 @@ metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradf
 【⏮ 已过期】（报告当时在等的事，回看兑现没有）
 · 2025-H2｜产品爬坡｜Blackwell Ultra ramp〔BofA〕
 
-【🧩 分布读法】（**不可省——这是把日历变成信号的一步**）
+【🧩 分布读法】（**不可省——这是把日历变成判断的一步**）
 时间线的**疏密和远近本身就是读数**，跟具体有哪几条同样重要：
 
 · **近期密度**：未来 90 天内有几个可检验节点？
