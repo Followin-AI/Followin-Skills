@@ -175,25 +175,30 @@ See [`Premarket Tracker/README.md`](./Premarket%20Tracker/) for usage.
 
 ## Research Desk (4 skills)
 
-**Can you trust what the sell-side report says, how far, and what date should you watch next.** Full write-up in **[`Research Desk/README.md`](./Research%20Desk/README.md)**.
+**You hold a ticker and want to know what the sell-side actually thinks of it.**
+
+A report's *conclusion* is no secret — the financial press reprints it within days, digits intact. The hard part is everything around it:
+whether five targets spanning 2.4× is disagreement or five people modeling different things; that the most bullish report keeps its
+valuation method in a *different* publication; that "strong results" means strong on price, not on units. That lives in the body text,
+and reading five reports for it costs you an afternoon.
 
 | # | Module | What it does |
 |---|---|---|
-| **r1** | Cross-Source Readout | A report says "$350 target" — should you believe it? Collides the call against street consensus, price action, KOL/insider positioning, and last quarter's actuals. **Only when all four line up is it a signal.** |
+| **r1** | Cross-Source Readout | A report says "$350 target" — should you believe it? Collides the call against street consensus, price action, KOL/insider positioning, and last quarter's actuals. No buy/sell — three answers only: **which price to anchor, what kind of selloff this is, what would change your mind.** |
 | **r2** | Caveat Audit | Ignores the conclusion, audits its foundation: was this analyst research or **management talking on a non-deal roadshow**? Is that benchmark chart measured or modeled? What does the report itself admit doesn't reconcile? |
-| **r3** | Catalyst Timeline | Future checkpoints named inside reports — product ramps, competitor events, financing dates. **None of these exist in a public earnings calendar.** |
+| **r3** | Catalyst Timeline | Future checkpoints named inside reports — product ramps, competitor events, financing dates. **None of these exist in a public earnings calendar.** Bucketed by precision; vague stays labeled vague. |
 | **r4** | Supply-Chain Read-Through | Where other people's reports place your ticker — who mentions it, as beneficiary or casualty, **and why**, plus **who else on that chain just got repriced**. Measured: one INTC query also yielded UMC's target raised 87%, VSMC 55%. |
 
-**Why there is no research screener**: measured, this data's strength is depth, not breadth. The leaderboard **has no time dimension**
-(a 24h query and a 7d query return byte-identical results), its bull/bear counts are polluted by passing mentions
-(Ford has 3 reports mentioning it and **zero** actually about it — all are other companies' battery-sector notes name-checking it),
-and every drill-down **returns at most 10 reports** — often just three to five distinct institutions after dedup.
-So all three are depth tools and none is a screener: **the data doesn't support one, rather than shipping a watered-down version.**
-Evidence in the folder README.
+All four **share one research-report call**, so r2/r3/r4 are free once you've run r1. A full pass on one ticker costs 3 billable calls. Install:
 
-⚠️ One ceiling you can't dodge: 10 reports max per ticker, often 3–5 institutions after dedup. **Any "N institutions think X" is a floor, not the street** — all three skills are required to state this in their output.
+```bash
+cp "Research Desk"/*.md ~/.claude/commands/
+```
 
-✅ All three were **run end-to-end** (NVDA for field discovery, then INTC/GOOGL/F as fresh tickers with the client-side spec executed as a script against live data), which **surfaced and fixed 6 spec defects** — including two assertions I had flat wrong. Full list in the folder README.
+⚠️ **It won't pick stocks for you** — every skill needs a ticker to start. For discovery use the Earnings Screener or the Divergence Scan.
+⚠️ At most 10 reports come back per ticker, often 3–5 institutions after dedup. **Any "N institutions think X" is a floor, not the street** — all four are required to say so in their output.
+
+Full write-up in **[`Research Desk/README.md`](./Research%20Desk/README.md)**.
 
 ---
 
