@@ -13,6 +13,18 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
   `twitter` 只处理命名账号/指定推文，`signal` 省略 categories 做 fanout，`subscription` 明确为拉取式未读箱。
 - 新增盘前数据边界：美东 04:00 前不把最近收盘或实时快照称为真实盘前成交；休市日明确标注。
 
+## 2026-07-29 — `Research Signal/` 新增 r4 产业链读穿（三件套 → 四件套）
+
+- **新增 [`r4_supply-chain-readthrough.md`](./Research%20Signal/r4_supply-chain-readthrough.md)**：单标的产业链关联图。
+  三层产出——**关系边**（`mention_context.rationale`，为什么这份报告提到它 + 方向）、**同链修正**（过闸后的 `by_name`，链上谁被改了价）、
+  **跨标的催化剂**（`catalysts[].security ≠ ticker`）。与 r1–r3 共用同一次研报调用，**0 额外额度**。
+- **⚠️ 本支是先撞完数据才动笔的——原设计被实测推翻两次**（caveats N-45/N-46/N-47）：
+  - **N-45**：`detail.affected_names` **计数有、内容永远没有**（实测 30/30 篇全缺）。最理想的产业链名单（Nomura 一篇标了 31 个名字）一个都取不到，只能改用三个替代数据面。
+  - **N-46**：**10 篇硬顶是 subject 与 mention 共享的，"枢纽票"反而拿不到产业链**。实测 2330.TW（榜第 4 / 70 篇 / 17 家）返回 `subject 10 / mention 0` → 关系边 **0 条**；而榜第 6 的 INTC 拿到 **16 条**跨标的修正。跨标的数据几乎只存在于 mention 报告，专题一多就把它挤没了。**不要用榜单排名挑标的。**
+  - **N-47**：**汇编报告的 `by_name` 是「同框噪音」不是产业链**。查 NVDA 得到的 12 条跨标的修正是印尼棕榈油 / 印度银行 / 韩国船舶——只是同处一份《Asia Morning News》。按 `subject_name` 加汇编闸后：NVDA 30 噪音/6 真链、GOOGL 17/5、**INTC 0/16**；不加闸时 NVDA 输出 **83% 是无关名字**。
+- **同批两条数据特性**：`by_name` 的 `old_target_price` 覆盖率仅 **26%**（25/96）——"当前目标价"≠"被改价"，须分开表述；`catalysts[].security` **不保证是 ticker**（实测出现板块名 `"AI SEMICONDUCTOR SUPPLY CHAIN"` 与逗号多值）。
+- **正面发现**：`mention_context.rationale` 质量远超预期，是**带方向的机制描述**而非标签（"英伟达是诺基亚 AI-RAN 平台的开发伙伴"）。⚠️ 但**必须读全句**——实测有自带否定的边（"…是 UMC 的潜在 3nm 伙伴，**但 Bernstein 认为不太可能**"）。副产品：过闸后可顺带白拿链上其他标的目标价（查 INTC 得到 NVDA $315 / AVGO $550 / AAPL $350），但那是单家读数非共识。
+
 ## 2026-07-29 — 新增 `Research Signal/`：研报信号三件套
 
 - **新增 [`Research Signal/`](./Research%20Signal/)**（3 个 Skill，独立目录）：

@@ -18,7 +18,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 | **[`Community Skill/`](./Community%20Skill/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own (incl. a [folder README](./Earnings%20Screener/): methodology mapping + rejected alternatives) |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 standalone skill | US-stock premarket watchlist tracking — scheduled or immediate reports based on tickers, positions, and timezone |
-| **[`Research Signal/`](./Research%20Signal/)** | 3 skills | Research-report signals — can you trust the call, how far, and what date to watch next (incl. a [folder README](./Research%20Signal/): why there is no screener) |
+| **[`Research Signal/`](./Research%20Signal/)** | 4 skills | Research-report signals — can you trust the call, how far, what date to watch next, and who else gets pulled in (incl. a [folder README](./Research%20Signal/): three counterintuitive findings) |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
 Everything is plain Markdown. There is no build step and no runtime dependency beyond the MCP server.
@@ -173,7 +173,7 @@ See [`Premarket Tracker/README.md`](./Premarket%20Tracker/) for usage.
 
 ---
 
-## Research Signal trio (3)
+## Research Signal set (4)
 
 **Can you trust what the sell-side report says, how far, and what date should you watch next.** Full write-up in **[`Research Signal/README.md`](./Research%20Signal/README.md)**.
 
@@ -182,6 +182,7 @@ See [`Premarket Tracker/README.md`](./Premarket%20Tracker/) for usage.
 | **r1** | Cross-Source Signal Card | A report says "$350 target" — should you believe it? Collides the call against street consensus, price action, KOL/insider positioning, and last quarter's actuals. **Only when all four line up is it a signal.** |
 | **r2** | Caveat Audit | Ignores the conclusion, audits its foundation: was this analyst research or **management talking on a non-deal roadshow**? Is that benchmark chart measured or modeled? What does the report itself admit doesn't reconcile? |
 | **r3** | Catalyst Timeline | Future checkpoints named inside reports — product ramps, competitor events, financing dates. **None of these exist in a public earnings calendar.** |
+| **r4** | Supply-Chain Read-Through | Where other people's reports place your ticker — who mentions it, as beneficiary or casualty, **and why**, plus **who else on that chain just got repriced**. Measured: one INTC query also yielded UMC's target raised 87%, VSMC 55%. |
 
 **Why there is no research screener**: measured, this data's strength is depth, not breadth. The leaderboard **has no time dimension**
 (a 24h query and a 7d query return byte-identical results), its bull/bear counts are polluted by passing mentions
