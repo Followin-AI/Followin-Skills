@@ -14,8 +14,9 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 
 | Bundle | Files | For |
 |---|---|---|
-| **[`Base Skill/`](./Base%20Skill/)** | 7 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards, earnings-season screening |
+| **[`Base Skill/`](./Base%20Skill/)** | 6 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
 | **[`Community Skill/`](./Community%20Skill/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
+| **[`earnings-season-screener.md`](./earnings-season-screener.md)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
 Everything is plain Markdown. There is no build step and no runtime dependency beyond the MCP server.
@@ -93,7 +94,7 @@ Full call red-lines and the known-issues register live in [`references/followin-
 
 ---
 
-## Base skills (7)
+## Base skills (6)
 
 Numbered in recommended onboarding order — 01 is the deepest dive, 06 the lightest.
 
@@ -105,7 +106,6 @@ Numbered in recommended onboarding order — 01 is the deepest dive, 06 the ligh
 | **04** | [BTC Macro Dashboard](./Base%20Skill/04_btc-macro-dashboard.md) | `BTC macro` · `BTC 宏观` | `metrics` |
 | **05** | [Gold Macro Dashboard](./Base%20Skill/05_gold-macro-dashboard.md) | `Gold macro` · `黄金宏观` | `metrics` |
 | **06** | [Macro Morning Brief](./Base%20Skill/06_macro-morning-brief.md) | `Morning brief` · `宏观早报` | `metrics` `news` |
-| **07** | [Earnings Season Screener](./Base%20Skill/07_earnings-season-screener.md) | `earnings screener` · `who beat earnings` · `财报季扫描` | `metrics` `news` |
 
 ### 01 — Multi-Agent Stock Analysis
 
@@ -128,7 +128,10 @@ Score the current macro environment 0–100 with a layered breakdown, so "how's 
 Daily macro/US-stock briefing aggregating three sources: macro data, news, and unusual moves. Takes an optional `watchlist`. This is the macro/equities brief — there is no crypto daily skill in this repo.
 
 
-### 07 — Earnings Season Screener
+
+---
+
+## Standalone skill — Earnings Season Screener
 
 Automates a well-known retail heuristic: during earnings season, work through the big beats and check whether
 the call emphasised tight supply / strong demand. **A discovery tool — no ticker required.** Two discovery legs
@@ -172,7 +175,7 @@ Similar-sounding requests go to different skills:
 | `Divergence scan` / `背离扫描` | 03 Divergence Scan | Price/media/insider inconsistency |
 | `BTC macro` / `BTC 宏观` | 04 BTC Dashboard | Asset-specific macro score |
 | `Morning brief` / `宏观早报` | 06 Macro Morning Brief | Macro/US-stock daily briefing |
-| `earnings screener` / `财报季扫描` | 07 Earnings Season Screener | **No-ticker discovery**; a named ticker routes to 02 |
+| `earnings screener` / `财报季扫描` | [Earnings Season Screener](./earnings-season-screener.md) (standalone) | **No-ticker discovery**; a named ticker routes to Base Skill 02 |
 | `CPI impact` / `CPI 影响` | *(no dedicated skill)* | Indicator interpretation is model-native — the model calls `metrics`+`news` directly; the FRED series dictionary lives in the caveats reference (Appendix A) |
 
 Each skill's frontmatter carries explicit `trigger` and `not_trigger` lists — that's what keeps neighbours from stealing each other's queries.

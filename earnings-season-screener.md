@@ -1,6 +1,6 @@
 ---
 name: Earnings Season Screener
-description: 财报季超预期扫描 — 扫近期已发布的美股财报，找"业绩大增 × 电话会喊出高景气关键词"的叠加候选榜。无需指定 ticker 的发现器。触发如"财报季扫描"、"本周谁业绩大增"、"earnings screener"。点名单股的财报分析走 02_us-stock-earnings-report。
+description: 财报季超预期扫描 — 扫近期已发布的美股财报，找"业绩大增 × 电话会喊出高景气关键词"的叠加候选榜。无需指定 ticker 的发现器。触发如"财报季扫描"、"本周谁业绩大增"、"earnings screener"。点名单股的财报分析走 Base Skill 02（美股财报分析）。
 trigger: 财报季扫描、超预期扫描、本周财报超预期、谁业绩大增、财报季选股、扫一下财报季、earnings screener、earnings season scan、who beat earnings、find earnings beats
 not_trigger: XX财报、[代码]财报（点名单股→02）、背离扫描、divergence（→03）、宏观早报、morning brief（→06）、BTC宏观、黄金宏观、KOL、喊单、多Agent分析
 mcp: mcp__followin__metrics, mcp__followin__news
@@ -48,9 +48,9 @@ args: days, top, watchlist
 | 用户说的 | 走哪 |
 |---------|------|
 | 财报季扫描、谁业绩大增、本周超预期 | ✅ 本 Skill |
-| AAPL 财报、NVDA earnings（点名单股）| ❌ 转 02_us-stock-earnings-report |
-| 背离扫描、内部人悄悄买入 | ❌ 转 03_us-stock-divergence-scan |
-| 宏观早报、今日市场 | ❌ 转 06_macro-morning-brief |
+| AAPL 财报、NVDA earnings（点名单股）| ❌ 转 `Base Skill/02_us-stock-earnings-report` |
+| 背离扫描、内部人悄悄买入 | ❌ 转 `Base Skill/03_us-stock-divergence-scan` |
+| 宏观早报、今日市场 | ❌ 转 `Base Skill/06_macro-morning-brief` |
 
 > 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
 
