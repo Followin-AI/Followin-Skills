@@ -16,7 +16,7 @@
 |---|---|---|
 | **[`Base Skill/`](./Base%20Skill/)** | 6 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
 | **[`Community Skill/`](./Community%20Skill/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
-| **[`earnings-season-screener.md`](./earnings-season-screener.md)** | 1 个独立 Skill | 财报季发现器——不属于任何 bundle，可单独取用 |
+| **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 个独立 Skill | 财报季发现器——不属于任何 bundle，可单独取用 |
 | **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
 全部为纯 Markdown，无构建步骤，除 MCP 服务器外无任何运行时依赖。
@@ -170,7 +170,7 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 | `背离扫描` / `Divergence scan` | 03 背离扫描 | 价格/媒体/内部人不一致 |
 | `BTC 宏观` / `BTC macro` | 04 BTC 看盘 | 单一资产的宏观评分 |
 | `宏观早报` / `Morning brief` | 06 宏观早报 | 宏观/美股维度的每日简报 |
-| `财报季扫描` / `earnings screener` | [财报季扫描](./earnings-season-screener.md)（独立）| **无 ticker 的发现器**；点名单股走 Base Skill 02 |
+| `财报季扫描` / `earnings screener` | [财报季扫描](./Earnings%20Screener/earnings-season-screener.md)（独立）| **无 ticker 的发现器**；点名单股走 Base Skill 02 |
 | `CPI 影响` / `CPI impact` | *（无专门 Skill）* | 指标解读是模型自带能力——直接调 `metrics`+`news`；FRED 字典见 caveats 附表 A |
 
 每个 Skill 的 frontmatter 都带显式的 `trigger` 与 `not_trigger` 列表 —— 这是相邻 Skill 不互相抢词的关键。

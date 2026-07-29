@@ -16,7 +16,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 |---|---|---|
 | **[`Base Skill/`](./Base%20Skill/)** | 6 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
 | **[`Community Skill/`](./Community%20Skill/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
-| **[`earnings-season-screener.md`](./earnings-season-screener.md)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own |
+| **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
 Everything is plain Markdown. There is no build step and no runtime dependency beyond the MCP server.
@@ -175,7 +175,7 @@ Similar-sounding requests go to different skills:
 | `Divergence scan` / `背离扫描` | 03 Divergence Scan | Price/media/insider inconsistency |
 | `BTC macro` / `BTC 宏观` | 04 BTC Dashboard | Asset-specific macro score |
 | `Morning brief` / `宏观早报` | 06 Macro Morning Brief | Macro/US-stock daily briefing |
-| `earnings screener` / `财报季扫描` | [Earnings Season Screener](./earnings-season-screener.md) (standalone) | **No-ticker discovery**; a named ticker routes to Base Skill 02 |
+| `earnings screener` / `财报季扫描` | [Earnings Season Screener](./Earnings%20Screener/earnings-season-screener.md) (standalone) | **No-ticker discovery**; a named ticker routes to Base Skill 02 |
 | `CPI impact` / `CPI 影响` | *(no dedicated skill)* | Indicator interpretation is model-native — the model calls `metrics`+`news` directly; the FRED series dictionary lives in the caveats reference (Appendix A) |
 
 Each skill's frontmatter carries explicit `trigger` and `not_trigger` lists — that's what keeps neighbours from stealing each other's queries.

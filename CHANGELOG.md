@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 ## 2026-07-29 — 新增独立 Skill：财报季超预期扫描
 
-- **新增 [`earnings-season-screener.md`](./earnings-season-screener.md)**（根目录独立 Skill，不属于任何 bundle）：
+- **新增 [`Earnings Screener/`](./Earnings%20Screener/earnings-season-screener.md)**（根目录独立 Skill，不属于任何 bundle）：
   无需指定 ticker 的财报季发现器。异动榜 + 新闻反向捞双腿发现 → 四道业绩硬闸 → Top N 逐字稿深扫 →
   业绩闸与关键词闸叠加判定。含反向关键词减分与 GAAP 口径错位检测。
 - **⚠️ 废弃市场级财报日历**：实测其等效 `ORDER BY date ASC, symbol ASC LIMIT 50` 且 `limit` 入参不被尊重，
