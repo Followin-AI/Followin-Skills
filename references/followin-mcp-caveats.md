@@ -265,3 +265,4 @@
 | WTI 原油 | ~~`CLUSD`~~ | ⚠️ **N-11 实测 402 Special Endpoint**：优先 `BZUSD`（布油）/ `USO`，CLUSD 待复核。market 类，非 FRED |
 | 黄金期货 | `GCUSD` | ⚠️ 不是 GOLD（会错抓 Gold.com 美股）。market 类，非 FRED |
 
+> 📋 **生产 skill 侧的 caveat 审计状态**（每条坑对每个 skill 审过/修过没、上次审到 N 几）记在本机 `~/.claude/skills/_shared/followin-caveat-audit.md`——本文件是 caveat 定义的 SSOT，那份是"落地覆盖"的 SSOT，两者配套。

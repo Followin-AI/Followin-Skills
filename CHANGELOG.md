@@ -4,6 +4,22 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-07-30 — 否决：不在 `trader_position` 上做模拟跟单账本（仅留 caveats N-59）
+
+**方案写完、真跑通建账、然后被自己的数据毙掉。** 曾计划新增独立 Skill `Copy Ledger/`（把顶级交易员的开/加/减/平仓事件记成等额虚拟仓、每日 mark-to-market、按 tier 分层算战绩）。文件已写完并实跑过 `init`（真建 17 仓账本），**评估后整体删除**，只保留数据面结论。留此条是为了拦住下一次重新提这个方案。
+
+**三条否决理由，全部来自实测数据：**
+
+1. ⛔ **被同一次 API 返回里的字段占优。** 账本要跑一个月才能给每个交易员凑出个位数样本，而同一份 `trader_position` 返回里，`profile.overall` 已经给了这 15 名交易员**合计 829 笔已平仓**的胜率与盈亏比。用 n=3 去估一个官方已用 n=22~431 估过的量，是退化不是补充。用户问"这人赚不赚钱"，**一次裸调用就答完了**。
+2. ⛔ **核心产出"验证 tier 评级区分度"方法论上不成立。** 15 名交易员摊在 6 个 tier 上，按「层内 ≥3 人且最大单人占比 <50%」这道闸**六层全不通过**（A 2 人/64%、**B 1 人**、**C 1 人**、D 3 人但一人占 90%、P 5 人/69%、未评级 3 人/50%）。层的表现 = 那个人的表现，**混淆变量而非样本量问题**，攒几个月也不解决。且账本样本对 tier 口径本身有偏：这些人合计每天平仓约 10.8 笔，日频快照只能干净跟到持仓过夜的慢仓，而 tier 是按全部成交算的。
+3. ⛔ **可观测性太低，且 1/3 标的根本无法计价。** 日频轮询覆盖率仅 **9–28%**（N-59i）；建账日 17 仓里 **6 仓（35%）** 取不到价格源，**5/15 名交易员一个可计价仓都没有**，账本对他们永远给不出收益数字。
+
+**保留下来的**：
+
+- **caveats `N-59a~i` 九条** + 一组「展示交易员档案前的四项 sanity check」（`pnl_ratio_infinite` 陷阱 / 小样本高盈亏比 / `current_symbol_caution` / 杠杆 ≥10x，附 `n<10` 不给百分比）。这些独立于被否决的方案，任何消费 `trader_position` 的地方都适用。
+- 最咬人的几条：notional 派生的 `long_notional_ratio`/`net_direction` **只统计有名义的行、null 行被静默排除，会给出反向结论**（CXMT 3 多 1 空却报比率 1）；`entry_price` 覆盖率仅 **6%**（只在 `action=open` 行）；取价有**两种静默失败**且都返 `status:"ok"`（keyword 被整个剔除 / 进了 keyword 但无返回行）→ 必须做请求与返回的差集自查；榜单**分钟级变动**（18 分钟内 SNDK 4 人→5 人），"全榜没有它"≠"已平仓"；`profile` 是**日快照**而仓位是实时的，且 `last_30d` 是**滚动窗口**、其增量不等于当期成交数（须用 `overall.n_trades` 增量）。
+- ⚠️ **方法论教训**：本轮先实测了数据（对），但**直到第三次追问才去测"免费基线已经给了什么"**（错）。必要性评估必须带上"什么都不做、直接读字段"这个对照组——否则会为一个已被现成字段解决的问题造工具。
+
 ## 2026-07-30 — 目录改名：`Research Desk/` → `Research Reader/`、新增 `Twitter Workflow/`
 
 - **改名**：`Research Desk/` → `Research Reader/`（更直白：一看就知道是「读研报」，与 `Earnings Screener`/`Premarket Tracker` 同构）；`Twitter Ops/` → `Twitter Workflow/`（去掉 Ops 行话）。
