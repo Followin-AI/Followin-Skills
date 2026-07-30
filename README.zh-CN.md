@@ -19,6 +19,7 @@
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 个独立 Skill | 财报季发现器——不属于任何 bundle，可单独取用（含[目录 README](./Earnings%20Screener/)：方法论映射 + 被否决方案） |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 个独立 Skill | 美股盘前自选追踪——按自选股、持仓和时区创建周期报告或即时盘前分析 |
 | **[`Research Desk/`](./Research%20Desk/)** | 4 个 Skill | 研报投研台——单标的研报深读：能不能信 / 信到什么程度 / 接下来盯哪天 / 还有谁被卷进来（含[目录 README](./Research%20Desk/) 与[产出样张](./docs/研报投研台样张.md)）|
+| **[`Twitter Ops/`](./Twitter%20Ops/)** | 7 个 Skill | 推特日运营——加密/宏观/美股内容账号的「扫热点→选题→写稿→互动→复盘」流水线，MCP 实时驱动，发布永远人工确认（含[目录 README](./Twitter%20Ops/)）|
 | **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
 全部为纯 Markdown，无构建步骤，除 MCP 服务器外无任何运行时依赖。
@@ -190,6 +191,33 @@ cp "Research Desk"/*.md ~/.claude/commands/
 ⚠️ 每只股票最多返回 10 份报告，去重后常剩三到五家。**任何"N 家机构怎么看"都是下限不是全街**，四支都被要求把这句写进输出。
 
 完整说明见 **[`Research Desk/README.md`](./Research%20Desk/README.md)**；四支的实际产出样张（英特尔全链路实跑）见 **[`docs/研报投研台样张.md`](./docs/研报投研台样张.md)**。
+
+---
+
+## 推特日运营（7 个）
+
+**加密/宏观/美股内容账号的日运营。** 把每天那套「扫热点 → 选题 → 写稿 → 互动 → 复盘」做成流水线：数据从 Followin MCP 实时拉、判断按预设规则跑，**稿子出到终稿为止——发布你按按钮**。
+
+| Skill | 触发 | 干什么 |
+|---|---|---|
+| **twitter-ops** | 「跑一轮」 | 调度器——串流程、管自动/手动切换、检查点停下等你。**「发布必须人工确认」这条红线在这里** |
+| **trend-scout** | 「扫一下热点」 | 并行拉 list/新闻/TG 资金流/链上 → 结构化简报。**实时数据区和叙事区强制分开**——硬数字归硬数字 |
+| **topic-engine** | 「今天发什么」 | 热点 → 可写角度，按时效/差异化/可信度打分。**层 B 差异化**：拉对标账号近期推文，判你的角度是不是已被写过（撞了就砍或换角度）|
+| **tweet-composer** | 「帮我写推文」 | 出稿：单条/Thread/长文拆解。字符预算、事实核查 6 维、发布前终检 |
+| **engagement** | 「看看我评论区」 | 两头都管：**Outbound** 去别人高互动帖下抢评论位，**Inbound** 给自己评论区分级 |
+| **performance-review** | 「这周数据怎么样」 | 周复盘：行业基线、北极星、内容类型效果、爆款/失败归因，好稿入素材库 |
+| **competitor-watch** | 「竞对在发什么」 | 对标账号监控——学手法，看自己在坐标里的位置 |
+
+安装（是 skill 目录，不是 command）：
+
+```bash
+cp -rn "Twitter Ops/skills/"* ~/.claude/skills/    # -n = 不覆盖你已有的同名 skill
+```
+
+⚠️ **没有 Twitter list？** `config.md` 给了一个公开示例 list 先跑通，但它是**示例不是默认**（约 17% 内容跑题、产权不在你手上）——跑通一次后换成自己的。
+⚠️ **不填会被拦。** 首次「跑一轮」检测到还是模板配置就停下、告诉你缺哪几项，不用先背配置表。
+
+完整说明见 **[`Twitter Ops/README.md`](./Twitter%20Ops/README.md)**。7 支全部在 live 数据上端到端验证过；端点/字段坑记在 [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md) 的 N-47~N-58。
 
 ---
 

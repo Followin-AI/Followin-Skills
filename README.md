@@ -19,6 +19,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own (incl. a [folder README](./Earnings%20Screener/): methodology mapping + rejected alternatives) |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 standalone skill | US-stock premarket watchlist tracking — scheduled or immediate reports based on tickers, positions, and timezone |
 | **[`Research Desk/`](./Research%20Desk/)** | 4 skills | Reading sell-side research on one ticker — can you trust the call, how far, what date to watch next, who else gets pulled in (incl. a [folder README](./Research%20Desk/) and [sample outputs](./docs/研报投研台样张.md)) |
+| **[`Twitter Ops/`](./Twitter%20Ops/)** | 7 skills | Daily Twitter ops for a crypto/macro/US-stock content account — scan → topic → draft → engage → review, MCP-driven, human confirms every publish (incl. a [folder README](./Twitter%20Ops/)) |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
 Everything is plain Markdown. There is no build step and no runtime dependency beyond the MCP server.
@@ -199,6 +200,33 @@ cp "Research Desk"/*.md ~/.claude/commands/
 ⚠️ At most 10 reports come back per ticker, often 3–5 institutions after dedup. **Any "N institutions think X" is a floor, not the street** — all four are required to say so in their output.
 
 Full write-up in **[`Research Desk/README.md`](./Research%20Desk/README.md)**; real sample outputs from one live INTC run in **[`docs/研报投研台样张.md`](./docs/研报投研台样张.md)**.
+
+---
+
+## Twitter Ops (7 skills)
+
+**Daily Twitter operations for a crypto/macro/US-stock content account.** Turns the daily grind — scan sources → pick topics → draft → engage → weekly review — into a pipeline: data pulled live from Followin MCP, decisions run on preset rules, **drafts stop at final copy — you press publish**.
+
+| Skill | Trigger | What it does |
+|---|---|---|
+| **twitter-ops** | "跑一轮" | Orchestrator — chains the pipeline, auto/manual mode switch, stops at checkpoints. **"Human confirms every publish" lives here.** |
+| **trend-scout** | "扫一下热点" | Pulls list / news / TG money-flow / on-chain in parallel → structured brief. **Live-data zone and narrative zone are hard-separated** — hard numbers stay hard numbers. |
+| **topic-engine** | "今天发什么" | Topics → writable angles, scored on timeliness/differentiation/credibility. **Layer-B check**: pulls benchmark accounts' recent tweets — did they already post your angle? (cut or re-angle if so). |
+| **tweet-composer** | "帮我写推文" | Drafts: single / thread / long-form-to-thread. Char budget, 6-dimension fact-check, pre-publish gate. |
+| **engagement** | "看看我评论区" | Both directions — **Outbound** comments on high-engagement posts, **Inbound** triages your own comment section. |
+| **performance-review** | "这周数据怎么样" | Weekly review: industry baseline, north-star, content-type effectiveness, hit/miss attribution; files top posts into a content vault. |
+| **competitor-watch** | "竞对在发什么" | Benchmark-account monitoring — learn their moves, see where you sit. |
+
+Install (skill directories, not commands):
+
+```bash
+cp -rn "Twitter Ops/skills/"* ~/.claude/skills/    # -n = don't clobber same-named skills
+```
+
+⚠️ **No Twitter list?** `config.md` ships an example public list to get you running, but it's an *example not a default* (~17% off-topic content, ownership not yours) — swap in your own after one test run.
+⚠️ **Fills stop the pipeline.** On first "跑一轮" it detects the template config and halts, telling you what to fill — you don't need to memorize the config table.
+
+Full write-up in **[`Twitter Ops/README.md`](./Twitter%20Ops/README.md)**. Verified end-to-end on live data across all seven skills; endpoint/field caveats recorded as N-47~N-58 in [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md).
 
 ---
 
