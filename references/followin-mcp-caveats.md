@@ -106,6 +106,12 @@
 > 还是原推本来就这么写（Hyperliquid 的股票永续确实用 `xyz:` 前缀）。
 > **确定的影响**：任何 `$TICKER` 正则都会漏掉这些。
 
+### 2026-07-30 互动方向/作者回复率实测（N-58）
+
+| # | 现象 | 应对 | 证据 |
+|---|---|---|---|
+| N-58 | **`user_tweets` 的 `inReplyToUserId` / `inReplyToUsername` 在约 31% 的真 reply 上是 null**（字段存在但值缺）：实测 dotey 42 条真 reply 里 13 条这俩字段为 null，但 `isReply=true` / `inReplyToId` 有值、text 以 `@handle` 开头。`conversationId` 60/60 齐全但指向线程根推，根推常在拉取窗口外（22 个对外 reply 只有 9 个根在窗内）。`author.id` = 账号自身 numeric id（每条都带，判"指向自己"不用另调 user_info） | ①**判 reply 用 `isReply`（或 `inReplyToId` 非空），不是 `inReplyToUserId` 非空**——后者漏 31%，会把真 reply 误分进原推堆；②判"指向自己/对内"用 `inReplyToUserId==author.id`，null 时回溯 `inReplyToId`→父推；③对外互动对象用 `inReplyToUsername` **+ text `@handle` 兜底**（否则漏 1/3）；④作者回复率的分母要单独回捞窗口外根推才全 | 实测 2026-07-30（dotey 3 页 60 条） |
+
 ### 2026-07-30 engagement 评论区实测（N-57）
 
 | # | 现象 | 应对 | 证据 |
