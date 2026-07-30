@@ -106,6 +106,21 @@
 > 还是原推本来就这么写（Hyperliquid 的股票永续确实用 `xyz:` 前缀）。
 > **确定的影响**：任何 `$TICKER` 正则都会漏掉这些。
 
+### 2026-07-30 trend-scout 端到端首扫实测新增（N-47~N-52）
+
+> 一次真实首扫（list main + metrics + news）暴露的 5 条 P0 + 1 条 P1。几条的共性：**返回值看着对、其实错**，静态读 schema 发现不了。
+
+| # | 现象 | 应对 | 证据 |
+|---|---|---|---|
+| N-47 | **`metrics` market snapshot 的 `change` 是「美元变动量」不是百分比**，且**数值会与新闻百分比巧合吻合**：META `change:-9.18` / `previousClose:593.41` → 真实 **−1.55%**；而新闻标题「Meta crashes −9%」（那是**盘后**跌幅）。−9.18 与 −9% 看着对上 | 百分比自己算 `change/previousClose×100`。🔴 **别拿 `change` 去和新闻 % 交叉核实**——会得到假的"核实通过"。两个数（美元 vs 百分比、regular vs 盘后）毫无关系 | 实测 2026-07-30 |
+| N-48 | **盘后/盘前 `metrics` 返回的是上一个 regular 收盘，不是当前价**：字段 `_quote_session:"regular_inactive"` + `_quote_cache:"last_regular"`，price 是 8+ 小时前的。财报后盘后跳水**不在 metrics 里** | 看 `_quote_session` 分时段：交易时段 price 可信；非交易时段它是旧收盘，**新闻里的盘后价才是当下真相**（价格铁律在此时段反转）。两个数分开写、标来源 | 实测 2026-07-30 |
+| N-49 | **jq 解析 `createdAt` 用 `strptime("...%z...")|mktime` 是时区相关的**：实测同一串 `"Fri Jul 17 06:30:30 +0000 2026"`，UTC 下正确、**+8 时区偏 +28800s、-5 偏 −14400s**。偏移 <8h 不会让 age 变负，「age 为负」守卫**抓不到** | 🔴 去掉 `%z`：`sub(" \\+0000 ";" ")｜strptime("%a %b %d %H:%M:%S %Y")｜mktime`（mktime 按 UTC，TZ 无关，三时区实测一致）。或正则重组 ISO + `fromdateiso8601` | 实测 2026-07-30（UTC/+8/−5 三时区对照） |
+| N-50 | **`MCP error 0: ... invalid during session initialization` 有并发成因，不只是类型错**：一条 message 发 4 个纯 string 的 metrics 调用，**挂了 2 个**，同批另 2 个同形态调用成功 | 判别：同批同形态有成功的 = 排除类型错，是并发争用。失败项**减并发、下批重试**（实测重试即成功）。⚠️ 原 caveat 说「九成类型错」是误导性归因。且 ≤4 并发仍偶发此错，把 ≤4 当上限不是保证 | 实测 2026-07-30 |
+| N-51 | **不带 `asset_type` 的 `query` 会同时返币和同名 ETF**：`query="BTC price"` 返回 BTC 币 64,140 **和** Grayscale Bitcoin Mini Trust ETF 28.08 两条，靠 `_asset_type` 区分 | crypto 一律显式 `asset_type="crypto"`；混返时按 `_asset_type` 筛，别把 28.08 当比特币价 | 实测 2026-07-30 |
+| N-52 | **`news` 的 TG (`tg_kol_feeds`) item 自带 `tg_category` 预分类字段**（交易信号 / Meme打新 / 链上数据 / 叙事追踪 / 市场结构 / 宏观研判 / 项目研究 / 实盘跟踪），此前 Skill 未用 | 用它做结构过滤比按内容判断稳定：保留 链上数据/市场结构/宏观研判，默认剔 Meme打新/实盘跟踪。实测 25 条广拉靠内容判断砍 15 条"软性"（60%、无量化判据），改用 `tg_category` 可复现 | 实测 2026-07-30 |
+
+> 另一条非 MCP、属运行环境：**`STATE_DIR` 相对路径（`./state`）会跟着会话启动目录漂**，和 `/tmp` 一样静默丢跨天资产。开工检查除了「非 `/tmp`」还要求「绝对路径」。
+
 ### 2026-07-29 研报解读实测新增（N-37~N-41）
 
 > 本组是 `Research Desk/` 各支 Skill 的口径地基。**核心结论：MCP 研报侧只开放「一个被连带污染的全量榜 + 每票 10 篇切片」，做不了发现型信号，只能做单标的深度。** 库内四族信号（错位/时钟/信念/水分）建立在状态层全量折叠之上，**搬不到 MCP 侧**——实测只有水分族（TP 离散）能干净地搬。
