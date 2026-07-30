@@ -106,6 +106,15 @@
 > 还是原推本来就这么写（Hyperliquid 的股票永续确实用 `xyz:` 前缀）。
 > **确定的影响**：任何 `$TICKER` 正则都会漏掉这些。
 
+### 2026-07-30 engagement 评论区实测（N-57）
+
+| # | 现象 | 应对 | 证据 |
+|---|---|---|---|
+| N-57 | **`tweet_replies` 的返回把根推自身混进 replies**（同 id、`isReply=false`），且**"返回数 < replyCount" 多半是分页不是折叠**：实测某推 replyCount=58，翻 2 页得 30 条时 `has_next_page` 仍 true。评论对象字段齐全：`likeCount`/`replyCount`/`viewCount`/`bookmarkCount` + 评论者 `author.followers`（可直接做影响力加权） | ①解析评论必须**按 `isReply`/id 剔掉根推**，否则虚增计数；②判"折叠降权区"必须**翻到 `has_next_page=false`** 才可下结论，没翻完就说折叠会把普通分页误报成降权；③评论者粉丝数用 `author.followers` | 实测 2026-07-30（stacy_muur 推 2 页评论） |
+
+> 另一条 engagement 设计教训（非 MCP）：reply/like 靶标闸只能抓"被围攻的靶标推"（作用对象是**你自己的帖**），
+> 抓不到评论区里的**协同刷单簇**（多账号同模板刷无关项目，自身 reply/like=0 逃逸）——后者只能靠内容模式判 D 级。
+
 ### 2026-07-30 performance-review 三堆拆分 + 脚本字段命名实测（N-55~N-56）
 
 | # | 现象 | 应对 | 证据 |
