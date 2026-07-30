@@ -262,7 +262,7 @@
 | 隔夜逆回购 / RRP | `RRPONTSYD` | |
 | 高收益债利差 / 信用利差 | ~~`BAMLH0A0HYM2`~~ | 🚫 **暂不可用（B-33）**：不在 FRED 字典，直查被错抓到 M2SL——拿错数据比没数据更糟。标"数据不可用"，Dev 修复后恢复 |
 | 零售销售 / Retail Sales | `RSAFS` | |
-| WTI 原油 | ~~`CLUSD`~~ | ⚠️ **N-11 实测 402 Special Endpoint**：优先 `BZUSD`（布油）/ `USO`，CLUSD 待复核。market 类，非 FRED |
+| WTI 原油 | `USO` | ⚠️ **N-30 结案（2026-07-30 复测仍成立）**：~~`CLUSD`~~ 返 0、~~`BZUSD`~~ 在 query 里被静默丢弃、~~`OIL`~~ alias 错抓 iPath ETN——只 `USO` 可用（WTI 近月期货 ETF，**代理指标非现货价**，引用须说明口径）。market 类，非 FRED。旧「N-11 402／优先 BZUSD」记载已作废 |
 | 黄金期货 | `GCUSD` | ⚠️ 不是 GOLD（会错抓 Gold.com 美股）。market 类，非 FRED |
 
 > 📋 **生产 skill 侧的 caveat 审计状态**（每条坑对每个 skill 审过/修过没、上次审到 N 几）记在本机 `~/.claude/skills/_shared/followin-caveat-audit.md`——本文件是 caveat 定义的 SSOT，那份是"落地覆盖"的 SSOT，两者配套。
