@@ -106,6 +106,13 @@
 > 还是原推本来就这么写（Hyperliquid 的股票永续确实用 `xyz:` 前缀）。
 > **确定的影响**：任何 `$TICKER` 正则都会漏掉这些。
 
+### 2026-07-30 performance-review 三堆拆分 + 脚本字段命名实测（N-55~N-56）
+
+| # | 现象 | 应对 | 证据 |
+|---|---|---|---|
+| N-55 | **`user_tweets` 端点有 `viewCount` + 全套 reply 字段，ER 可算**（区别于 list_timeline）：每条带 `viewCount`(int) / `inReplyToUserId` / `inReplyToUsername` / `inReplyToId` / `isReply`。ER = (likeCount+retweetCount+replyCount)/viewCount 逐条可算（实测 stacy_muur 原推 ER ~1.3–1.6%）。三堆拆分（转推 `retweeted_tweet` 非空 / reply `inReplyToUserId` 非空 / 原推其余）在真实数据上勾稽平（20 = 7 转推 + 0 reply + 13 原推） | performance-review 的中位/max/ER 全部可从 `user_tweets` 算。⚠️ 字段是 **camelCase**（`viewCount` 非 `view_count`，`likeCount` 非 `like_count`）——见 N-56 | 实测 2026-07-30 |
+| N-56 | **Followin MCP 与 Twitter API v2 字段命名不同，混用会静默降级**：MCP 用顶层 camelCase（`viewCount`/`likeCount`/`retweetCount`）+ `results[0].data.tweets[]` 外层；Twitter API v2 用 `public_metrics.{impression_count,like_count}` snake_case 嵌套 + `data[]` 外层。脚本原本只认后者 → 喂 MCP 数据全读成 0 → `viewCount` 明明在却静默降级成"绝对互动数"排序（而 SKILL 恰恰推荐用脚本"首次建库"，建库数据大概率来自 MCP） | `tweet_analyzer.py` 的 `load_api_json` 已改为两种命名都认（`_pick` 逐个 fallback）+ 识别 MCP 外层结构。任何自己写 jq/脚本消费 MCP 推文的地方都要注意：**不是 `impression_count`，是 `viewCount`** | 实测 2026-07-30（MCP 形状数据回归） |
+
 ### 2026-07-30 tweet-composer 写稿实测（N-54）
 
 | # | 现象 | 应对 | 证据 |
