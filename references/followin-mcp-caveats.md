@@ -106,6 +106,14 @@
 > 还是原推本来就这么写（Hyperliquid 的股票永续确实用 `xyz:` 前缀）。
 > **确定的影响**：任何 `$TICKER` 正则都会漏掉这些。
 
+### 2026-07-30 层 B 剔转推真实数据验证（N-53）
+
+> 第五~八轮改过三四次却从没在真实数据上验证过的「剔转推」规则，本次配真实 KOL 名单实跑确认。
+
+| # | 现象 | 应对 | 证据 |
+|---|---|---|---|
+| N-53 | **`user_tweets` / `list_timeline` 返回里除 `text` 前缀外，还有 `retweeted_tweet` 对象——这是更稳的转推判据**：非转推时为 `null`，转推时含被转原文与真实作者 `retweeted_tweet.author.userName`。实测 `@stacy_muur` 20 条里 7 条转推（35%），`text` 前缀与 `retweeted_tweet` 两个判据 **7/7 完全重合**；其中 6 条是自我转推、1 条 `RT @ZestProtocol` 转他人产品官宣 | **剔转推首选 `retweeted_tweet` 非空**（结构性，不受前缀变体如无空格 `RT@` 影响）；无该字段（离线 archive/csv 导出）才回退 `text` 前缀。⚠️ 不剔的失败模式已实测复现：那条 ZestProtocol 官宣不剔就会被算成 stacy_muur 自己的原创观点，污染层 B「标杆已发」判断 | 实测 2026-07-30（真实 KOL user_tweets） |
+
 ### 2026-07-30 trend-scout 端到端首扫实测新增（N-47~N-52）
 
 > 一次真实首扫（list main + metrics + news）暴露的 5 条 P0 + 1 条 P1。几条的共性：**返回值看着对、其实错**，静态读 schema 发现不了。
