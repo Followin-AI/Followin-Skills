@@ -41,7 +41,7 @@
 | — | insider 全量扫描聚簇（同公司多笔 filing 连排；2026-06-12 实测 SPCX Form 3 占 50 条中 13 条）| 数据特性 | `limit=50` + `sort_by="amount"` + 客户端按 ticker 去重 + 只留 formType="4" 的 P-Purchase；F-InKind/M-Exempt 为缴税代扣非主动交易；对外表述"内部人卖出"只认 S-Sale，买入只认 P-Purchase。 | —（数据特性，非 bug）|
 | — | 经济日历 query 带"本周"触发 lookback 返历史 | 行为特性 | 用 keywords 形式（红线 10）| —（语义解析特性）|
 | — | 研报无单份钻取入参：query 放报告标题会掉 fundamentals 默认集（红线 12，实测 2026-07-15）| 建议 Dev 增 event_id 入参（P2）| 保持研报意图词 + detail 重查 | Dev 支持 event_id 后可按 ID 直取 |
-| — | trader_position 美股标的覆盖**日级剧变**（实测 07-09 MU 4 人 vs 07-15 MU 1 人、海力士从无到 3 人）；且同一标的可能符号分裂成多组（海力士 underlying=000660.KS 散在 SKHYNIX/SKHX/SKHY 三个 symbol）| 数据特性 | 任何对外用途都当天现拉；空 keywords 拉 trending 看当前有货标的；符号分裂需按 underlying 合并 | —（数据特性，非 bug；符号分裂可提 Dev 归一）|
+| — | trader_position 美股标的覆盖**日级剧变**（实测 07-09 MU 4 人 vs 07-15 MU 1 人、海力士从无到 3 人）；且同一标的可能符号分裂成多组（海力士 underlying=000660.KS 散在 SKHYNIX/SKHX/SKHY 三个 symbol）。⚠️ **剧变粒度已被 N-59d 收紧到分钟级**（18 分钟内 SNDK 4 人→5 人）；字段级陷阱见 **N-59 组** | 数据特性 | 任何对外用途都当天现拉；空 keywords 拉 trending 看当前有货标的；符号分裂需按 underlying 合并 | —（数据特性，非 bug；符号分裂可提 Dev 归一）|
 
 ### 2026-07-22 社群 bundle 实测新增（N 系列）
 
@@ -106,6 +106,45 @@
 > 还是原推本来就这么写（Hyperliquid 的股票永续确实用 `xyz:` 前缀）。
 > **确定的影响**：任何 `$TICKER` 正则都会漏掉这些。
 
+### 2026-07-30 trader_position 端到端实测（N-59）
+
+> 来源：一次「在 trader_position 上做模拟跟单账本」的可行性验证——摸底 + 真建了一份 17 仓账本跑通建账流程。
+> **该方案最终被否决**（理由见 CHANGELOG 同日条目），但这组数据面结论独立成立，任何要消费 `trader_position` 的地方都适用。
+> 调用：空关键词全榜 2 次 + 单标的定向 3 次 + 价格锚 4 次；样本 = 5 个标的组 / 17 条仓位行 / 15 名交易员
+> （`request_id` `f3d1555913…`、`d1516e54d0…`、`a0e138c956…`、`1f1a85335e…`、`32da17cdcd…`）。
+> ⚠️ 本组多条是**真拿它算东西才会暴露**的问题：只读单次返回看不出来，一旦用来算收益或判方向就会静默出错。
+
+| # | 现象 | 应对 | 证据 |
+|---|---|---|---|
+| N-59a | **notional 派生的 rollup 字段会给出反向结论**——`gross/net_notional_value_usd`、`long_notional_ratio`、`short_notional_ratio`、`net_direction` **只统计有名义的行，null 行被静默排除**（不是记 0，是不参与）。实测 CXMT：4 条仓位 3 多 1 空、其中 3 条 notional 为 null，`long_notional_ratio` 报 **1**、`net_direction` 报 `long`——读起来像"一致看多"，实际是 3:1 且总敞口未知。实测 XYZ100：2 条全 null → `gross=0`、`long_notional_ratio=0`、`net_direction="balanced"`，实际是 1 多 1 空（方向对立而非均衡）。<br>⛔ 同一个 rollup 里**按人数的字段是对的**：`agreement.ratio`（CXMT 0.75 = 3/4 ✅）、`long.count`/`short.count`（3/1 ✅）、`active_trader_count` | **判多空一致性只用按人数字段**（`agreement.ratio` + `long.count`/`short.count`）；notional 派生字段只有在该组 null 率为 0 时才可引用，且必须先自查 null 率。**`net_direction="balanced"` 不可读作"多空均衡"**——它同时覆盖"真均衡"和"全员 null"两种情况 | 实测 2026-07-30（16 行中 7 行 notional 为 null = **44%**）|
+| N-59b | **`entry_price` 只在 `action=open` 的行上出现**：16 行里仅 **1** 行有（T16 SNDK `entry_price=1123`），add/reduce 行全无。且**没有** unrealized PnL / margin / liquidation price 类字段（逐层扫过 position 行 13 个字段全集）。<br>另：**交易员档案只有聚合统计**（`overall` / `last_30d` / `focus_symbols` / `caution_symbols`），**没有逐笔历史** | 跟单账本**只能前向跟踪、无法回测**——这是数据形态决定的，不是调用姿势问题。开仓价一律用"观察时刻锚价"并把口径写进产出（真实跟单者同样只能在看到信号时进场）。**不要基于 `entry_price` 设计任何算收益的逻辑**，它的覆盖率是 6% | 实测 2026-07-30 |
+| N-59c | **一部分标的取不到任何价格**：`metrics(query="CXMT XYZ100 price", asset_type="tradfi")` 返回 `results:{}` + `status:"ok"` + `no_match`——**0 结果不报错**。且 `filters_applied.keywords` 只剩 `["XYZ100"]`，**CXMT 被静默丢弃**（连尝试都没有）。<br>✅ 能取到的：`SNDK` $1015.63（USD）、`000660.KS` ₩1,322,000（**KRW，不是 USD**，`profile_block.currency` 明示）<br>⛔ **必须用 `underlying_symbol` 取价，不能用 `symbol`**：实测 `SKHX` 的 underlying 是 `000660.KS`——前者无覆盖，后者有 | ①永续标的里有非上市/合成标的（CXMT=长鑫存储未上市、XYZ100=合成指数），这类仓位标 `unpriced`：跟方向、**排除在收益统计外**、单独报条数——不编价格也不假装不存在；②**收益一律先算百分比再乘虚拟名义**，跨币种才能同表比较，**绝不做汇率换算、绝不把不同币种锚价放进同一个减法**；③取价前先按 `underlying_symbol` 归一 | 实测 2026-07-30 |
+| N-59d | **热门榜是实时快照，日内就会变**：两次拉取相隔 **18 分钟**（08:24:29Z → 08:42:53Z），SNDK 的 `active_trader_count` 从 **4 变 5**（新增T15，`event_time=08:31:24Z` 正落在两次调用之间）。<br>⚠️ 因此**"全榜里没有它"≠"该仓位已平"**。<br>另：样本里 `is_active` **16/16 全为 true**、`action` 无一条 `close`（add 9 / reduce 6 / open 1）——**平仓事件在本次样本里从未观测到** | 账本类用途必须**双路取数**：全榜拉当前有货标的 + 对账本内未平仓标的**逐个定向查询**确认。平仓判定退化为"两路都查不到 → 消失推断"，并**记录发现滞后天数**（= 平仓日 − 最后一次见到的日期）如实暴露观察误差。close/is_active=false 机制上可能支持，**样本内未出现，不要假设一定能抓到** | 实测 2026-07-30（同日两次拉取对照）|
+| N-59e | **`signal()` 按交易员名字查询不生效**：`query="T1 交易员仓位 trader position"` 返回的是**完整热门榜**（CXMT/SNDK/SKHX/BTC/XYZ100 五组，与空关键词查询一致），**没有按人过滤**。人名不是可路由的实体维度 | 任何"看某个交易员"的功能只能**拉全榜再本地过滤**，且必须把话说准：拿不到时说"当前榜上没有他"，**不能说"他没有仓位"**。不要对外承诺按人全网检索 | 实测 2026-07-30 |
+| N-59f | **`signal()` 的 `categories` / `keywords` 数组入参在本客户端被序列化成字符串后被 schema 拒**：`categories=["trader_position"]` → `type: ["trader_position"] has type "string", want one of "null, array"`。与红线 3（N-8）的 `metrics.keywords` 同源，此前只记了 metrics 侧。<br>另：**取价调用必然附带整套 CORE fundamentals**（`default_fanout_fallback`），实测把 query 从 `"… price"` 改成 `"… quote snapshot"`、再加 `verbosity="concise"` **都去不掉**——三表/估值/profile 照样全返 | ①`signal` 与 `metrics` 一律走 `query` 自由文本路由（服务端会自己抽意图与标的，实测 `filters_applied.keywords` 正确回填）；②取价时**只读 `results.market.snapshot[]`，其余忽略**——额度仍只计 1 次，代价是 token 不是配额；③批量取价上限沿用红线 4 的 **5 个** | 实测 2026-07-30 |
+| N-59g | **取价失败有两种静默形态，且都返 `status:"ok"`——必须做差集自查**。实测一次 `metrics(query="SNDK 000660.KS CXMT XYZ100 quote snapshot", asset_type="tradfi")`：①**`CXMT` 被从 `filters_applied.keywords` 里整个剔除**（applied 只剩 `["SNDK","000660.KS","XYZ100"]`，连查都没查）；②**`XYZ100` 进了 keywords 但 `market.snapshot[]` 里没有它的行**（默默少一行）。两种都不报错、不出 warning 指名道姓。<br>另：**crypto 批不带 fundamentals**（`asset_type="crypto"` 只返 market.snapshot + history，很轻），**tradfi 批必带 CORE fundamentals 全家桶**（N-59f）——同一个"取价"动作两种成本 | **把请求的 symbol 列表与返回的 `snapshot[].symbol` 做差集，差集非空即部分失败**——不要用"有没有报错"判断成败，也不要用返回行数对比请求个数（两种形态一个少 keyword 一个少行，只有差集能同时抓住）。crypto 与 tradfi 分批（asset_type 不能混），批内 ≤5 个 | 实测 2026-07-30（4 标的混批，2 成 2 败）|
+| N-59h | **`profile.summary` 的散文数字比同对象的结构化字段旧，不可引用**。实测T4：`summary` 写 *"across 406 closed trades"* / *"150 closed trades in last 30 days"*，而同一 profile 的 `overall.n_trades=431`、`last_30d.n_trades=175`——**双双差 25 笔**。该交易员 30 天 175 笔，几小时就能差出这个量；`summary_refreshed_at`（02:37Z）落后于数据本身。对照组：T8同批 summary 22/17 与结构化字段完全一致——**所以"看起来对得上"不能当验证通过**，一致与否取决于该交易员的成交频率 | **所有对外数字一律取结构化字段**（`overall` / `last_30d`），`summary` 只当定性描述（style / follow / skip conditions）读。⚠️ 尤其别把 summary 里的笔数当样本量去判"样本是否充足" | 实测 2026-07-30（T4 vs T8对照）|
+| N-59i | **同一份 `trader_position` 返回里两半新鲜度不同：仓位/事件实时，交易员 `profile` 是日快照**。实测 30 分钟内两次拉取（08:24Z / 08:55Z），15 名交易员的 `overall` / `last_30d` / `as_of` / `summary_refreshed_at` **全部一字未变**（`as_of=2026-07-30`，refresh 时点约 02:3xZ），而同期仓位侧新增了T15的 08:31Z 事件（N-59d）。<br>⛔ **`last_30d.n_trades` 是滚动 30 天窗口，日增量 ≠ 当期平仓数**：增量 = 当期平仓 − 滑出窗口的平仓，可为负或偏小。实测T1 `overall=54` / `last_30d=2`——52 笔在窗外，窗口每天都在吐旧数据。<br>✅ **`overall.n_trades` 是累计值**（= 累计已平仓笔数，`rating_reason` 措辞印证："enough samples (22)" / "insufficient sample (2 closed trades)"），**其增量才是当期真实平仓数** | ①任何"该交易员这段时间成交了多少"的推算**只能用 `overall.n_trades` 增量**，且**只在 `as_of` 变化时才算**（同日重跑增量恒为 0，会被误读成"零成交"）；②引用战绩数字一律说"截至 `as_of`"，**不要说"当前"**；③想估"轮询式观察漏了多少"：`观测到的平仓数 ÷ overall 增量` = 观察覆盖率。⚠️ **实测这个比值很低**：15 名交易员合计真实平仓约 **10.8 笔/天**，而日频快照最多只看到"持仓过夜且当日消失"的那几笔——每天观测到 1/2/3 笔分别对应覆盖率 **9%/19%/28%**。任何基于日频轮询的"跟踪某人交易"都要按这个量级打折，别当成看全了| 实测 2026-07-30（同日两次拉取 15 人逐字段对照）|
+
+**本组的正面产出（对外展示交易员档案时必做的四项 sanity check）**：`trader_position` 的 `profile` 把战绩算好了直接给，但**几个最扎眼的数字恰好最会骗人**——散户的眼睛就落在那几个数上。展示任何交易员战绩前过一遍这四条：
+
+1. ⛔ **`pnl_ratio_infinite=true` 不是"神"，是"盈亏比不可验证"**（零亏损记录 → 分母为 0）。实测T1 `n_trades=54` / 胜率 **100%** / 盈亏比 `∞`，但 `last_30d.n_trades=2`——54 笔的辉煌几乎全在 30 天窗口外，`rating_reason` 自己写的是 *"zero-loss record … profit factor is not verifiable; provisional"*。**必须把 `rating_reason` 一起展示，不要只报胜率**。
+2. ⛔ **小样本的高盈亏比要连样本量一起报**。实测 T13 盈亏比 **16.04** 看着顶级，`n_trades=7`，且 `last_30d` 净亏 −14,335。tier `P`（provisional）已经编码了这层不确定，但用户看的是 16.04。
+3. ⛔ **`current_symbol_caution=true` 是最硬的单条红旗**：他正在做的标的就在他自己的历史弱项名单里。实测T4 **20x 空 XYZ100**，而 `caution_symbols` 首位就是 `XYZ100`；T14 做 `000660.KS`，同样在自己的 caution 名单里（盈亏比 0.05 / 胜率 25%）。
+4. ⛔ **杠杆 ≥10x 单独提示**：实测 17 行里 10x 及以上占 8 行（含两条 20x）。杠杆不在 tier 评级的输入里，但它决定这个仓位能不能活到方向被验证。
+
+⚠️ 另：**`n < 10` 时不要给百分比**——3 笔里 2 胜写"2/3"，写成"67%"是伪精确。实测有 `n_trades=1` 且胜率 100% 的行（T5）。
+
+### 2026-07-30 研报通道 Tier4 实测（N-59）
+
+| # | 现象 | 应对 | 证据 |
+|---|---|---|---|
+| N-59 | **`news()` 拿不到"独立研报 feeds 文章类"**：全部索引条目一律 `provenance:"feeds"`（`_source`/`fmp_news` 字段名**不存在**，Seeking Alpha/fool.com 也返 `provenance:"feeds"`+`source_name:"media"`）；`category` 是话题噪音标签；`sources=["research"]` 数组被 schema 拒（N-8 同源），无字符串替代 | 独立 Substack 深度只能近似捞：① `social[]` 里 `kol_info.categories` 含 `"research"` 且正文挂 substack 链接（真形态）② `articles[]` 里 `source_quality=="research"`（⚠️ Motley Fool 混入，隔离不干净）。正文恒 `content_truncated`（~300-500字预览，全文需原始 URL）。**结构化评级(`analyst ratings`)与整篇研报卡(`research reports`)是另两个通道，不能当 feeds 兜底** | 实测 2026-07-30（news 逐条字段核对） |
+
+> **N-41 补充（研报卡 TP 水分族）**：研报卡 `target_price.currency` **同币种存在多写法**（实测 2330.TW 同新台币写成 `TWD` 与 `NT$` 两种）——做 TP 离散/跨机构比价前必须先归一 currency，否则字符串层把同币种当两种。
+>
+> **N-38/N-46 现场复现**（研报卡 research_reports 通道，Tier4 实证）：NVDA `report_limit:10`、`subject 6 + mention 4`；台积电枢纽票 `subject 10 / mention 0`（mention 被 subject 挤没）；机构名不归一（`Morgan Stanley` vs `Morgan Stanley & Co. LLC`）+ 同日同 TP 近重复（Citi $300×2 不同 event_id）→ 榜面"23 家"钻取去重实只 3 家。**net_direction 是叙事雷达（谁被点名）不是机构共识**（点名受益股天然正向：NVDA beneficiary:73/negative:14 恒 positive·N-39）。`verbosity="detail"` 单标的实测 65K 字符必炸批 + `limit≥20` 超时。
+
 ### 2026-07-30 互动方向/作者回复率实测（N-58）
 
 | # | 现象 | 应对 | 证据 |
@@ -150,7 +189,7 @@
 |---|---|---|---|
 | N-47 | **`metrics` market snapshot 的 `change` 是「美元变动量」不是百分比**，且**数值会与新闻百分比巧合吻合**：META `change:-9.18` / `previousClose:593.41` → 真实 **−1.55%**；而新闻标题「Meta crashes −9%」（那是**盘后**跌幅）。−9.18 与 −9% 看着对上 | 百分比自己算 `change/previousClose×100`。🔴 **别拿 `change` 去和新闻 % 交叉核实**——会得到假的"核实通过"。两个数（美元 vs 百分比、regular vs 盘后）毫无关系 | 实测 2026-07-30 |
 | N-48 | **盘后/盘前 `metrics` 返回的是上一个 regular 收盘，不是当前价**：字段 `_quote_session:"regular_inactive"` + `_quote_cache:"last_regular"`，price 是 8+ 小时前的。财报后盘后跳水**不在 metrics 里** | 看 `_quote_session` 分时段：交易时段 price 可信；非交易时段它是旧收盘，**新闻里的盘后价才是当下真相**（价格铁律在此时段反转）。两个数分开写、标来源 | 实测 2026-07-30 |
-| N-49 | **jq 解析 `createdAt` 用 `strptime("...%z...")|mktime` 是时区相关的**：实测同一串 `"Fri Jul 17 06:30:30 +0000 2026"`，UTC 下正确、**+8 时区偏 +28800s、-5 偏 −14400s**。偏移 <8h 不会让 age 变负，「age 为负」守卫**抓不到** | 🔴 去掉 `%z`：`sub(" \\+0000 ";" ")｜strptime("%a %b %d %H:%M:%S %Y")｜mktime`（mktime 按 UTC，TZ 无关，三时区实测一致）。或正则重组 ISO + `fromdateiso8601` | 实测 2026-07-30（UTC/+8/−5 三时区对照） |
+| N-49 | **jq 解析 `createdAt` 用 `strptime("...%z...")｜mktime` 是时区相关的**：实测同一串 `"Fri Jul 17 06:30:30 +0000 2026"`，UTC 下正确、**+8 时区偏 +28800s、-5 偏 −14400s**。偏移 <8h 不会让 age 变负，「age 为负」守卫**抓不到** | 🔴 去掉 `%z`：`sub(" \\+0000 ";" ")｜strptime("%a %b %d %H:%M:%S %Y")｜mktime`（mktime 按 UTC，TZ 无关，三时区实测一致）。或正则重组 ISO + `fromdateiso8601` | 实测 2026-07-30（UTC/+8/−5 三时区对照） |
 | N-50 | **`MCP error 0: ... invalid during session initialization` 有并发成因，不只是类型错**：一条 message 发 4 个纯 string 的 metrics 调用，**挂了 2 个**，同批另 2 个同形态调用成功 | 判别：同批同形态有成功的 = 排除类型错，是并发争用。失败项**减并发、下批重试**（实测重试即成功）。⚠️ 原 caveat 说「九成类型错」是误导性归因。且 ≤4 并发仍偶发此错，把 ≤4 当上限不是保证 | 实测 2026-07-30 |
 | N-51 | **不带 `asset_type` 的 `query` 会同时返币和同名 ETF**：`query="BTC price"` 返回 BTC 币 64,140 **和** Grayscale Bitcoin Mini Trust ETF 28.08 两条，靠 `_asset_type` 区分 | crypto 一律显式 `asset_type="crypto"`；混返时按 `_asset_type` 筛，别把 28.08 当比特币价 | 实测 2026-07-30 |
 | N-52 | **`news` 的 TG (`tg_kol_feeds`) item 自带 `tg_category` 预分类字段**（交易信号 / Meme打新 / 链上数据 / 叙事追踪 / 市场结构 / 宏观研判 / 项目研究 / 实盘跟踪），此前 Skill 未用 | 用它做结构过滤比按内容判断稳定：保留 链上数据/市场结构/宏观研判，默认剔 Meme打新/实盘跟踪。实测 25 条广拉靠内容判断砍 15 条"软性"（60%、无量化判据），改用 `tg_category` 可复现 | 实测 2026-07-30 |
