@@ -1,4 +1,4 @@
-# Research Desk — 研报投研台
+# Research Reader — 研报投研台
 
 **一句话**：你手上有一只股票，想弄明白券商研报到底怎么看它——这四支帮你把研报读透。
 
@@ -98,7 +98,7 @@
 **安装**（MCP 已接通的前提下）：
 
 ```bash
-cp "Research Desk"/*.md ~/.claude/commands/
+cp "Research Reader"/*.md ~/.claude/commands/
 ```
 
 **触发**——说人话就行：

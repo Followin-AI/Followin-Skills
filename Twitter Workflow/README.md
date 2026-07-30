@@ -1,4 +1,4 @@
-# Twitter Ops Workflow
+# Twitter Workflow
 
 > 📌 **本目录从 [`Apatheticco/twitter-ops-template`](https://github.com/Apatheticco/twitter-ops-template) 同步而来，README 以该仓为准**（那里是开发主源，本目录是快照）。下方安装命令已适配 Followin-Skills 的目录结构。
 
@@ -44,10 +44,10 @@ claude mcp add followin https://mcp.followin.io/v2/mcp --scope user --transport 
 ls ~/.claude/skills/ 2>/dev/null | grep -E "trend-scout|topic-engine|tweet-composer|performance-review|competitor-watch|engagement|twitter-ops"
 
 # 没有输出 → 安全，直接拷
-cp -rn "Twitter Ops/skills/"* ~/.claude/skills/
+cp -rn "Twitter Workflow/skills/"* ~/.claude/skills/
 
 # 有输出 → 说明同名 skill 已存在。先备份再拷：
-# cp -r ~/.claude/skills ~/.claude/skills.bak && cp -r "Twitter Ops/skills/"* ~/.claude/skills/
+# cp -r ~/.claude/skills ~/.claude/skills.bak && cp -r "Twitter Workflow/skills/"* ~/.claude/skills/
 ```
 
 > ⚠️ **`-n` 不能省。** 本模板的 skill 名是通用词（trend-scout / topic-engine 等），

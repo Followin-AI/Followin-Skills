@@ -18,8 +18,8 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 | **[`Community Skill/`](./Community%20Skill/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own (incl. a [folder README](./Earnings%20Screener/): methodology mapping + rejected alternatives) |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 standalone skill | US-stock premarket watchlist tracking — scheduled or immediate reports based on tickers, positions, and timezone |
-| **[`Research Desk/`](./Research%20Desk/)** | 4 skills | Reading sell-side research on one ticker — can you trust the call, how far, what date to watch next, who else gets pulled in (incl. a [folder README](./Research%20Desk/) and [sample outputs](./docs/研报投研台样张.md)) |
-| **[`Twitter Ops/`](./Twitter%20Ops/)** | 7 skills | Daily Twitter ops for a crypto/macro/US-stock content account — scan → topic → draft → engage → review, MCP-driven, human confirms every publish (incl. a [folder README](./Twitter%20Ops/)) |
+| **[`Research Reader/`](./Research%20Reader/)** | 4 skills | Reading sell-side research on one ticker — can you trust the call, how far, what date to watch next, who else gets pulled in (incl. a [folder README](./Research%20Reader/) and [sample outputs](./docs/研报投研台样张.md)) |
+| **[`Twitter Workflow/`](./Twitter%20Workflow/)** | 7 skills | Daily Twitter ops for a crypto/macro/US-stock content account — scan → topic → draft → engage → review, MCP-driven, human confirms every publish (incl. a [folder README](./Twitter%20Workflow/)) |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
 Everything is plain Markdown. There is no build step and no runtime dependency beyond the MCP server.
@@ -174,7 +174,7 @@ See [`Premarket Tracker/README.md`](./Premarket%20Tracker/) for usage.
 
 ---
 
-## Research Desk (4 skills)
+## Research Reader (4 skills)
 
 **You hold a ticker and want to know what the sell-side actually thinks of it.**
 
@@ -193,17 +193,17 @@ and reading five reports for it costs you an afternoon.
 All four **share one research-report call**, so r2/r3/r4 are free once you've run r1. A full pass on one ticker costs 3 billable calls. Install:
 
 ```bash
-cp "Research Desk"/*.md ~/.claude/commands/
+cp "Research Reader"/*.md ~/.claude/commands/
 ```
 
 ⚠️ **It won't pick stocks for you** — every skill needs a ticker to start. For discovery use the Earnings Screener or the Divergence Scan.
 ⚠️ At most 10 reports come back per ticker, often 3–5 institutions after dedup. **Any "N institutions think X" is a floor, not the street** — all four are required to say so in their output.
 
-Full write-up in **[`Research Desk/README.md`](./Research%20Desk/README.md)**; real sample outputs from one live INTC run in **[`docs/研报投研台样张.md`](./docs/研报投研台样张.md)**.
+Full write-up in **[`Research Reader/README.md`](./Research%20Reader/README.md)**; real sample outputs from one live INTC run in **[`docs/研报投研台样张.md`](./docs/研报投研台样张.md)**.
 
 ---
 
-## Twitter Ops (7 skills)
+## Twitter Workflow (7 skills)
 
 **Daily Twitter operations for a crypto/macro/US-stock content account.** Turns the daily grind — scan sources → pick topics → draft → engage → weekly review — into a pipeline: data pulled live from Followin MCP, decisions run on preset rules, **drafts stop at final copy — you press publish**.
 
@@ -220,13 +220,13 @@ Full write-up in **[`Research Desk/README.md`](./Research%20Desk/README.md)**; r
 Install (skill directories, not commands):
 
 ```bash
-cp -rn "Twitter Ops/skills/"* ~/.claude/skills/    # -n = don't clobber same-named skills
+cp -rn "Twitter Workflow/skills/"* ~/.claude/skills/    # -n = don't clobber same-named skills
 ```
 
 ⚠️ **No Twitter list?** `config.md` ships an example public list to get you running, but it's an *example not a default* (~17% off-topic content, ownership not yours) — swap in your own after one test run.
 ⚠️ **Fills stop the pipeline.** On first "跑一轮" it detects the template config and halts, telling you what to fill — you don't need to memorize the config table.
 
-Full write-up in **[`Twitter Ops/README.md`](./Twitter%20Ops/README.md)**. Verified end-to-end on live data across all seven skills; endpoint/field caveats recorded as N-47~N-58 in [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md).
+Full write-up in **[`Twitter Workflow/README.md`](./Twitter%20Workflow/README.md)**. Verified end-to-end on live data across all seven skills; endpoint/field caveats recorded as N-47~N-58 in [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md).
 
 ---
 
@@ -258,9 +258,9 @@ Similar-sounding requests go to different skills:
 | `Morning brief` / `宏观早报` | 06 Macro Morning Brief | Macro/US-stock daily briefing |
 | `earnings screener` / `财报季扫描` | [Earnings Season Screener](./Earnings%20Screener/earnings-season-screener.md) (standalone) | **No-ticker discovery**; a named ticker routes to Base Skill 02 |
 | `Premarket watchlist` / `每天盘前跟踪我的自选` | [Premarket Tracker](./Premarket%20Tracker/premarket-watchlist-automation.md) (standalone) | Watchlist + positions + recurring or immediate premarket report |
-| `Can I trust this target` / `研报解读` | [r1 Cross-Source Readout](./Research%20Desk/r1_cross-source-readout.md) | Report call + four-way collision; "what does the report say" routes to c3 |
-| `Is this report solid` / `基准是谁` | [r2 Caveat Audit](./Research%20Desk/r2_research-caveat-audit.md) | Audits the foundation, never restates the conclusion |
-| `What catalysts are next` / `接下来盯什么` | [r3 Catalyst Timeline](./Research%20Desk/r3_catalyst-timeline.md) | Report-named checkpoints; "when does X report earnings" does **not** route here (calendar is unusable — caveats N-22) |
+| `Can I trust this target` / `研报解读` | [r1 Cross-Source Readout](./Research%20Reader/r1_cross-source-readout.md) | Report call + four-way collision; "what does the report say" routes to c3 |
+| `Is this report solid` / `基准是谁` | [r2 Caveat Audit](./Research%20Reader/r2_research-caveat-audit.md) | Audits the foundation, never restates the conclusion |
+| `What catalysts are next` / `接下来盯什么` | [r3 Catalyst Timeline](./Research%20Reader/r3_catalyst-timeline.md) | Report-named checkpoints; "when does X report earnings" does **not** route here (calendar is unusable — caveats N-22) |
 | `CPI impact` / `CPI 影响` | *(no dedicated skill)* | Indicator interpretation is model-native — the model calls `metrics`+`news` directly; the FRED series dictionary lives in the caveats reference (Appendix A) |
 
 Each skill's frontmatter carries explicit `trigger` and `not_trigger` lists — that's what keeps neighbours from stealing each other's queries.

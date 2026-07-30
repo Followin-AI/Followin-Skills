@@ -18,8 +18,8 @@
 | **[`Community Skill/`](./Community%20Skill/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 个独立 Skill | 财报季发现器——不属于任何 bundle，可单独取用（含[目录 README](./Earnings%20Screener/)：方法论映射 + 被否决方案） |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 个独立 Skill | 美股盘前自选追踪——按自选股、持仓和时区创建周期报告或即时盘前分析 |
-| **[`Research Desk/`](./Research%20Desk/)** | 4 个 Skill | 研报投研台——单标的研报深读：能不能信 / 信到什么程度 / 接下来盯哪天 / 还有谁被卷进来（含[目录 README](./Research%20Desk/) 与[产出样张](./docs/研报投研台样张.md)）|
-| **[`Twitter Ops/`](./Twitter%20Ops/)** | 7 个 Skill | 推特日运营——加密/宏观/美股内容账号的「扫热点→选题→写稿→互动→复盘」流水线，MCP 实时驱动，发布永远人工确认（含[目录 README](./Twitter%20Ops/)）|
+| **[`Research Reader/`](./Research%20Reader/)** | 4 个 Skill | 研报投研台——单标的研报深读：能不能信 / 信到什么程度 / 接下来盯哪天 / 还有谁被卷进来（含[目录 README](./Research%20Reader/) 与[产出样张](./docs/研报投研台样张.md)）|
+| **[`Twitter Workflow/`](./Twitter%20Workflow/)** | 7 个 Skill | 推特日运营——加密/宏观/美股内容账号的「扫热点→选题→写稿→互动→复盘」流水线，MCP 实时驱动，发布永远人工确认（含[目录 README](./Twitter%20Workflow/)）|
 | **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
 全部为纯 Markdown，无构建步骤，除 MCP 服务器外无任何运行时依赖。
@@ -184,13 +184,13 @@ cp "Premarket Tracker/premarket-watchlist-automation.md" ~/.claude/commands/
 四支**共用同一次研报调用**，跑完 r1 之后 r2/r3/r4 都是白送的。单只股票跑满四支 = 3 次计费调用。安装：
 
 ```bash
-cp "Research Desk"/*.md ~/.claude/commands/
+cp "Research Reader"/*.md ~/.claude/commands/
 ```
 
 ⚠️ **它不帮你选股**——四支都得先点名一只票才开工。找标的用财报季扫描或背离扫描。
 ⚠️ 每只股票最多返回 10 份报告，去重后常剩三到五家。**任何"N 家机构怎么看"都是下限不是全街**，四支都被要求把这句写进输出。
 
-完整说明见 **[`Research Desk/README.md`](./Research%20Desk/README.md)**；四支的实际产出样张（英特尔全链路实跑）见 **[`docs/研报投研台样张.md`](./docs/研报投研台样张.md)**。
+完整说明见 **[`Research Reader/README.md`](./Research%20Reader/README.md)**；四支的实际产出样张（英特尔全链路实跑）见 **[`docs/研报投研台样张.md`](./docs/研报投研台样张.md)**。
 
 ---
 
@@ -211,13 +211,13 @@ cp "Research Desk"/*.md ~/.claude/commands/
 安装（是 skill 目录，不是 command）：
 
 ```bash
-cp -rn "Twitter Ops/skills/"* ~/.claude/skills/    # -n = 不覆盖你已有的同名 skill
+cp -rn "Twitter Workflow/skills/"* ~/.claude/skills/    # -n = 不覆盖你已有的同名 skill
 ```
 
 ⚠️ **没有 Twitter list？** `config.md` 给了一个公开示例 list 先跑通，但它是**示例不是默认**（约 17% 内容跑题、产权不在你手上）——跑通一次后换成自己的。
 ⚠️ **不填会被拦。** 首次「跑一轮」检测到还是模板配置就停下、告诉你缺哪几项，不用先背配置表。
 
-完整说明见 **[`Twitter Ops/README.md`](./Twitter%20Ops/README.md)**。7 支全部在 live 数据上端到端验证过；端点/字段坑记在 [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md) 的 N-47~N-58。
+完整说明见 **[`Twitter Workflow/README.md`](./Twitter%20Workflow/README.md)**。7 支全部在 live 数据上端到端验证过；端点/字段坑记在 [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md) 的 N-47~N-58。
 
 ---
 
@@ -249,9 +249,9 @@ cp -rn "Twitter Ops/skills/"* ~/.claude/skills/    # -n = 不覆盖你已有的�
 | `宏观早报` / `Morning brief` | 06 宏观早报 | 宏观/美股维度的每日简报 |
 | `财报季扫描` / `earnings screener` | [财报季扫描](./Earnings%20Screener/earnings-season-screener.md)（独立）| **无 ticker 的发现器**；点名单股走 Base Skill 02 |
 | `每天盘前跟踪我的自选` / `premarket watchlist` | [盘前自选追踪](./Premarket%20Tracker/premarket-watchlist-automation.md)（独立） | 自选股 + 持仓 + 周期任务或即时盘前报告 |
-| `这个目标价能信吗` / `研报解读` | [r1 跨源印证](./Research%20Desk/r1_cross-source-readout.md) | 研报结论 + 四边对撞；只看研报讲了什么走 c3 |
-| `这份研报靠谱吗` / `基准是谁` | [r2 口径审计](./Research%20Desk/r2_research-caveat-audit.md) | 审地基不复述结论 |
-| `接下来盯什么` / `有什么催化剂` | [r3 催化剂时间线](./Research%20Desk/r3_catalyst-timeline.md) | 研报点名的节点；"XX 哪天发财报"不走这里（日历已判废，见 caveats N-22）|
+| `这个目标价能信吗` / `研报解读` | [r1 跨源印证](./Research%20Reader/r1_cross-source-readout.md) | 研报结论 + 四边对撞；只看研报讲了什么走 c3 |
+| `这份研报靠谱吗` / `基准是谁` | [r2 口径审计](./Research%20Reader/r2_research-caveat-audit.md) | 审地基不复述结论 |
+| `接下来盯什么` / `有什么催化剂` | [r3 催化剂时间线](./Research%20Reader/r3_catalyst-timeline.md) | 研报点名的节点；"XX 哪天发财报"不走这里（日历已判废，见 caveats N-22）|
 | `CPI 影响` / `CPI impact` | *（无专门 Skill）* | 指标解读是模型自带能力——直接调 `metrics`+`news`；FRED 字典见 caveats 附表 A |
 
 每个 Skill 的 frontmatter 都带显式的 `trigger` 与 `not_trigger` 列表 —— 这是相邻 Skill 不互相抢词的关键。
