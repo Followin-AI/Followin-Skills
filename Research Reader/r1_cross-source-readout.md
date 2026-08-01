@@ -32,7 +32,7 @@ args: ticker(必填), window(可选，默认 30d，仅用于客户端过滤报�
 
 单篇卖方研报**系统性偏多**，所以它只是有偏候选。这解释了一个反直觉结论：**同一批 9 篇同机构研报不能自成信号**——一家之言构成的是「假共识」。真共识、真背离，只能从跨源对撞里来。
 
-MCP 侧还额外叠了一层削弱：**每票最多看得到 10 篇、去重后常只剩 3–5 家机构**（N-38 + N-42；实测 NVDA 3 家、INTC 5 家、GOOGL 5 家）。所以本 Skill 的研报侧读数**天然是下界**，这一点必须写进每张读数卡。
+MCP 侧还额外叠了一层削弱：**每票最多看得到 10 篇、去重后常只剩 3–5 家机构**（N-38 + N-62；实测 NVDA 3 家、INTC 5 家、GOOGL 5 家）。所以本 Skill 的研报侧读数**天然是下界**，这一点必须写进每张读数卡。
 
 ## 意图路由
 
@@ -68,7 +68,7 @@ metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradf
 
 1. **机构名归一**（N-38）：`"Morgan Stanley"` 与 `"Morgan Stanley & Co. LLC"` 是同一家。同理 `"BofA Securities"` / `"B of A Securities"`、`"Citi Research"` / `"Citigroup"`。**不归一直接去重，同一家会被算成两家，虚增覆盖度。**
 2. **按「机构 + 标题 + 日期」去重**（N-3）：同一份报告可双 `event_id` 重复入库。实测 NVDA 6 条 subject 去重后**只剩 3 条**。
-3. ⚠️ **再去一次「快评 + 完整版」重复**（N-42，2026-07-29 实测新增）：**N-3 那条去不掉它**——标题不同所以三元组不同，但实质是同一份研究。
+3. ⚠️ **再去一次「快评 + 完整版」重复**（N-62，2026-07-29 实测新增）：**N-3 那条去不掉它**——标题不同所以三元组不同，但实质是同一份研究。
    **判据：同机构 + 同日 + 同 TP，即使标题不同也须合并**（保留信息更全的一篇）。
    实测 INTC：Goldman Sachs 2026-07-23 两篇同为 TP 150——《…First Take: Strong quarter across the board…》与《…Strong quarter across the board, with margin upside…》，前者是盘后快评、后者是完整版。不合并会把 GS 算成两家。
    **跨日变体也要看**：Citi 07-23《2Q26 Earnings Quick Take》与 07-24《Transformation in Progress》同为 TP 130，是同一事件的快评+深度。跨日时不强制合并，但**按机构取最新一篇**即可自然消解。

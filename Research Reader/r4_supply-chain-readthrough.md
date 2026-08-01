@@ -219,9 +219,9 @@ metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradf
 
 | 边界 | 性质 | 处置 |
 |---|---|---|
-| **`detail.affected_names` 计数有、内容永远没有** | 上游缺失（N-45）| 实测 **30/30 篇**：`detail_sections.affected_names` 报了 1–31 的计数，但 `detail` 里**从不包含该字段**。最理想的产业链名单（Nomura 那篇标了 31 个名字）**一个都拿不到**。本 Skill 只能用 `by_name` + `mention_context` + `catalysts` 三个替代面 |
-| **枢纽票反而没产出** | 结构性（N-46）| 前提 2。跑之前先看 `mention_report_returned_count`，为 0 走降级分支 |
-| 汇编报告制造同框噪音 | 数据特性（N-47）| 步骤 2 的闸；关键词表需持续补充 |
+| **`detail.affected_names` 计数有、内容永远没有** | 上游缺失（N-65）| 实测 **30/30 篇**：`detail_sections.affected_names` 报了 1–31 的计数，但 `detail` 里**从不包含该字段**。最理想的产业链名单（Nomura 那篇标了 31 个名字）**一个都拿不到**。本 Skill 只能用 `by_name` + `mention_context` + `catalysts` 三个替代面 |
+| **枢纽票反而没产出** | 结构性（N-66）| 前提 2。跑之前先看 `mention_report_returned_count`，为 0 走降级分支 |
+| 汇编报告制造同框噪音 | 数据特性（N-67）| 步骤 2 的闸；关键词表需持续补充 |
 | `old_target_price` 覆盖率仅 26% | 数据特性 | 真修正与当前价位分开写 |
 | `catalysts[].security` 非规范 ticker | 数据特性 | 步骤 4 的清洗规则（板块名 / 逗号多值）|
 | 跨标的以亚太股为主 | 数据特性 | 实测 47 个跨标的 ticker 里大半是 `.KS`/`.T`/`.TW`/`.NS`/`.JK`。**对只做美股的用户，多数不可直接交易**——但作为供应链信号仍有效，须标明市场 |

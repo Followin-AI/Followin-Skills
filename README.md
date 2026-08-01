@@ -17,8 +17,9 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 | **[`Base Skill/`](./Base%20Skill/)** | 6 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
 | **[`Community Skill/`](./Community%20Skill/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own (incl. a [folder README](./Earnings%20Screener/): methodology mapping + rejected alternatives) |
+| **[`Live Positions/`](./Live%20Positions/)** | 1 skill | Live perp positions of tracked traders — **who is actually long/short with real money, and can you trust their record**. Four gates against the three most misleading fields (net direction / win rate / profit factor). Does not compute returns (incl. a [folder README](./Live%20Positions/)) |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 standalone skill | US-stock premarket watchlist tracking — scheduled or immediate reports based on tickers, positions, and timezone |
-| **[`Research Reader/`](./Research%20Reader/)** | 4 skills | Reading sell-side research on one ticker — can you trust the call, how far, what date to watch next, who else gets pulled in (incl. a [folder README](./Research%20Reader/) and [sample outputs](./docs/研报投研台样张.md)) |
+| **[`Research Reader/`](./Research%20Reader/)** | 5 skills | Which ticker to read, then reading sell-side research on it — can you trust the call, how far, what date to watch next, who else gets pulled in (incl. a [folder README](./Research%20Reader/) and [sample outputs](./docs/研报投研台样张.md)) |
 | **[`Twitter Workflow/`](./Twitter%20Workflow/)** | 7 skills | Daily Twitter ops for a crypto/macro/US-stock content account — scan → topic → draft → engage → review, MCP-driven, human confirms every publish (incl. a [folder README](./Twitter%20Workflow/)) |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
 
@@ -174,7 +175,7 @@ See [`Premarket Tracker/README.md`](./Premarket%20Tracker/) for usage.
 
 ---
 
-## Research Reader (4 skills)
+## Research Reader (5 skills)
 
 **You hold a ticker and want to know what the sell-side actually thinks of it.**
 
@@ -261,6 +262,8 @@ Similar-sounding requests go to different skills:
 | `Can I trust this target` / `研报解读` | [r1 Cross-Source Readout](./Research%20Reader/r1_cross-source-readout.md) | Report call + four-way collision; "what does the report say" routes to c3 |
 | `Is this report solid` / `基准是谁` | [r2 Caveat Audit](./Research%20Reader/r2_research-caveat-audit.md) | Audits the foundation, never restates the conclusion |
 | `What catalysts are next` / `接下来盯什么` | [r3 Catalyst Timeline](./Research%20Reader/r3_catalyst-timeline.md) | Report-named checkpoints; "when does X report earnings" does **not** route here (calendar is unusable — caveats N-22) |
+| `Who is long SNDK` / `谁在做 SNDK` · `钱在挤哪` | [Live Position Diligence](./Live%20Positions/live-position-diligence.md) | Real-money perp positions + trader track record, with four gates. **Not** a copy-trade ledger |
+| `Who is the sell-side covering` / `谁被研报提得最多` | [r0 Coverage Radar](./Research%20Reader/r0_coverage-radar.md) | **No-ticker discovery** for research; cumulative board, no time window, no direction |
 | `CPI impact` / `CPI 影响` | *(no dedicated skill)* | Indicator interpretation is model-native — the model calls `metrics`+`news` directly; the FRED series dictionary lives in the caveats reference (Appendix A) |
 
 Each skill's frontmatter carries explicit `trigger` and `not_trigger` lists — that's what keeps neighbours from stealing each other's queries.
