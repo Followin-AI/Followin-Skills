@@ -1,6 +1,6 @@
 ---
 name: Community Research Hot (c3 — 研報熱議榜+研究筆記)
-description: 美股新手社群研报模块。层1=研报库累计点名密度榜（提及篇数/机构家数/目标价覆盖；⚠️ 累计非周榜、方向字段不可用）；层2=对 Top 3-5 或指定标的产出研究笔记贴（多机构目标价区间+分歧+多空情景+催化剂时间线）。周跑（指出稿频率，非数据窗口），产出繁体社群贴文。仅供运营使用。
+description: 美股新手社群研报模块。层1=**本週**研报点名密度榜（`time_range="7d"`，提及篇数/机构家数/目标价覆盖；⚠️ 方向字段仍不可用）；层2=对 Top 3-5 或指定标的产出研究笔记贴（多机构目标价区间+分歧+多空情景+催化剂时间线）。周跑（指出稿频率，非数据窗口），产出繁体社群贴文。仅供运营使用。
 trigger: 研報熱點、研报榜、本周研报、研究笔记、给XX写研究笔记、research hot
 not_trigger: 单股财报分析（走 earnings-report）、早报、热点速报、温度计
 mcp: mcp__followin__metrics
@@ -9,15 +9,17 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
 # c3 研报热议榜+研究笔记——两层产出（周跑）
 
-本 skill 仅供社群运营人员触发使用（群成员不直接交互），周跑。产出两层内容：层 1 是"研报库累计点名密度榜"（一次产出）；层 2 是对榜单 Top 3-5（或触发时带 args `ticker` 指定的单一标的）逐个产出的研究笔记贴，每个标的各一篇独立贴文，不合并成一篇。若触发时带 `ticker` 参数，跳过层 1 的榜单调用，直接对该标的执行层 2。
+本 skill 仅供社群运营人员触发使用（群成员不直接交互），周跑。产出两层内容：层 1 是「本週研報點名榜」（`7d` 窗口，一次产出）；层 2 是对榜单 Top 3-5（或触发时带 args `ticker` 指定的单一标的）逐个产出的研究笔记贴，每个标的各一篇独立贴文，不合并成一篇。若触发时带 `ticker` 参数，跳过层 1 的榜单调用，直接对该标的执行层 2。
 
-> 🚨 **口径更正（2026-07-31，依据 caveats N-37 / N-39）**——本 skill 此前有两处对外表述错误，已在下文全部改掉，**沿用旧稿前先看这两条**：
+> ✅ **口径已恢复（2026-08-03，dev 修复 `time_range` 后）**
 >
-> **① 榜单不是"本周"，是建库以来累计。** `time_range` 对该路径完全无效（`24h`/`3d`/`7d` 三档返回逐字相同）。**"周跑"指的是我们多久出一次稿，不是数据窗口。** 对外文案里禁止出现"本周/近 7 天/最近"这类定语。
+> **① 榜单终于可以做真周榜了。** 07-31 曾因 `time_range` 完全无效而全文改成「累计口径」；**2026-08-03 上游修复**，`7d` 与 `30d` 现在返回不同结果，且带 `date_from`/`date_to` 自证区间。
+> ⇒ 层 1 **恢复传 `time_range="7d"`**，对外可以正当地说「本週」——**但必须引用返回的 `date_from`→`date_to`，不要自己算**。
+> ⚠️ 首次恢复前请自查：同日连发 `7d` 与 `30d`，`eligible_event_count` 应不同；`time_scope` 应为 `report_date_window`。
 >
-> **② 榜面的多空方向不可用。** `direction_counts` / `net_direction` 都是 mention 层连带混算——研报点名"受益股"天然带正向（实测 NVDA `beneficiary 67 / negative 11` 恒 positive）。**层 1 不再输出方向**；要多空只能用层 2 钻取后的 `subject_reports`。
+> **② 榜面的多空方向仍然不可用（N-39 未修）。** `direction_counts`/`net_direction` 依旧是 mention 层连带混算——**换个窗口同一标的就从 positive 变 neutral**，这本身就说明它不是共识。层 1 继续不输出方向。
 >
-> 想给投研用户（非社群）一个带完整口径闸的版本，走 [`Research Reader/r0_coverage-radar`](../Research%20Reader/r0_coverage-radar.md)。
+> 想给投研用户（非社群）一个带完整口径闸 + 双窗口对照的版本，走 [`Research Reader/r0_coverage-radar`](../Research%20Reader/r0_coverage-radar.md)。
 
 ## 1. 两层产出与调用序列（≈4-6/周）
 
@@ -25,31 +27,32 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
-| 1 | `metrics(query="research reports most mentioned stocks", asset_type="tradfi")` 聚合榜（**不传 time_range**，N-37）| 1 |
+| 1 | `metrics(query="research reports most mentioned stocks", asset_type="tradfi", time_range="7d")` 聚合榜（**N-37 已修，可传窗口**）| 1 |
 | 2 | 对榜单 Top 3-5 逐个 `metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")`（实测可路由；标准客户端可用 keywords=[TICKER] 数组形态） | 各 1 |
 
-### 层 1：研报库累计点名榜
+### 层 1：本週研報點名榜（`7d` 窗口）
 
-调用：`metrics(query="research reports most mentioned stocks", asset_type="tradfi")` 聚合榜。
+调用：`metrics(query="research reports most mentioned stocks", asset_type="tradfi", time_range="7d")` 聚合榜。
 
-> ⚠️ **不要传 `time_range`**（N-37）：传了不报错、`meta.filters_applied` 照常回显，但结果一字不变——**传了只会让人误以为控住了窗口**。从源头不传，杜绝写出"本周榜"。
+> ✅ **传 `time_range="7d"`**（N-37 已于 2026-08-03 修复）。返回会带 `date_from`/`date_to`/`time_scope`——**对外文案的日期区间必须引用这两个返回值，不要自己算**。
+> ⚠️ 若某次返回 `time_scope` 不是 `report_date_window`，说明窗口没生效，此时**退回累计表述**，不要硬写「本週」。
 
-输出内容：研报库里被点名最密集的标的（提及篇数/机构家数/目标价覆盖）。
+输出内容：**该窗口内**被点名最密集的标的（提及篇数/机构家数/目标价覆盖）。
 
 具体字段：
 - **排名**：按提及篇数或机构家数降序（二者不一致时以机构家数为准，避免同一机构多篇报告刷高排名）。
-- **提及篇数**：该标的被研报提及的**累计**总篇数——含 `subject_reports` 与 `mention_reports` 两层混算，见第 3 节分层说明。
+- **提及篇数**：该标的**在窗口内**被研报提及的总篇数——含 `subject_reports` 与 `mention_reports` 两层混算，见第 3 节分层说明。
 - **机构家数**：榜面覆盖该标的的独立机构数量。⚠️ **是上界**——钻取去重后常大幅缩水（实测榜面 23 家 → 钻取只见 3 家，N-38）。
 - **目标价覆盖**：是否有目标价数据、覆盖家数。
-- **最近点名日期**：`latest_report_date`。✅ **这是榜面唯一可用的时间信息**——榜单本身没有时间窗。
+- **最近点名日期**：`latest_report_date`。✅ 与 `date_from`/`date_to` 一起用：前者是窗口边界，后者是这只票在窗口内最后一次被点名。
 - ⛔ **多空方向：不输出**。`direction_counts` / `net_direction` 是 mention 层连带混算的假共识（N-39），不可当"机构看多"引用。要方向去层 2 用 `subject_reports[].rating_current` 重算。
 
 非美股 ticker（如 2330.TW、005930.KS）默认保留但标注市场（如"2330.TW（台股）"），运营可自行删除——榜单混入非美股不代表数据错误，只是新手社群以美股为主，交给运营取舍是否收录。
 
-单行排版示例（非实测数据，示范格式，S-9 镜像）：`1️⃣ NVDA 輝達｜累計 87 篇・榜面 22 家機構｜目標價：22 家有覆蓋｜最近點名 07/17`
+单行排版示例（非实测数据，示范格式，S-9 镜像）：`1️⃣ NVDA 輝達｜本週 36 篇・榜面 12 家機構｜目標價：5 家有覆蓋｜最近點名 07/31`
 
-> ⚠️ 排版示例此前写作 `多 22：空 0`，**已按 N-39 移除**——那个多空比是 mention 层连带混算，不是机构共识。
-> 周榜贴的抬头也不能写"本週"，建议用「📌 研報點名榜｜研報庫累計」这类不带时间定语的说法。
+> ⚠️ 排版示例此前写作 `多 22：空 0`，**已按 N-39 移除**——那个多空比是 mention 层连带混算，不是机构共识（**N-39 至今未修**）。
+> ✅ 抬头**可以**写「本週」了（N-37 已修），但日期区间要用返回的 `date_from`→`date_to`，例：「📌 本週研報點名榜｜07/27–08/03」。
 
 ### 层 2：研究笔记（对 Top 3-5 或指定标的）
 
@@ -64,9 +67,9 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 每步 query 主形态调用示例：
 
 ```
-1. metrics(query="research reports most mentioned stocks", asset_type="tradfi")
+1. metrics(query="research reports most mentioned stocks", asset_type="tradfi", time_range="7d")
    # 层 1 聚合榜；query 必须含研报意图词（红线 12，见第 3 节），不可只放标的名或话题词
-   # ⛔ 不传 time_range —— 该路径对它完全无效（N-37），传了只会误以为控住了窗口
+   # ✅ time_range 已于 2026-08-03 修复；返回带 date_from/date_to/time_scope，文案引用返回值
 
 2. metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")
    # 层 2 单标的钻取；标准客户端备选：keywords=["<TICKER>"], query="research reports", verbosity="detail", time_range="7d", asset_type="tradfi"
@@ -78,7 +81,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 > 层 2 研究笔记贴（对标公开研究页的结构，数据纵深更强）：一句話先懂 → 最新動態（融合 c4 推特层，见下）→ 機構怎麼看（多机构目标价区间标准化 + 对现价上行/回撤，注明分歧）→ 空方在擔心什麼（研报 risks + bear scenario）→ 接下來看什麼（catalysts 时间线）→ 名词卡。
 
 七段骨架（S-3 骨架适配，去掉互动钩子——见第 4 节）：
-1. **标题**：📌 研報點名榜｜TICKER 公司名（⚠️ 抬头不带时间定语，N-37）
+1. **标题**：📌 本週研報點名榜｜TICKER 公司名（日期区间用返回的 date_from→date_to）
 2. **一句話先懂**（≤40 字）：提及篇数+机构家数+目标价区间 vs 现价涨幅，一句话说完
 3. **最新動態**：近期催化新闻/事件；渲染时可拆成"最新動態"（事件本身）+「推特風向」（社群怎么说，2-4 条 🐦 bullet，对应 T-1 样例的实际排版）两个视觉段落——素材来源：news 层近期新闻，或本周若已跑过 c4 温度计可直接复用其推特层结论（零新增调用；c3 本身 frontmatter 只声明 `mcp__followin__metrics`，不重复造 c4 的 signal/news 调用）
 4. **機構怎麼看**：多机构目标价区间标准化（如"$288–350"）+ 参与家数 + 分歧幅度 + 对现价的上行/回撤幅度——**现价直接用层 2 detail 返回自带的实时行情快照就地计算，不再额外调用 metrics 查现价**（见第 3 节）
@@ -123,12 +126,12 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
 ## 3. 防坑镜像
 
-- **N-37（榜单是累计榜，`time_range` 完全无效）**：
+- **N-37 ✅ 已修复（2026-08-03）—— 窗口现在生效**：
 
-  > 研报榜 `time_range` 完全无效——它是全量累计榜，不是时间窗榜。`24h` / `3d` / `7d` 三次调用返回**逐字相同**：NVDA 恒 125 篇 / 23 家机构，`eligible_event_count` 恒 530，`scope` 恒 `"all_batches"`。`meta.filters_applied.time_range` 有回显但**对结果零影响**。
+  > 五档交叉验收：`24h`(eligible **0**) / `7d`(**170**) / `14d`(**333**) / `30d`(**622**) / 不传(**677**)，全不同。新增 `time_scope`(`report_date_window` vs `all_available_reports`) + `date_from`/`date_to`/`window_granularity` 四个自证字段。
 
-  层 1 一律**不传** `time_range`。**任何把该榜说成"本周/近 7 天研报热议榜"的文案都是错的**——这正是本 skill 2026-07-31 之前的错误，已全文修正。需要时间窗只能在层 2 钻取后按 `report_date` 客户端过滤。
-  对外唯一可用的时间信息是每行的 `latest_report_date`（"最近點名 07/17"这种写法）。
+  层 1 **传 `time_range="7d"`**，对外可正当说「本週」。**但日期区间必须引用返回的 `date_from`→`date_to`，不要自己算**；每次发稿前核一眼 `time_scope`，不是 `report_date_window` 就退回累计表述。
+  ⚠️ **短窗口会让榜尾样本变薄**（实测 7d 第 10 名仅 11 篇/8 家，30d 第 10 名有 70 篇/16 家）→ 周榜贴建议只报 **Top 5**，不报 Top 10。
 
 - **N-39（榜面多空方向是假共识，不可引用）**：
 
