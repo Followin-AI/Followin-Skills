@@ -19,7 +19,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own (incl. a [folder README](./Earnings%20Screener/): methodology mapping + rejected alternatives) |
 | **[`Trader Diligence/`](./Trader%20Diligence/)** | 1 skill | Live perp positions of tracked traders — **who is actually long/short with real money, and can you trust their record**. Six gates against the most misleading fields (stale/ghost positions, duplicate names, net direction, win rate, profit factor, unpriced exposure). Does not compute returns (incl. a [folder README](./Trader%20Diligence/)) |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 standalone skill | US-stock premarket watchlist tracking — scheduled or immediate reports based on tickers, positions, and timezone |
-| **[`Feed Manager/`](./Feed%20Manager/)** | 1 skill | Your own US-stock feed, taken apart and filed every day — the accounts *you* follow → daily brief + a running per-ticker/per-sector archive + a decision journal. Three gates against silent gaps (missing accounts, missing tweets, unwritten files); every number must trace to a source (incl. a [folder README](./Feed%20Manager/)) |
+| **[`Feed Manager/`](./Feed%20Manager/)** | 1 skill | **Reads the stock accounts you follow, so you stop forgetting what they said.** Every day their tweets become a brief, then get filed into a running note per ticker and per sector — "who was bullish at $85 three weeks ago" takes five seconds. Trades you report get logged with a *why* and dated review prompts. Three checks catch silent gaps: an account never pulled, a pull that didn't reach far enough back, something pulled but never written down. **No number goes in without a source** (incl. a [folder README](./Feed%20Manager/)) |
 | **[`Research Reader/`](./Research%20Reader/)** | 5 skills | Which ticker to read, then reading sell-side research on it — can you trust the call, how far, what date to watch next, who else gets pulled in (incl. a [folder README](./Research%20Reader/) and [sample outputs](./docs/研报投研台样张.md)) |
 | **[`Twitter Workflow/`](./Twitter%20Workflow/)** | 7 skills | Daily Twitter ops for a crypto/macro/US-stock content account — scan → topic → draft → engage → review, MCP-driven, human confirms every publish (incl. a [folder README](./Twitter%20Workflow/)) |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
@@ -234,7 +234,9 @@ Full write-up in **[`Twitter Workflow/README.md`](./Twitter%20Workflow/README.md
 
 ## Feed Manager (1 skill)
 
-**Your own US-stock feed, taken apart and filed every day.** Not a trend finder — it only reads the accounts *you* name, strips the jokes and ads, organizes what's left by ticker and sector, and **accumulates it day over day** so "who was bullish at $85 three weeks ago" takes five seconds. Every line carries UTC + account + original tweet URL.
+**You follow a dozen people who talk about stocks. This reads them for you every day and remembers what they said.**
+
+It is not a trend finder — it only reads the accounts *you* name. It strips the jokes and the ads, sorts what's left by ticker and by sector, and **keeps adding to the same notes day after day**, so "who was bullish at $85 three weeks ago" takes five seconds instead of an hour of scrolling. Every line carries the UTC timestamp, the account, and a link back to the original tweet.
 
 | Layer | What you get |
 |---|---|
@@ -243,7 +245,7 @@ Full write-up in **[`Twitter Workflow/README.md`](./Twitter%20Workflow/README.md
 | **Decision loop** | Every trade records *why* + 1w/1m/3m review prompts; lessons feed back into the pre-trade checklist |
 | **Weekly** | Holdings & sector evolution, KOL behavior, account-quality review, **your own decision-quality review** |
 
-Three gates run automatically, each closing a different silent failure: **account-level** coverage table (did we pull everyone?), **tweet-level** pagination warning (one call returns one page — 20 items — which won't cover a wide window), **file-level** close-out hook (did everything we pulled actually get written?). Plus a hard rule throughout: **every number must trace to a data source or a stated principle — no basis, no number.**
+Three checks run automatically, because the ways this goes wrong are all silent. **Did we pull every account?** — a coverage table marks each one pulled / empty / failed, so none can quietly go missing. **Did we get all their tweets?** — one API call returns 20 items, which won't cover a wide window, so the script warns when a pull didn't reach back far enough. **Did everything we pulled get written down?** — a hook checks the files before letting you end the session. On top of that, one rule everywhere: **every number must trace to a data source or a stated principle. No basis, no number.**
 
 Install (skill directory, not a command):
 
