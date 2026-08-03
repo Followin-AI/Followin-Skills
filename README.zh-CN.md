@@ -18,6 +18,7 @@
 | **[`Community Skill/`](./Community%20Skill/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 个独立 Skill | 财报季发现器——不属于任何 bundle，可单独取用（含[目录 README](./Earnings%20Screener/)：方法论映射 + 被否决方案） |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 个独立 Skill | 美股盘前自选追踪——按自选股、持仓和时区创建周期报告或即时盘前分析 |
+| **[`Feed Desk/`](./Feed%20Desk/)** | 1 个 Skill | 美股信息流工作台——把你自己关注的那十几个账号，每天**拆开**（按标的/板块/反方拆成结构化条目）并**归档**（逐日累积成可查档案 + 决策日志）。三道门禁堵住静默漏账号/漏推文/漏落盘；每个数字必须可追溯（含[目录 README](./Feed%20Desk/)）|
 | **[`Research Reader/`](./Research%20Reader/)** | 4 个 Skill | 研报投研台——单标的研报深读：能不能信 / 信到什么程度 / 接下来盯哪天 / 还有谁被卷进来（含[目录 README](./Research%20Reader/) 与[产出样张](./docs/研报投研台样张.md)）|
 | **[`Twitter Workflow/`](./Twitter%20Workflow/)** | 7 个 Skill | 推特日运营——加密/宏观/美股内容账号的「扫热点→选题→写稿→互动→复盘」流水线，MCP 实时驱动，发布永远人工确认（含[目录 README](./Twitter%20Workflow/)）|
 | **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
@@ -221,9 +222,9 @@ cp -rn "Twitter Workflow/skills/"* ~/.claude/skills/    # -n = 不覆盖你已�
 
 ---
 
-## 关注名单观察台（1 个）
+## 美股信息流工作台（1 个）
 
-**把你自己那份股票 KOL 名单，变成一份日报 + 一套逐日累积的档案。** 它不是热点发现器——只读**你指定的账号**，剥掉段子和广告，按标的和板块整理，并且**跨日累积**：跑一周之后，"三周前谁在 $85 说的多"五秒能查到。每条都带 UTC + 账号 + 原推链接。
+**把你自己那条美股信息流，每天拆开、归档。** 它不是热点发现器——只读**你指定的账号**，剥掉段子和广告，按标的和板块整理，并且**跨日累积**：跑一周之后，"三周前谁在 $85 说的多"五秒能查到。每条都带 UTC + 账号 + 原推链接。
 
 | 层 | 给你什么 |
 |---|---|
@@ -237,14 +238,14 @@ cp -rn "Twitter Workflow/skills/"* ~/.claude/skills/    # -n = 不覆盖你已�
 安装（skill 目录，不是命令）：
 
 ```bash
-cp -rn "KOL Watch/skills/"* ~/.claude/skills/
+cp -rn "Feed Desk/skills/"* ~/.claude/skills/
 ```
 
 ⚠️ **零配置试跑**：用内置 5 个 starter 说「跑个快速简报」，不写任何文件。⚠️ 这 5 个偏半导体、**没有唱空账号**，正式用前补 1-2 个质疑声音——名单变成全员看多是最危险的盲区。
 
 **边界**：这是"你自己名单"的视角。想看全网 KOL 在喊什么 → `Community Skill/c4_social-pulse`；想看真金白银的仓位 → `Trader Diligence`。
 
-完整说明见 **[`KOL Watch/README.md`](./KOL%20Watch/README.md)**。从 [`Apatheticco/stock-kol-watch-framework`](https://github.com/Apatheticco/stock-kol-watch-framework) 同步（开发主源）。主链已在真实数据端到端实跑；两个子代理路径与周报仅模板验证。
+完整说明见 **[`Feed Desk/README.md`](./Feed%20Desk/README.md)**。从 [`Apatheticco/stock-kol-watch-framework`](https://github.com/Apatheticco/stock-kol-watch-framework) 同步（开发主源）。主链已在真实数据端到端实跑；两个子代理路径与周报仅模板验证。
 
 ---
 

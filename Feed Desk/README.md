@@ -1,8 +1,11 @@
-# KOL Watch — 关注名单观察台
+# Feed Desk — 美股信息流工作台
 
 > 📌 **本目录从 [`Apatheticco/stock-kol-watch-framework`](https://github.com/Apatheticco/stock-kol-watch-framework) 同步而来**（那里是开发主源，本目录是快照）。完整的 README / 操作手册以该仓为准；下方安装命令已适配 Followin-Skills 的目录结构。
 
-**一句话**：你在推特上关注了十几个讲股票的人——**他们每天说的话，你其实一条都没沉淀下来。**
+**一句话**：把**你自己那条美股信息流**——那十几个你关注的账号——**每天拆开、归档**。
+
+拆解：剥掉段子和广告，按标的 / 板块 / 反方拆成结构化条目。
+归档：逐日累积成可查的档案，三周前谁在 $85 说的多，五秒能翻到。
 
 ---
 
@@ -66,7 +69,7 @@
 ls ~/.claude/skills/ 2>/dev/null | grep stock-kol-watch
 
 # 没有输出 → 安全，直接拷
-cp -rn "KOL Watch/skills/"* ~/.claude/skills/
+cp -rn "Feed Desk/skills/"* ~/.claude/skills/
 ```
 
 **两种用法，先低后高**：
