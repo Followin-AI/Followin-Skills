@@ -4,6 +4,25 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-08-03（晚）— 新增 `KOL Watch/`：关注名单观察台（从 Apatheticco/stock-kol-watch-framework 同步）
+
+**这支补的是一个此前空着的位置：「你自己那份名单」。** 现有几支要么是发现器（r0 研报覆盖榜、c4 社群脉搏——回答"全网在看谁"），要么是单点尽调（Trader Diligence——回答"这个人值不值得跟"）。**没有一支处理"我固定关注的这 12 个人，今天说了什么，以及三周前说过什么"。** KOL Watch 只读用户指定的名单，产出日报 + 逐日累积的标的/板块档案 + 决策日志。
+
+**与既有 skill 的边界**（三者常被混为一谈，README 里已写死）：
+- `c4_social-pulse` = 全网 KOL 的**嘴**（发现）
+- `Trader Diligence` = 追踪交易员的**钱**（尽调）
+- `KOL Watch` = **你自己名单**的嘴（沉淀 + 复盘）
+
+**目录形态取 Twitter Workflow 的先例**：从外部开发主源同步的快照，`skills/` 下放实际 skill 目录，README 顶部挂主源指针，安装用 `cp -rn "KOL Watch/skills/"* ~/.claude/skills/`。不是单文件 command——它带 6 个 references + 2 个 scripts，塞不进 `~/.claude/commands/`。
+
+**同步进来的这版（v2.0）修掉的实测缺陷**，几条与本仓 caveats 相关：
+- `twitter user_tweets` 一次只返一页（实测 20 条），宽窗口/断档补拉时盖不住窗口且**无任何告警** → 脚本机械检测"本页最早一条是否仍晚于 cutoff"
+- 嵌套推文字段是 `quoted_tweet` / `retweeted_tweet`（snake_case），查驼峰键会让 RT/QT 标记**全部静默丢失**（实测某宏观账号 19/20 条是引用推）
+- `metrics` 数组参数被 schema 拒（须走 `query` 字符串）；裸 ticker 会路由到 fundamentals 拿不到报价（须带 "live stock price quote" 类意图词）
+- 行情返回的 `change` 是**绝对美元不是百分比**（实测 META change=31.13 实为 +5.59%，误读即编数）
+
+**验证状态如实标注**：主链已端到端实跑（🅱️ 简报 + 🅰️ 全流程含门禁反向测试）；reader / completeness-critic 子代理与 5 节周报**仅模板验证、尚未实跑**——README 与根 README 均已写明，不粉饰。
+
 ## 2026-08-03（晚）— 目录改名：`Live Positions/` → `Trader Diligence/`
 
 **改名理由是命名不一致，不是措辞偏好。** 兄弟目录全部是「领域 + 干什么的」——Earnings **Screener**、Premarket **Tracker**、Research **Reader**、Twitter **Workflow**；只有 `Live Positions` 是**数据名**，读起来像个数据集而不是工具。而这支真正的产品是那六道闸（判断），不是那张持仓表（数据）。

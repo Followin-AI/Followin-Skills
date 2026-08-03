@@ -231,6 +231,33 @@ Full write-up in **[`Twitter Workflow/README.md`](./Twitter%20Workflow/README.md
 
 ---
 
+## KOL Watch (1 skill)
+
+**Your own roster of stock KOLs → a daily brief plus a running archive.** Not a trend finder — it only reads the accounts *you* name, strips the jokes and ads, organizes what's left by ticker and sector, and **accumulates it day over day** so "who was bullish at $85 three weeks ago" takes five seconds. Every line carries UTC + account + original tweet URL.
+
+| Layer | What you get |
+|---|---|
+| **Daily brief** | Two-zone: state zone overwrites to latest, event stream appends per batch — multiple pulls a day merge cleanly |
+| **Per-ticker / per-sector notes** | Price history, who said what and when, **bear cases kept separately and never deleted**, your own position log |
+| **Decision loop** | Every trade records *why* + 1w/1m/3m review prompts; lessons feed back into the pre-trade checklist |
+| **Weekly** | Holdings & sector evolution, KOL behavior, account-quality review, **your own decision-quality review** |
+
+Three gates run automatically, each closing a different silent failure: **account-level** coverage table (did we pull everyone?), **tweet-level** pagination warning (one call returns one page — 20 items — which won't cover a wide window), **file-level** close-out hook (did everything we pulled actually get written?). Plus a hard rule throughout: **every number must trace to a data source or a stated principle — no basis, no number.**
+
+Install (skill directory, not a command):
+
+```bash
+cp -rn "KOL Watch/skills/"* ~/.claude/skills/
+```
+
+⚠️ **Zero-config trial**: say "run a quick brief on these 5 accounts" with the built-in starters — nothing is written to disk. ⚠️ The 5 starters lean semiconductors with **no bear voice**; add 1–2 skeptics before real use — an all-bull roster is the most dangerous blind spot.
+
+**Boundaries**: this is the "your list" lens. Market-wide KOL chatter → `Community Skill/c4_social-pulse`; real money positions → `Trader Diligence`.
+
+Full write-up in **[`KOL Watch/README.md`](./KOL%20Watch/README.md)**. Synced from [`Apatheticco/stock-kol-watch-framework`](https://github.com/Apatheticco/stock-kol-watch-framework) (dev source). Main chain verified end-to-end on live data; the two subagent paths and the weekly are template-verified only.
+
+---
+
 ## Community bundle (6)
 
 A separate bundle for **community operators** running a US-stock community for beginners. Output is ready-to-paste Traditional Chinese posts. Full operator handbook — module index, weekly cadence, quota budget, pinned-post templates — in **[`Community Skill/README.md`](./Community%20Skill/README.md)**.
