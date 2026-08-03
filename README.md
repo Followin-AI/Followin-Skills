@@ -19,7 +19,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own (incl. a [folder README](./Earnings%20Screener/): methodology mapping + rejected alternatives) |
 | **[`Trader Diligence/`](./Trader%20Diligence/)** | 1 skill | Live perp positions of tracked traders — **who is actually long/short with real money, and can you trust their record**. Six gates against the most misleading fields (stale/ghost positions, duplicate names, net direction, win rate, profit factor, unpriced exposure). Does not compute returns (incl. a [folder README](./Trader%20Diligence/)) |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 standalone skill | US-stock premarket watchlist tracking — scheduled or immediate reports based on tickers, positions, and timezone |
-| **[`Feed Desk/`](./Feed%20Desk/)** | 1 skill | Your own US-stock feed, taken apart and filed every day — the accounts *you* follow → daily brief + a running per-ticker/per-sector archive + a decision journal. Three gates against silent gaps (missing accounts, missing tweets, unwritten files); every number must trace to a source (incl. a [folder README](./Feed%20Desk/)) |
+| **[`Feed Manager/`](./Feed%20Manager/)** | 1 skill | Your own US-stock feed, taken apart and filed every day — the accounts *you* follow → daily brief + a running per-ticker/per-sector archive + a decision journal. Three gates against silent gaps (missing accounts, missing tweets, unwritten files); every number must trace to a source (incl. a [folder README](./Feed%20Manager/)) |
 | **[`Research Reader/`](./Research%20Reader/)** | 5 skills | Which ticker to read, then reading sell-side research on it — can you trust the call, how far, what date to watch next, who else gets pulled in (incl. a [folder README](./Research%20Reader/) and [sample outputs](./docs/研报投研台样张.md)) |
 | **[`Twitter Workflow/`](./Twitter%20Workflow/)** | 7 skills | Daily Twitter ops for a crypto/macro/US-stock content account — scan → topic → draft → engage → review, MCP-driven, human confirms every publish (incl. a [folder README](./Twitter%20Workflow/)) |
 | **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
@@ -232,7 +232,7 @@ Full write-up in **[`Twitter Workflow/README.md`](./Twitter%20Workflow/README.md
 
 ---
 
-## Feed Desk (1 skill)
+## Feed Manager (1 skill)
 
 **Your own US-stock feed, taken apart and filed every day.** Not a trend finder — it only reads the accounts *you* name, strips the jokes and ads, organizes what's left by ticker and sector, and **accumulates it day over day** so "who was bullish at $85 three weeks ago" takes five seconds. Every line carries UTC + account + original tweet URL.
 
@@ -248,14 +248,14 @@ Three gates run automatically, each closing a different silent failure: **accoun
 Install (skill directory, not a command):
 
 ```bash
-cp -rn "Feed Desk/skills/"* ~/.claude/skills/
+cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 ```
 
 ⚠️ **Zero-config trial**: say "run a quick brief on these 5 accounts" with the built-in starters — nothing is written to disk. ⚠️ The 5 starters lean semiconductors with **no bear voice**; add 1–2 skeptics before real use — an all-bull roster is the most dangerous blind spot.
 
 **Boundaries**: this is the "your list" lens. Market-wide KOL chatter → `Community Skill/c4_social-pulse`; real money positions → `Trader Diligence`.
 
-Full write-up in **[`Feed Desk/README.md`](./Feed%20Desk/README.md)**. Synced from [`Apatheticco/stock-kol-watch-framework`](https://github.com/Apatheticco/stock-kol-watch-framework) (dev source). Main chain verified end-to-end on live data; the two subagent paths and the weekly are template-verified only.
+Full write-up in **[`Feed Manager/README.md`](./Feed%20Manager/README.md)**. Synced from [`Apatheticco/stock-kol-watch-framework`](https://github.com/Apatheticco/stock-kol-watch-framework) (dev source). Main chain verified end-to-end on live data; the two subagent paths and the weekly are template-verified only.
 
 ---
 

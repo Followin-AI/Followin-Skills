@@ -1,4 +1,4 @@
-# Feed Desk — 美股信息流工作台
+# Feed Manager — 美股信息流管理
 
 > 📌 **本目录从 [`Apatheticco/stock-kol-watch-framework`](https://github.com/Apatheticco/stock-kol-watch-framework) 同步而来**（那里是开发主源，本目录是快照）。完整的 README / 操作手册以该仓为准；下方安装命令已适配 Followin-Skills 的目录结构。
 
@@ -69,7 +69,7 @@
 ls ~/.claude/skills/ 2>/dev/null | grep stock-kol-watch
 
 # 没有输出 → 安全，直接拷
-cp -rn "Feed Desk/skills/"* ~/.claude/skills/
+cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 ```
 
 **两种用法，先低后高**：

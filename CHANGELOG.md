@@ -4,16 +4,16 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
-## 2026-08-03（晚）— 新增 `Feed Desk/`：美股信息流工作台（从 Apatheticco/stock-kol-watch-framework 同步）
+## 2026-08-03（晚）— 新增 `Feed Manager/`：美股信息流管理（从 Apatheticco/stock-kol-watch-framework 同步）
 
-**这支补的是一个此前空着的位置：「你自己那份名单」。** 现有几支要么是发现器（r0 研报覆盖榜、c4 社群脉搏——回答"全网在看谁"），要么是单点尽调（Trader Diligence——回答"这个人值不值得跟"）。**没有一支处理"我固定关注的这 12 个人，今天说了什么，以及三周前说过什么"。** Feed Desk 只读用户指定的名单，产出日报 + 逐日累积的标的/板块档案 + 决策日志。
+**这支补的是一个此前空着的位置：「你自己那份名单」。** 现有几支要么是发现器（r0 研报覆盖榜、c4 社群脉搏——回答"全网在看谁"），要么是单点尽调（Trader Diligence——回答"这个人值不值得跟"）。**没有一支处理"我固定关注的这 12 个人，今天说了什么，以及三周前说过什么"。** Feed Manager 只读用户指定的名单，产出日报 + 逐日累积的标的/板块档案 + 决策日志。
 
 **与既有 skill 的边界**（三者常被混为一谈，README 里已写死）：
 - `c4_social-pulse` = 全网 KOL 的**嘴**（发现）
 - `Trader Diligence` = 追踪交易员的**钱**（尽调）
-- `Feed Desk` = **你自己那条信息流**（拆解 + 归档）
+- `Feed Manager` = **你自己那条信息流**（拆解 + 归档 + 长期管理）
 
-**目录形态取 Twitter Workflow 的先例**：从外部开发主源同步的快照，`skills/` 下放实际 skill 目录，README 顶部挂主源指针，安装用 `cp -rn "Feed Desk/skills/"* ~/.claude/skills/`。不是单文件 command——它带 6 个 references + 2 个 scripts，塞不进 `~/.claude/commands/`。
+**目录形态取 Twitter Workflow 的先例**：从外部开发主源同步的快照，`skills/` 下放实际 skill 目录，README 顶部挂主源指针，安装用 `cp -rn "Feed Manager/skills/"* ~/.claude/skills/`。不是单文件 command——它带 6 个 references + 2 个 scripts，塞不进 `~/.claude/commands/`。
 
 **同步进来的这版（v2.0）修掉的实测缺陷**，几条与本仓 caveats 相关：
 - `twitter user_tweets` 一次只返一页（实测 20 条），宽窗口/断档补拉时盖不住窗口且**无任何告警** → 脚本机械检测"本页最早一条是否仍晚于 cutoff"
@@ -21,7 +21,7 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
 - `metrics` 数组参数被 schema 拒（须走 `query` 字符串）；裸 ticker 会路由到 fundamentals 拿不到报价（须带 "live stock price quote" 类意图词）
 - 行情返回的 `change` 是**绝对美元不是百分比**（实测 META change=31.13 实为 +5.59%，误读即编数）
 
-**定名过程**（首次提交 eb7fbfb 用的是 `KOL Watch/`，同日改为 `Feed Desk/`）：`KOL` 在本仓不唯一——`c4_social-pulse` 也是 KOL，用它当目录名区分不出是哪一种；`Watch` 又与 Premarket **Tracker** 的动作重叠，且漏掉了这支真正的差异化。排除过 `Roster Journal` / `Watchlist Journal` / `Following Digest`（roster 是行话、watchlist 在金融语境指标的而非人）。**定名依据是这支的实际职能：美股信息流的「拆解」+「归档」**——Desk 一词两半都盖（材料进来、拆开、归档），也与仓里既有的中文命名习惯「实盘尽调台 / 研报投研台」对应。
+**定名过程**（同日改过两轮：`KOL Watch/` → `Feed Desk/` → `Feed Manager/`）：`KOL` 在本仓不唯一——`c4_social-pulse` 也是 KOL，当目录名区分不出是哪一种；`Watch` 又与 Premarket **Tracker** 的动作重叠。域词最终取 **Feed（信息流）**——兄弟目录的域词全是通用词（Earnings / Premarket / Research / Trader / Twitter），roster、watchlist 这类行话或歧义词不合格（watchlist 在金融语境指标的而非人）。动作词取 **Manager**：这支的职能就是**把一条持续流入的信息流管起来**——每天拆解、逐日归档、长期可查，而不是某一次性动作。排除过 `Roster Journal` / `Roster Digest` / `Watchlist Journal` / `Following Digest` / `Feed Reader`（会被读成 RSS）/ `Feed Archive`（像冷存储，弱化了每天主动跑）/ `Feed Desk`。
 
 **验证状态如实标注**：主链已端到端实跑（🅱️ 简报 + 🅰️ 全流程含门禁反向测试）；reader / completeness-critic 子代理与 5 节周报**仅模板验证、尚未实跑**——README 与根 README 均已写明，不粉饰。
 
