@@ -1,4 +1,4 @@
-# Live Positions — 实盘尽调台
+# Trader Diligence — 实盘尽调台
 
 **一句话**：有人正在用真钱做这只票——**他值不值得跟？**
 
@@ -69,7 +69,7 @@ Followin MCP 里有一张实盘持仓榜：一批被追踪的交易员，各自�
 **安装**：
 
 ```bash
-cp "Live Positions"/*.md ~/.claude/commands/
+cp "Trader Diligence"/*.md ~/.claude/commands/
 ```
 
 **触发**——说人话就行，简繁体都认：

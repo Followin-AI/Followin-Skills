@@ -4,6 +4,16 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-08-03（晚）— 目录改名：`Live Positions/` → `Trader Diligence/`
+
+**改名理由是命名不一致，不是措辞偏好。** 兄弟目录全部是「领域 + 干什么的」——Earnings **Screener**、Premarket **Tracker**、Research **Reader**、Twitter **Workflow**；只有 `Live Positions` 是**数据名**，读起来像个数据集而不是工具。而这支真正的产品是那六道闸（判断），不是那张持仓表（数据）。
+
+`Trader Diligence` 与中文名「实盘尽调台」一一对应，也与 skill 文件 `live-position-diligence.md` 同源。
+
+**排除过的候选**：`Copy-Trade Checker`（与「不做跟单账本」直接打架）· `Smart Money Tracker`（榜上多为 tier D 亏损户，"smart" 背不动）· `Position Auditor`（会被读成"审计我自己的持仓"）。
+
+**skill 文件名与 `name:` 字段不动**（`/live-position-diligence` 触发词不变）——改的是 bundle 目录，不是 skill 本身。
+
 ## 2026-08-03（晚）— 尽调卡全流程实跑：4 个 Skill 缺陷 + 1 条新 caveat（升 v1.5）
 
 **按 v1.4 把 20 条仓位从头跑到尾出一张真卡**，撞出的问题全部来自「跑」而非「读」：
@@ -25,7 +35,7 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
 
 **✅ 稳定复现的结论**：前三人占已标名义 **88%**（08-01 为 90%）· 显示名重复（T3=T3′，profile 指纹含 `summary_refreshed_at` 逐字一致）· `actions.close` 全组为 0。
 
-## 2026-08-03 — 实盘侧复验：两条新坑（N-59p/q），Live Positions 升 v1.4
+## 2026-08-03 — 实盘侧复验：两条新坑（N-59p/q），Trader Diligence（原 Live Positions）升 v1.4
 
 **复验一次全榜（`c02a7271`，5 组 / 20 仓 / 13 个显示名，归一后 12 人），当场撞出两条新的：**
 
@@ -40,7 +50,7 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
 - **N-59l 维持待复验**——触发条件本批未出现：5 个 null-notional 行**全部无 `entry_price`**；唯一两者兼有的行经手算核对 `long.notional` 合计 **2,244,902 与 rollup 逐字相符**，未污染。**未命中 ≠ 已修**。
 - **N-59m 机制仍在，且证据更强**——原样本的幽灵仓交易员已掉出榜单，但**本批 5 个 rollup 的 `actions.close` 全部为 `0`**（20 仓、跨 8 天、零个平仓事件），与「close 不回流」完全一致；陈旧仓依旧普遍（最旧 6.2 天，`is_active` 全 true）。**闸① 保留**。
 
-**Live Positions v1.3 → v1.4**：闸⑤ 时间锚换字段 · 闸③ 新增形态 4 · 闸⑥ 拆成「标的无价格源」与「平台没给名义」两个来源（实测 XYZ100 两条同时命中，CXMT 只命中前者）· 自查条目 4 → 6 条 · 输出模板与卡头口径同步。
+**Trader Diligence v1.3 → v1.4**：闸⑤ 时间锚换字段 · 闸③ 新增形态 4 · 闸⑥ 拆成「标的无价格源」与「平台没给名义」两个来源（实测 XYZ100 两条同时命中，CXMT 只命中前者）· 自查条目 4 → 6 条 · 输出模板与卡头口径同步。
 
 ## 2026-08-03 — `time_range` 修复闭环：r0 升 v2.0（破坏性变更）
 
@@ -64,9 +74,9 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
 **两处历史失效标注同步跟进**：`docs/产出样张集` 样张 3-1 与 `references/community-post-style` T-1——它们当初的作废理由①（"时间窗是假的 / 不得带时间定语"）**现已不成立**，改标为"重跑即可正当写本週"并补上重跑规格；但理由②（N-39 方向不可用）**至今仍成立**，两份样本的方向列继续封存。
 ⚠️ **T-1 的抬头保持不带时间定语**——它的数字仍是 07-22 的累计口径，**改标签而不重跑数据等于编造**。
 
-## 2026-08-01 — 新增 `Live Positions/`（实盘尽调卡）+ 五条新坑，含一条上游 bug 与一条幽灵仓
+## 2026-08-01 — 新增 `Trader Diligence/`（实盘尽调卡，当时名为 `Live Positions/`）+ 五条新坑，含一条上游 bug 与一条幽灵仓
 
-**新增 [`Live Positions/live-position-diligence`](./Live%20Positions/live-position-diligence.md)。** 补上宣发两大主角里唯一没有专属 Skill 的那个——此前 `trader_position` 只在 `c4_social-pulse` 里当组件出现。新目录而非并入现有目录，因为它是另一个数据源（`signal` 而非 `metrics`）。
+**新增 [`Trader Diligence/live-position-diligence`](./Trader%20Diligence/live-position-diligence.md)。** 补上宣发两大主角里唯一没有专属 Skill 的那个——此前 `trader_position` 只在 `c4_social-pulse` 里当组件出现。新目录而非并入现有目录，因为它是另一个数据源（`signal` 而非 `metrics`）。
 
 **⚠️ 与 2026-07-30 被否决的方案的边界**：那次否的是**模拟跟单账本**（前向记账、mark-to-market、算收益）；本 Skill 是**只读尽调卡**，明确写死"不算收益、不做账本"，并在正文引用该否决结论。否决理由①说"用户问'这人赚不赚钱'一次裸调用就答完了"——而同一份文档紧接着写「**几个最扎眼的数字恰好最会骗人**」。**后半句才是本 Skill 的产品**：它卖的是六道闸，不是那张表。
 
