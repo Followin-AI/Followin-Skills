@@ -63,17 +63,11 @@ version: 2.0-framework
 5. **重大事件后等完整数据**：财报/政策/黑天鹅后第一次拉的可能是初期反应——1h 内再拉一次完整区间（day high/low/close），双源交叉验证，不 single snapshot 下判断。
 6. **全量拉取**：默认拉满整个 roster，不许挑几个核心账号代替（详见 Step 2 门禁）。
 
-**MCP 路由**（参考实现，⚠️ 下列写法为**实测通过**的形式）：
+**MCP 路由**（参考实现；⚠️ 调用签名**只写在各 Step 执行现场，一处维护**）：推文 → Step 2；报价 + 目标价 → Step 5；外部共识对照 → Step 6.6。
 
-| 要什么 | 调用 |
-|--------|------|
-| **报价** | `metrics(query="<T> live stock price quote", asset_type="tradfi", verbosity="concise")` |
-| **目标价/评级/财报** | `metrics(query="<公司全名> analyst price target", asset_type="tradfi")` |
-| 推文 | `twitter(action="user_tweets", user_name="<handle>")` |
-
-⚠️ **两个实测坑，照抄参数会直接失败**：
+⚠️ **两个 schema 级坑，对所有 metrics 调用生效（实测，照直觉传参会直接失败）**：
 1. **数组参数会被 schema 拒**（`keywords=[...]` / `categories=[...]` 报 `has type "string", want array"`）→ **一律走 `query` 字符串**。
-2. **只写 ticker 会路由到 fundamentals 拿不到价格**（返回三表+估值，无 price 字段）→ query 里**必须带 "live stock price quote" 这类明确意图词**，否则拿不到 `price/dayHigh/dayLow/yearHigh/yearLow`。
+2. **只写 ticker 会路由到 fundamentals 拿不到价格**（返回三表+估值，无 price 字段）→ query 里**必须带 "live stock price quote" 这类明确意图词**。
 
 ---
 
@@ -402,16 +396,4 @@ spawn prompt 用 [references/critic-prompt.md](references/critic-prompt.md) 模�
 
 ## 进阶扩展
 
-用顺手了想加层 → [references/advanced-extensions.md](references/advanced-extensions.md)：
-
-| § | 层 | 节奏 |
-|---|---|---|
-| 1 | 实盘仓位源（需自备数据流） | 日 |
-| 2 | **卖方研报 ingest**（投行 thesis / 催化剂 / PT 改动 old→new） | 🟠 事件触发 + 🔵 周（实测低频，日拉常 0 篇）|
-| 3 | 独立研究 ingest（第三方长文 thesis，反方深度主要来源） | 日宽扫 |
-| 4 | digest 深读外包（省上下文最大单项） | 按 digest 体量 |
-| 5 | RT/QT 候选账号挖掘 | 日累积 + 周判定 |
-| 6 | 归档与覆盖审计 | 周 |
-| 7 | ❌ trader_position（tradfi）—— **实测数据为空，已否决** | — |
-
-每层附"是什么 + 怎么加回来 + 已知陷阱"。§2/§7 的参数与陷阱全部实测得出。
+用顺手了想加层 → [references/advanced-extensions.md](references/advanced-extensions.md)：7 节——实盘仓位源 / 卖方研报 ingest / 独立研究 ingest / digest 深读外包 / RT-QT 候选挖掘 / 归档审计 / 一条实测否决项（trader_position）。每节含"是什么 + 怎么加回来 + 节奏建议 + 实测陷阱"；**各层的节奏与参数不在此镜像，唯一权威在那个文件**。
