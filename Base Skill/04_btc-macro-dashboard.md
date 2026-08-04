@@ -1,6 +1,6 @@
 ---
 name: BTC Macro Dashboard
-description: 评估BTC当前宏观环境，输出0-100综合评分和分层分析。当用户问"BTC宏观怎么样"、"宏观环境如何"、"现在几分"时触发。
+description: 评估BTC当前宏观环境，输出0-100综合评分和分层分析。当用户问"BTC宏观怎么样"、"BTC 宏观环境如何"、"BTC 现在几分"时触发；不带资产限定词的"宏观环境如何/现在几分"先追问问的是哪个资产（黄金→05，市场早报→06）。
 trigger: BTC宏观、BTC宏观看盘、BTC宏观评分、BTC宏观环境、BTC macro、BTC macro dashboard、BTC macro score、BTC macro environment、how is BTC macro
 not_trigger: 策略信号、KOL、喊单、热点、TG频道、日报、代币舆情、黄金、行情、价格、strategy、KOL calls、trending、TG channels、daily brief、gold、token news
 mcp: mcp__followin__metrics

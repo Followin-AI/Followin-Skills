@@ -457,7 +457,7 @@ metrics(asset_type="tradfi", query="<T1> <T2> <T3> <T4> <T5> next earnings date"
 | **N-22** | earnings_calendar limit 50 封顶 + 只覆盖首日 + symbol 升序截断 → **不可做发现腿** |
 | **N-24** | `next earnings date` = 轻量模式（5 KB vs 8.7 KB）；transcript **仅**在 query 含 `earnings call transcript` 时才拉 |
 | **N-25** | `news(limit=N)` 实返 **2N** 条；social 桶美股 ticker 密度更高 |
-| **N-26** | news 陈述业绩事实句式（13/20）优于情绪涨跌句式（3/20）——**仅适用 Step 2 无实体捞取** |
+| **N-26** | news 陈述业绩事实句式优于情绪涨跌句式（相对排序稳定；**绝对命中率波动大不可当基准**，07-23 与 07-27 两轮实测同 query 差近一半）——**仅适用 Step 2 无实体捞取** |
 | **N-27** | `verbosity` 参数对 metrics **无效**，不用传 |
 | **N-28** | 🆕 transcript 的 `_meta.freshness` 恒为 `"q-1"` 属误导，核对新鲜度看 `transcript[0].date`/`period` |
 | **N-29** | 同 payload 内 GAAP 与非 GAAP EPS 并存且无口径字段 → 引用 `beat_miss.epsActual` 必比对 `latest_quarter.eps`，反号即口径错位（**须先确认同季，见 N-33**）|
