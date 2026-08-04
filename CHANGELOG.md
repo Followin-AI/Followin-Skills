@@ -47,6 +47,44 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
 
 **验证状态如实标注**：主链已端到端实跑（🅱️ 简报 + 🅰️ 全流程含门禁反向测试）；reader / completeness-critic 子代理与 5 节周报**仅模板验证、尚未实跑**——README 与根 README 均已写明，不粉饰。
 
+## 2026-08-04 — dev 修复批次实测验收：4 条销案 · 2 条改部分修复 · 3 条新立（10 次实调）
+
+**⚠️ 最紧急的一条：已发布 Skill 引用了死字段。** 研报榜方向字段改名 `direction_counts`/`net_direction` → **`mention_impact{counts:{adverse,beneficiary,mixed,neutral}, dominant}`**，旧名**已不存在**。r0 / c3 / r1 三处镜像同步改完。
+
+### ✅ 已修（实测销案）
+
+| 条目 | 证据 |
+|---|---|
+| **「参数假装生效」反模式** | **根治**。返回新增 `status:"partial"` + `severity:"degraded"` 警告，明确说明哪个参数没能完全生效及原因（*"country candidate cap 500 reached before full leaf coverage could be proven"*）。**直接兑现 07-20 那份能力缺口工单** |
+| **静默空返回** | 空结果现在带 `warnings.no_match`，含原因 + 路由建议 |
+| **N-61** 桶冻结 | 桶已跟随窗口：7d 只返 `report_title_only.*` 两桶；`date_from=07-01/date_to=07-15` 则四桶齐全（`out_of_scope:54`、`ignored_over_page:7`）。原「12 天不变」根因是**桶当时不随窗口过滤** |
+| **N-22** 财报日历不可发现 | `country` + `date_from`/`date_to` 真实生效：`country=US` + 08-04→08-08 返回 **TTWO / VST / BRK-B**；此前只能拿到 `0087.HK`/`0A55.L` 这类字母序排头的冷门票。⚠️ 仍带 500 候选上限警告，措辞不得写「本周全部财报」 |
+
+### 🆕 新增能力
+
+- **`date_from` / `date_to` 绝对区间**——不只相对 `time_range`。实测 07-01→07-15 返回完全不同的榜（MU 第 7、INTC 第 10，均不在 7d 榜）。**r0 升 v2.1 已吃进**：解锁「对齐事件窗」与「同比/环比」两种此前做不到的用法
+- **`audit_counts` + `registry_candidate_counts`** 管线漏斗透明化（154 深抽 / 213 仅标题 / 28 待注册）
+- **mention 报告字段大扩展**：`thesis` / `key_caveat` / `latest_catalyst` / `consensus_diff` / `mention_context{mention_direction, rationale, context_snippet}` / `coverage_flag{completeness, missing}`
+
+### ⚠️ 改判为部分修复
+
+- **N-38 家数腿**——「虚高」证据消失。NVDA 7d 榜面 **8 家/28 篇**，钻取 10 篇去重 **5 家**；旧口径 25→3（8.3 倍），新 8→5（1.6 倍），差额可由 10 篇硬顶完全解释。⛔ 但硬顶让精确验证在结构上不可能，**措辞从「虚高」改为「钻取所见是下界」**
+- **N-39 方向字段**——语义诚实化（见上方改名）。新名自己说明是 mention 层影响、非机构共识，每条 mention 可追溯原文依据。**底层性质未变，读法不变：一律不读**
+
+### 🔴 仍复现
+
+N-8 数组参数 · N-59j 巨鲸压秤（BTC 6多:2空 报 short）· N-59m 幽灵仓（5 组 `close` 全 0，最旧仓 7 天未动仍 active；但 `open` 动作现在会出现了）· **N-59p 更糟**（`summary_refreshed_at` 跨度 2 天 → **3 天**）· N-59q（AAPL 组 1/1 无名义 → gross 0/balanced，该仓 20x）· N-66 硬顶 10 · N-59l 触发条件仍未出现（算术全部精确匹配），维持待复验
+
+### 🆕 三条新立
+
+| 编号 | 发现 |
+|---|---|
+| **N-59s** | 🔴 **同名不同人——N-59n 的镜像，且两个方向同时存在**。BTC 组「T3」出现两次、profile 完全不同（tier A/151 笔 vs tier —/0 笔），而同批 CL 组「T3′」又与前者逐字段相同。✅ `active_trader_count` 按 profile 计数是对的，错的是显示名 → **闸② 改为双向**：指纹同则合并（哪怕异名），**指纹异则强制拆开（哪怕同名）**并标注「同名两个账户」|
+| **N-71** | 🐛 **服务端自己给的补救建议照做必然报错**。`no_match` 警告推荐 `categories=[kol_call] keywords=[BTC]`，而数组参数被 schema 拒（N-8）。🔑 **根因锁定**：两个参数的 schema 是**无类型空对象 `{}`**，客户端只能序列化成字符串。→ **修法极小：改成 `{"type":"array","items":{"type":"string"}}`，N-8 与本条一并消失** |
+| **N-72** | **`has_more:false` 与 `status:"partial"` 同时出现、语义打架**。earnings_calendar 同一返回里前者说没有更多、warning 说覆盖完整性未被证明。另 `country`/`date_from`/`date_to` 生效但 `meta.filters_applied` **不回显**。→ **判完整性只看 `status`** |
+
+**同步改动**：r0 **v2.0 → v2.1**（三个字段读法重写 + 吃进绝对区间 + 自查 3→5 条）· Trader Diligence **v1.5 → v1.6**（闸② 双向 + 自查 6→7 条）· c3/r1 镜像对齐 · caveats 87 → **93 条**。
+
 ## 2026-08-03（晚）— 目录改名：`Live Positions/` → `Trader Diligence/`
 
 **改名理由是命名不一致，不是措辞偏好。** 兄弟目录全部是「领域 + 干什么的」——Earnings **Screener**、Premarket **Tracker**、Research **Reader**、Twitter **Workflow**；只有 `Live Positions` 是**数据名**，读起来像个数据集而不是工具。而这支真正的产品是那六道闸（判断），不是那张持仓表（数据）。

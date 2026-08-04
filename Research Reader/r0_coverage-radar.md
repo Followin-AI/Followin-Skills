@@ -11,7 +11,8 @@ args: window(可选，默认 7d) / top(可选，默认 5) / probe(可选，默�
 
 **这张榜不回答「机构看好谁」，只回答「卖方写什么都绕不开谁」。前者是共识，榜面给不了；后者是叙事中心度，榜面正好擅长。**
 
-> **版本**：v2.0 ｜ **实测验证于 2026-08-03**（四档窗口交叉：`24h` `934e3b67`…、`7d`、`14d` `40bd20df`、`30d` `daa63cfb`、累计 `3dc475b9`；层 2 `a1bd82ad` / `4ad0bdd3`）
+> **版本**：v2.1 ｜ **实测复验于 2026-08-04**（`ddabb609` 7d 榜 / `6df824ed` 绝对区间 / 层 2 钻取）· v2.0 验证于 2026-08-03（四档窗口交叉）
+> **v2.1 变更**（上游字段结构变更，非行为变更）：方向字段**改名** `direction_counts`/`net_direction` → **`mention_impact`** · `target_price_coverage` 改为对象 · `distinct_institution_count` 虚高证据消失（8→5，旧为 25→3）· **新增 `date_from`/`date_to` 绝对区间能力** · 自查 3→5 条
 >
 > 🔴 **v2.0 是破坏性变更**：dev 已修好 `time_range`（N-37/N-38 销案），本 Skill 的核心前提从「累计榜、禁时间窗定语」**整体反转**。默认窗口由「不传（累计）」改为 **7d**，主/配角判读由「标的属性」改为 **「标的 × 窗口」的函数**。
 > <details><summary>v1.x 的历史前提（已作废）</summary>
@@ -22,10 +23,12 @@ args: window(可选，默认 7d) / top(可选，默认 5) / probe(可选，默�
 > ⚠️ 本文所有 ⚠️ 与阈值都是实测结果或明确标注的拍脑袋值，不是推断。MCP 行为会变。
 > 通用红线见 [`references/followin-mcp-caveats.md`](../references/followin-mcp-caveats.md)，本文内联的是镜像，冲突以该文件为准。
 >
-> **隔一段时间再用，先花两分钟自查这 3 条**：
+> **隔一段时间再用，先花两分钟自查这 5 条**：
 > ① 同日连发 `7d` 与 `30d` → `date_from` 不同且 `eligible_event_count` 不同 = **窗口仍然生效**。⚠️ **若两次又变成逐字相同，说明 N-37 回归了**，须退回累计口径表述
 > ② 看返回里的 `time_scope`：传窗口应为 `report_date_window`、不传应为 `all_available_reports`。**这个字段是窗口是否生效的直接自证**
 > ③ 榜首标的跑层 2 预检 → 短窗口下 `subject_report_returned_count` **经常为 0**（实测 NVDA 7d 窗口下 subject=0/mention=10）。为 0 是**正常状态**，不是故障
+> ④ 看方向字段叫什么名 → 应为 **`mention_impact`**；若又变回 `direction_counts`/`net_direction`，说明改名被回滚，**读法不变（一律不读）**，但文档表述要跟着回改
+> ⑤ 传一组 `date_from`/`date_to` 与一组等长 `time_range` → 两者 `eligible_event_count` 应可比；若绝对区间被静默忽略（返回等同不传），说明该能力回归了
 
 ## 参数
 
@@ -87,6 +90,23 @@ metrics(query="research reports most mentioned stocks", asset_type="tradfi")    
 > ⚠️ **query 必须含研报意图词**（红线 12）。只放"半导体/AI"这类话题词不会路由到研报路径，会静默掉进 CORE fundamentals 全家桶，且照常计 1 额度。
 > ⚠️ **`meta.warnings` 会误报 `default_fanout_fallback`**（N-21）——假阴性，不要据此重试。以 `results.fundamentals.research_report_most_mentioned` 是否存在为准。
 
+### 🆕 `date_from` / `date_to`：任意历史窗口（2026-08-04 新增能力）
+
+`time_range` 只能给**相对**窗口（`7d`/`30d`）。现在可以直接传**绝对区间**：
+
+```
+metrics(query="research reports most mentioned stocks", asset_type="tradfi",
+        date_from="2026-07-01", date_to="2026-07-15")
+```
+
+实测 07-01→07-15 返回的榜与 7d 榜**完全不同**（`MU` 第 7、`INTC` 第 10，两者都不在 7d 榜上）。
+
+**这解锁了 v2.0 做不到的两件事**：
+- **对齐事件窗**——财报周、发布会周可以精确框定，不必迁就 `7d`/`30d` 的整数天
+- **同比/环比**——拉两个等长的历史区间做对照，看某只票的点名密度是升是降
+
+⚠️ 与 `time_range` **不要同传**（未测同传时谁优先）。传 `date_from/date_to` 时返回的 `time_range` 字段会缺席，但 `time_scope` 仍为 `report_date_window`。
+
 **窗口生效的自证字段**（v2.0 新增，dev 已实现）：
 
 | 字段 | 传窗口时 | 不传时 |
@@ -102,10 +122,10 @@ metrics(query="research reports most mentioned stocks", asset_type="tradfi")    
 | 字段 | 读法 | 铁律 |
 |---|---|---|
 | `rank` / `mentioned_report_count` | **叙事中心度**——卖方写东西时绕不开谁 | 写"被点名 N 次"，**绝不写"N 篇研报覆盖它"** |
-| `distinct_institution_count` | 榜面家数 | ⚠️ **仍然虚高**（N-38 家数腿未修）：实测榜面 25 家，钻取去重后**只见 3 家**（BofA/MS/Citi 各 2 篇）。写"榜面称 N 家" |
-| `target_price_coverage` | 有几家给了数字目标价（**含 mention 级**）| ⛔ **不能用它推断专题密度**——见 N-60 弯路 |
+| `distinct_institution_count` | 榜面家数 | ⚠️ **仍当上界写**，但 **2026-08-04 起虚高证据消失**：实测 NVDA 榜面 **8 家 / 28 篇**，钻取 10 篇见 **5 家**（旧口径是 25→3）。差额可由 10 篇硬顶完全解释 → **不能再说"虚高"，只能说"钻取所见是下界"** |
+| `target_price_coverage` | **2026-08-04 起改为对象** `{with_numeric_target, with_text_target}`（**含 mention 级**）| ⛔ **不能用它推断专题密度**——见 N-60 弯路。⚠️ 数值口径也变严了：NVDA 7d 仅 `with_numeric_target:1`（旧口径曾报 15）|
 | `latest_report_date` | 最近一次被点名 | ✅ 可直接引用 |
-| `direction_counts` / `net_direction` | ⛔ **不读、不输出、不引用** | N-39 未修。实测同一标的在 7d 是 `neutral`、30d 是 `positive`——**换个窗口就换个方向，正说明它不是共识** |
+| **`mention_impact`**`{counts:{adverse,beneficiary,mixed,neutral}, dominant}` | ⛔ **不读、不输出、不引用** | 🔄 **2026-08-04 改名**：旧 `direction_counts`/`net_direction` 已不存在。<br>✅ **新名是诚实的**——字段自己说明这是 **mention 层影响**不是机构共识。<br>⛔ 但**底层性质未变**，仍不可当方向引用：实测同一标的换窗口就换 `dominant`（NVDA 7d=`neutral`、7/1–7/15=`beneficiary`）|
 
 **审计基数**：`eligible_event_count` + `excluded_counts`。**入榜率照算照写**，但注意 `out_of_scope` / `ignored_over_page` 两个桶疑似停更（N-61）——不要把它们的绝对值说成"本期排除了多少"。
 

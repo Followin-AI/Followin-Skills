@@ -262,7 +262,7 @@ news(query="<公司名> <TICKER>")
 |---|---|---|
 | 只看得到 10 篇 / 去重后 3–5 家 | 上游硬顶（N-38）| 所有家数标下界；**不做需要全覆盖的信号（错位族/信念族）**。实测去重后：NVDA 3 家、INTC 5 家、GOOGL 5 家 |
 | 孤儿阈值 1.3× / 0.95× | **拍的，未回测** | 同时输出原始百分比 + 跑「≥2 家同时触发则判中位滞后」的反向检查 |
-| 榜单 `net_direction` 不可用 | 连带污染（N-39）| 本 Skill 全程不读榜单方向，只读钻取后的 `subject_reports` |
+| 榜单方向字段不可用 | 连带污染（N-39；字段 2026-08-04 改名为 `mention_impact`）| 本 Skill 全程不读榜单方向，只读钻取后的 `subject_reports`。⚠️ **也不读 `mention_reports[].rating_current`**——那是报告自己主角的评级 |
 | **停止覆盖信号：未证实，不是做不了** | ⚠️ **2026-07-29 修正此前的错误断言**：`revision_summary.list_changes[]` **字段确实存在**（结构 `{action, list, security}`），此前写"MCP 无此字段"是错的 | 实测三标的只见到 `action` 为 `initiate`（Bernstein 07-27 组合名单）与 `add`（J.P. Morgan 加入 Positive Catalyst Watch），**未见到停覆类 action**。→ 表述为"**样本内未出现，机制上可能支持**"，出现时按库内时钟族读法处理；**不承诺一定能抓到** |
 | 方向翻转（错位族）做不了 | 需同机构前后比对，而只有 3–5 家可见、`rating_history` 只带 TP 不带 rating | 不做。**但 `revision_summary` 的 old→new TP 是可用的替代**（实测 INTC 两家真上调），已并入候选强度 |
 | `subject_reports=0` | 真实分支（实测 F 全 mention）| 不出读数卡，降级为 mention 叙事。**且该状态会变**——GOOGL 07-23 为 0、07-29 为 6 |

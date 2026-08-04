@@ -17,7 +17,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 > ⇒ 层 1 **恢复传 `time_range="7d"`**，对外可以正当地说「本週」——**但必须引用返回的 `date_from`→`date_to`，不要自己算**。
 > ⚠️ 首次恢复前请自查：同日连发 `7d` 与 `30d`，`eligible_event_count` 应不同；`time_scope` 应为 `report_date_window`。
 >
-> **② 榜面的多空方向仍然不可用（N-39 未修）。** `direction_counts`/`net_direction` 依旧是 mention 层连带混算——**换个窗口同一标的就从 positive 变 neutral**，这本身就说明它不是共识。层 1 继续不输出方向。
+> **② 榜面的多空方向仍然不可用（N-39）——但字段已改名。** 🔄 **2026-08-04 起**：`direction_counts`/`net_direction` **已不存在**，新名是 **`mention_impact{counts:{adverse,beneficiary,mixed,neutral}, dominant}`**。新名更诚实（自己说明是 **mention 层影响**不是共识），但**底层性质未变**——实测同一标的换窗口就换 `dominant`。层 1 继续不输出方向。
 >
 > 想给投研用户（非社群）一个带完整口径闸 + 双窗口对照的版本，走 [`Research Reader/r0_coverage-radar`](../Research%20Reader/r0_coverage-radar.md)。
 
@@ -45,7 +45,8 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 - **机构家数**：榜面覆盖该标的的独立机构数量。⚠️ **是上界**——钻取去重后常大幅缩水（实测榜面 23 家 → 钻取只见 3 家，N-38）。
 - **目标价覆盖**：是否有目标价数据、覆盖家数。
 - **最近点名日期**：`latest_report_date`。✅ 与 `date_from`/`date_to` 一起用：前者是窗口边界，后者是这只票在窗口内最后一次被点名。
-- ⛔ **多空方向：不输出**。`direction_counts` / `net_direction` 是 mention 层连带混算的假共识（N-39），不可当"机构看多"引用。要方向去层 2 用 `subject_reports[].rating_current` 重算。
+- ⛔ **多空方向：不输出**。`mention_impact.dominant`（2026-08-04 前叫 `direction_counts`/`net_direction`）是 mention 层连带混算的假共识（N-39），不可当"机构看多"引用。要方向去层 2 用 `subject_reports[].rating_current` 重算。
+  ⚠️ **不要改用 `mention_reports[].rating_current` 顶替**——那是**该报告自己主角的评级，不是你查的票的**（实测查 NVDA，Goldman 的 `Neutral` 是给 ON 的、Nomura 的 `Buy` 是给 2454.TW 的）。`target_price.security` 字段写明了是谁的价，核对它。
 
 非美股 ticker（如 2330.TW、005930.KS）默认保留但标注市场（如"2330.TW（台股）"），运营可自行删除——榜单混入非美股不代表数据错误，只是新手社群以美股为主，交给运营取舍是否收录。
 
@@ -135,7 +136,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
 - **N-39（榜面多空方向是假共识，不可引用）**：
 
-  > 榜单的 `direction_counts` / `net_direction` 是连带混算的假共识，不可当"机构看多"引用。实测 NVDA `beneficiary 67 / negative 11 / neutral 40` → `net_direction: "positive"`，但这是 **mention 层面**的计数——研报点名"受益股"天然带正向。
+  > 榜单的 `mention_impact`（旧名 `direction_counts` / `net_direction`，2026-08-04 改名）是连带混算的假共识，不可当"机构看多"引用。实测 NVDA `beneficiary 67 / negative 11 / neutral 40` → `positive`，但这是 **mention 层面**的计数——研报点名"受益股"天然带正向。
 
   层 1 输出**不含任何多空字段**。`機構怎麼看` 段落的多空只能来自层 2 钻取后的 `subject_reports[].rating_current`，且按 N-38 标成下界。**排版示例里原有的 `多 22：空 0` 已移除。**
 
