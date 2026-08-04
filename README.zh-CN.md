@@ -247,7 +247,7 @@ cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 
 **边界**：这是"你自己名单"的视角。想看全网 KOL 在喊什么 → `Community Skill/c4_social-pulse`；想看真金白银的仓位 → `Trader Diligence`。
 
-完整说明见 **[`Feed Manager/README.md`](./Feed%20Manager/README.md)**。从 [`Apatheticco/stock-kol-watch-framework`](https://github.com/Apatheticco/stock-kol-watch-framework) 同步（开发主源）。主链已在真实数据端到端实跑；两个子代理路径与周报仅模板验证。
+完整说明见 **[`Feed Manager/README.md`](./Feed%20Manager/README.md)**。主链已在真实数据端到端实跑；两个子代理路径与周报仅模板验证。
 
 ---
 

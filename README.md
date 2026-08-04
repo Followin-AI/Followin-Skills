@@ -257,7 +257,7 @@ cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 
 **Boundaries**: this is the "your list" lens. Market-wide KOL chatter → `Community Skill/c4_social-pulse`; real money positions → `Trader Diligence`.
 
-Full write-up in **[`Feed Manager/README.md`](./Feed%20Manager/README.md)**. Synced from [`Apatheticco/stock-kol-watch-framework`](https://github.com/Apatheticco/stock-kol-watch-framework) (dev source). Main chain verified end-to-end on live data; the two subagent paths and the weekly are template-verified only.
+Full write-up in **[`Feed Manager/README.md`](./Feed%20Manager/README.md)**. Main chain verified end-to-end on live data; the two subagent paths and the weekly are template-verified only.
 
 ---
 

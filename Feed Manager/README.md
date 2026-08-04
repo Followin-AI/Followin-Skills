@@ -1,11 +1,9 @@
 # Feed Manager — 美股信息流管理
 
-> 📌 **本目录从 [`Apatheticco/stock-kol-watch-framework`](https://github.com/Apatheticco/stock-kol-watch-framework) 同步而来**（那里是开发主源，本目录是快照）。完整的 README / 操作手册以该仓为准；下方安装命令已适配 Followin-Skills 的目录结构。
+**你关注了十几个讲股票的人。这支每天替你读一遍，并且记住他们说了什么。**
 
-**一句话**：把**你自己那条美股信息流**——那十几个你关注的账号——**每天拆开、归档**。
-
-拆解：剥掉段子和广告，按标的 / 板块 / 反方拆成结构化条目。
-归档：逐日累积成可查的档案，三周前谁在 $85 说的多，五秒能翻到。
+**拆解**：剥掉段子和广告，按标的 / 板块 / 反方拆成结构化条目。
+**归档**：逐日累积成可查的档案——三周前谁在 $85 说的多，五秒能翻到。
 
 ---
 
@@ -103,7 +101,7 @@ cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 
 ## 想深入
 
-- **完整文档**（README / 操作手册 / 全部 references）→ [开发主源仓](https://github.com/Apatheticco/stock-kol-watch-framework)
+- **操作手册**（配置细节 / 日常指令全表 / 出状况怎么办）→ [`USER-GUIDE.md`](./USER-GUIDE.md) · [English](./USER-GUIDE_EN.md)
 - **工作流规范**（AI 实际执行的那份）→ [`skills/stock-kol-watch/SKILL.md`](./skills/stock-kol-watch/SKILL.md)
 - **19 个实跑踩过的坑**（症状→根因→修法）→ [`references/failure-modes.md`](./skills/stock-kol-watch/references/failure-modes.md)
 - **进阶层 7 节**（实盘源 / 卖方研报 ingest / 独立研究 / reader 外包 / 候选挖掘 / 归档审计 / 一条实测否决项）→ [`references/advanced-extensions.md`](./skills/stock-kol-watch/references/advanced-extensions.md)
