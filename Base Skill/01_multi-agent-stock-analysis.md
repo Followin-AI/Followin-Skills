@@ -74,7 +74,7 @@ args: ticker
 3. metrics(query="<T> 历史走势", asset_type="tradfi", time_range="1y")
    → 1y daily OHLCV，用于多周期涨跌（自算 1D/5D/1M/3M/6M/YTD/1Y）
 4. metrics(query="<T> 相对强弱 指标", asset_type="tradfi", period=14)
-   → RSI(14) 时间序列；EMA/SMA 同理用 query="<T> 均线 指标" 或 "<T> SMA 200"
+   → ⚠️ 实测（2026-08-04, N-69）该调用**一次 fanout 返回全部 9 个指标**（adx/rsi/dema/wma/williams/ema/tema/sma/standarddeviation），按 `indicator` 字段筛即可，**不必为 RSI/EMA/SMA 分开调用**（省额度）。禁写英文指标名（"EMA 50"/"SMA 200" 会被劫持成同名 ticker）。
 ```
 
 **Batch B：信号 + 研报 + 新闻（4 路并行）**

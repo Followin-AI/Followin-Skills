@@ -117,7 +117,7 @@ metrics(query="[T] 全面分析", asset_type="tradfi")
    → 1y daily OHLCV，自算多周期涨跌（1D/5D/1M/3M/6M/YTD/1Y）
 
 4. metrics(query="[T] 相对强弱 指标", asset_type="tradfi", period=14)
-   → RSI 时间序列；EMA/SMA 同理用 query="[T] 均线 指标" / "[T] SMA 200"
+   → ⚠️ 实测（2026-08-04, N-69）该调用**一次 fanout 返回全部 9 个指标**（adx/rsi/dema/wma/williams/ema/tema/sma/standarddeviation），按 `indicator` 字段筛，**不必分开调用**。禁写英文指标名（"EMA 50"/"SMA 200" 会被劫持成同名 ticker）。
 ```
 
 ### Step 2: 媒体覆盖
