@@ -28,3 +28,7 @@ followin_io_*.json
 
 # SDD scratch (agent briefs/reports/diffs — 本地过程产物，不入库)
 .superpowers/
+
+# 对内文档（缺陷工单等）——本地保留，不进公开仓
+docs/MCP-缺陷工单-*.md
+docs/*-给Dev-*.md
