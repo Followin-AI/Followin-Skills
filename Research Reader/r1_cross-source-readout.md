@@ -18,7 +18,7 @@ args: ticker(必填), window(可选，默认 30d，仅用于客户端过滤报�
 >
 > **隔一段时间再用，先花两分钟自查这 3 条**：
 > ① `metrics(query="NVDA research reports", verbosity="detail", asset_type="tradfi")` → `report_limit` 仍是 10 = 未修（N-38）
-> ② 同上调用传 `time_range="7d"` 与 `time_range="30d"`，`event_id` 逐个相同 = 未修（N-38）
+> ② 同上调用传 `time_range="7d"` 与 `time_range="30d"`，返回**应不同**且 meta 带 `time_scope`/`date_from`（time_range 腿 2026-08-03 已修，N-38 部分销案）；逐个相同 = 出现回退，记回 SSOT
 > ③ `signal(query="NVDA", asset_type="tradfi")` → kol_call 里有没有 `symbol=="NVDA"` 的行；没有 = N-40 仍在
 
 ## 参数
@@ -26,7 +26,7 @@ args: ticker(必填), window(可选，默认 30d，仅用于客户端过滤报�
 | 参数 | 必填 | 默认 | 说明 |
 |------|------|------|------|
 | ticker | ✅ | — | 单个美股代码。**本 Skill 不做批量**——四维对撞每标的 3 额度，且需逐份读报告论点 |
-| window | 否 | 30d | 报告新鲜度窗口，**纯客户端过滤**（服务端 `time_range` 对研报路径无效，见 N-37/N-38）|
+| window | 否 | 30d | 报告新鲜度窗口。**服务端 `time_range` 腿已于 2026-08-03 修复**（`date_from`/`date_to` 可用、`time_scope` 字段透明），窗口过滤可服务端做；但 `report_limit:10` 硬顶与机构名不归一仍在（N-38 部分修复）|
 
 ## 为什么必须跨源
 
@@ -39,7 +39,7 @@ MCP 侧还额外叠了一层削弱：**每票最多看得到 10 篇、去重后�
 | 用户说的 | 走哪 |
 |---------|------|
 | 印证 XX 的研报、这个目标价能信吗 | ✅ 本 Skill |
-| 本周研报榜、谁被提得最多 | ❌ 转 `Community Skill/c3_research-hot`（⚠️ 并提醒它是累计榜不是周榜，N-37）|
+| 本周研报榜、谁被提得最多 | ❌ 转 `Community Skill/c3_research-hot`（c3 已是 7d 真周榜，N-37 已修复销案）|
 | 这份报告哪里没说清、口径边界 | ❌ 转 [`r2_research-caveat-audit`](./r2_research-caveat-audit.md) |
 | 接下来有什么催化剂 | ❌ 转 [`r3_catalyst-timeline`](./r3_catalyst-timeline.md) |
 | XX 财报分析 | ❌ 转 `Base Skill/02_us-stock-earnings-report` |
@@ -59,10 +59,10 @@ metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradf
 ```
 
 > ⚠️ **query 必须含研报意图词**（红线 12）。只放报告标题或"半导体/AI"这类话题词**不会路由到研报路径**，会静默掉进 CORE fundamentals 全家桶，且照常计 1 额度。
-> ⚠️ **不要传 `time_range` / `limit`**（N-38）：两者均被忽略，传了只会让人误以为控住了窗口。新鲜度过滤在客户端用 `report_date` 做。
+> ⚠️ **`time_range` 已于 2026-08-03 修复生效，可传**（`date_from`/`date_to`/`time_scope` 字段透明）；`limit` 仍被 10 硬顶（N-38 部分修复），"N 家机构"仍须标下界。
 > ⚠️ **`meta.warnings` 会误报 `default_fanout_fallback`**（N-21）——**这是假阴性，不要据此重试**，重试白烧 1 额度。以 `results.fundamentals.research_reports` 是否存在为准。
 
-**返回结构**：`subject_reports`（主题报告，核心研究对象就是这支股）+ `mention_reports`（提及报告，主题是别的，只是点了名）。**恒 10 篇上限**。
+**返回结构**：`subject_reports`（主题报告，核心研究对象就是这支股）+ `mention_reports`（提及报告，主题是别的，只是点了名）。**至多 10 篇**——`report_returned_count` 不保证等于 10，有货才给（N-64，实测 F 只返回 3 篇）。
 
 **拿到后必须做的四步清洗**，顺序不能反：
 

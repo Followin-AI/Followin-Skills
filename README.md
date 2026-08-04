@@ -92,7 +92,7 @@ Skills are written in Claude Code's slash-command format (YAML frontmatter + Mar
 **Conventions that matter:**
 
 - US stocks are `asset_type="tradfi"`, crypto is `asset_type="crypto"` — always explicit. The one exception is `news()`, which should not receive it at all.
-- **Structured broker research (研报) goes through `metrics`, not `news`.** `news(sources=["research"])` is for raw research-source *article* discovery; report cards, target prices, and thesis/catalyst fields come from `metrics(categories=["fundamentals"])`.
+- **Structured broker research (研报) goes through `metrics`, not `news`.** `news(sources=["research"])` is for raw research-source *article* discovery; report cards, target prices, and thesis/catalyst fields come from `metrics` with an explicit research intent in the query (e.g. `query="<T> research reports"` — red line 12; array params like `categories=[...]` are rejected by the schema, N-8).
 - **Omitting `categories` on `signal()` fans out** to insider trading + 13F institutional + KOL calls for a single quota unit — cheaper than three filtered calls returning the same data.
 
 Full call red-lines and the known-issues register live in [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md).
@@ -187,12 +187,13 @@ and reading five reports for it costs you an afternoon.
 
 | # | Module | What it does |
 |---|---|---|
+| **r0** | Coverage Radar | **The discovery leg — needs no ticker.** "Who is the sell-side writing about this week" on a true 7-day window (default), with cumulative contrast and a mandatory subject/mention probe so you don't walk into r1 empty-handed |
 | **r1** | Cross-Source Readout | A report says "$350 target" — should you believe it? Collides the call against street consensus, price action, KOL/insider positioning, and last quarter's actuals. No buy/sell — three answers only: **which price to anchor, what kind of selloff this is, what would change your mind.** |
 | **r2** | Caveat Audit | Ignores the conclusion, audits its foundation: was this analyst research or **management talking on a non-deal roadshow**? Is that benchmark chart measured or modeled? What does the report itself admit doesn't reconcile? |
 | **r3** | Catalyst Timeline | Future checkpoints named inside reports — product ramps, competitor events, financing dates. **None of these exist in a public earnings calendar.** Bucketed by precision; vague stays labeled vague. |
 | **r4** | Supply-Chain Read-Through | Where other people's reports place your ticker — who mentions it, as beneficiary or casualty, **and why**, plus **who else on that chain just got repriced**. Measured: one INTC query also yielded UMC's target raised 87%, VSMC 55%. |
 
-All four **share one research-report call**, so r2/r3/r4 are free once you've run r1. A full pass on one ticker costs 3 billable calls. Install:
+r1–r4 **share one research-report call**, so r2/r3/r4 are free once you've run r1. A full pass on one ticker costs 3 billable calls. Install:
 
 ```bash
 cp "Research Reader"/*.md ~/.claude/commands/
@@ -228,7 +229,7 @@ cp -rn "Twitter Workflow/skills/"* ~/.claude/skills/    # -n = don't clobber sam
 ⚠️ **No Twitter list?** `config.md` ships an example public list to get you running, but it's an *example not a default* (~17% off-topic content, ownership not yours) — swap in your own after one test run.
 ⚠️ **Fills stop the pipeline.** On first "跑一轮" it detects the template config and halts, telling you what to fill — you don't need to memorize the config table.
 
-Full write-up in **[`Twitter Workflow/README.md`](./Twitter%20Workflow/README.md)**. Verified end-to-end on live data across all seven skills; endpoint/field caveats recorded as N-47~N-58 in [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md).
+Full write-up in **[`Twitter Workflow/README.md`](./Twitter%20Workflow/README.md)**. Five of the seven (trend-scout / topic-engine / tweet-composer / performance-review / engagement) carry end-to-end live-run records (N-47~N-58); twitter-ops and competitor-watch are orchestration-level and have no independent N-series record yet in [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md).
 
 ---
 
@@ -268,7 +269,7 @@ A separate bundle for **community operators** running a US-stock community for b
 | # | Module | Output |
 |---|---|---|
 | **c1** | Daily Brief | Morning report · pre-open preview · intraday refresh |
-| **c2** | Weekly | Last week's expectations vs. reality + this week's calendar |
+| **c2** | Weekly | This week's market tone + main threads + next week's confirmed calendar (600–800 chars, Traditional Chinese) |
 | **c3** | Research Hot | Weekly research-report leaderboard + deep-dive notes |
 | **c4** | Social Pulse | Sentiment × real positions × insiders thermometer, or market-wide signal roundup |
 | **c5** | Hot Take | Event scan menu + 300–500 word flash post + earnings quick-read |
@@ -294,6 +295,9 @@ Similar-sounding requests go to different skills:
 | `What catalysts are next` / `接下来盯什么` | [r3 Catalyst Timeline](./Research%20Reader/r3_catalyst-timeline.md) | Report-named checkpoints; "when does X report earnings" does **not** route here (calendar is unusable — caveats N-22) |
 | `Who is long SNDK` / `谁在做 SNDK` · `钱在挤哪` | [Live Position Diligence](./Trader%20Diligence/live-position-diligence.md) | Real-money perp positions + trader track record, with six gates (ghost-position filter first). **Not** a copy-trade ledger |
 | `Who is the sell-side covering` / `谁被研报提得最多` | [r0 Coverage Radar](./Research%20Reader/r0_coverage-radar.md) | **No-ticker discovery** for research; default 7d window + cumulative contrast, mandatory subject/mention probe, no direction |
+| `Gold macro` / `黄金宏观` | 05 Gold Dashboard | Asset-specific macro score (gold) |
+| `Where do other reports place my ticker` / `产业链读穿` | [r4 Supply-Chain Read-Through](./Research%20Reader/r4_supply-chain-readthrough.md) | Cross-ticker mentions + who else on the chain got repriced |
+| `run KOL watch` / `跑一下 KOL` | [Feed Manager](./Feed%20Manager/README.md) | Your own roster → daily brief + running archive. Market-wide KOL chatter routes to c4; real-money positions to Trader Diligence |
 | `CPI impact` / `CPI 影响` | *(no dedicated skill)* | Indicator interpretation is model-native — the model calls `metrics`+`news` directly; the FRED series dictionary lives in the caveats reference (Appendix A) |
 
 Each skill's frontmatter carries explicit `trigger` and `not_trigger` lists — that's what keeps neighbours from stealing each other's queries.

@@ -4,6 +4,23 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-08-04 — 全仓统一 audit + sweep：6 个根因、~170 处修复、新增 sweep 门禁
+
+**起因**：对全仓 7 个 bundle 做统一 review（3 路并行深读 + 机械核对 + 关键指控逐条回原文抽查），发现 60+ 处 skill 正文与 SSOT 打架——归拢为 6 个根因，本次全部修复。
+
+**根因与修复**：
+1. **N-8 sweep 从未跑到本仓**（最大项，~130 处）：Base 01-06、Premarket、c 系列的数组调用示例全部改 query 串；**04:131/174-184 与 02:139 是"反向强制规则"**（明令禁止唯一可用写法）已反转；SSOT 自己的红线 10 与附表 A 也是旧写法，已改（宪法违宪一并修）；两份根 README Conventions 节同步。
+2. **红线 4 旧镜像**（7 处）：批量上限 10→5、删除对已不存在的 `keyword_count_over_max` warning 的依赖（现为静默截断，靠 filters_applied 差集自查）。
+3. **N-37/38 修复只 sweep 了一半**：r1-r4 四支的"time_range 均被忽略"已按 2026-08-03 修复现状更新（time_range 腿可用；limit 硬顶与机构名不归一仍在）；r1:42 那句"提醒 c3 是累计榜"删除（c3 已是 7d 真周榜）；r1 自测三问 ② 判据同步反转。
+4. **N-57 只 sweep 了 engagement**：performance-review SKILL + metrics-guide 三处"评论取不到=折叠证据"改为"须翻到 has_next_page=false 才可判折叠"。
+5. **静默错误单点**：02 补齐四条财报陷阱（N-15/N-29 反号硬判据/N-33 null→-100%/N-54 QoQ）；c5 与 c1 的 4h 趋势窗（实测返 0 篇）改 24h；c6 家数按 N-16 改 analyst_grades 去重估算；06 布油模板改 USO 代理口径、"实时"改按 _quote_session 判；trend-scout 并发矛盾按红线 2 裁决为分波 ≤4；01/02 的 change 百分比误用（N-47）修正；03/06 杠杆 ETF 过滤清单与仙股闸按红线 9 现行版本替换。
+6. **索引漂移**：zh README 补 r0 整支与 Trader Diligence 行；两份 Routing 表补 Feed Manager/05/r4（zh 另补 r0/Trader Diligence）；`c2_event-radar*` 改名 `c2_weekly*`（正文/frontmatter/两份根 README/Community README 五处一致指向"週報"，文件名是唯一过期项）；c2 补「調用序列」节、繁/简两版加"二选一"警告；RR README 额度 6→8（r1 自身 3 额度）；研报通道裸 N-59 改号 **N-68**（与 trader_position 组 N-59a-r 撞号）；TW"7 支全部端到端验证"改为与证据对齐（5 支有 N 记录）。
+
+**实测裁决**（本次 sweep 中现场验证）：GCUSD **可用**（返回 Gold Futures $4,109.8，2026-08-04），trend-scout:84 与 source-list:170 的"拿不到/返 0"系过期记载已更正；但 query 含英文 "gold" 会拖进 Gold.com 美股行，须按 symbol 筛。
+
+**⚠️ 本次改写引入的未实测形态**（下轮实跑须验证，验后销此条）：① 指标类合并 query：`metrics(query="DXUSD EMA 50")`；② 无 ticker 全量内部人扫描：`signal(query="insider trading", ...)`；③ 历史/RSI 的 ticker 并入 query：`query="<T> 历史走势 30 day chart"` / `"<T> RSI 14"`（英文词有 N-14 撞 ticker 风险）。
+**流程补丁**：新增 `tools/sweep-check.sh` 并装为 pre-commit——staged 新增行含肯定式数组参数即拦（反例行凭 ❌/已失效/N-8 等标记放行），防止第四次 sweep 半途而废。三次 sweep 烂尾（N-8/N-37·38/N-57）证明这事靠自觉记不住。
+
 ## 2026-08-03（晚）— 新增 `Feed Manager/`：美股信息流管理（从 Apatheticco/stock-kol-watch-framework 同步）
 
 **这支补的是一个此前空着的位置：「你自己那份名单」。** 现有几支要么是发现器（r0 研报覆盖榜、c4 社群脉搏——回答"全网在看谁"），要么是单点尽调（Trader Diligence——回答"这个人值不值得跟"）。**没有一支处理"我固定关注的这 12 个人，今天说了什么，以及三周前说过什么"。** Feed Manager 只读用户指定的名单，产出日报 + 逐日累积的标的/板块档案 + 决策日志。

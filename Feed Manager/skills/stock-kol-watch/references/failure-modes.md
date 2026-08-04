@@ -58,7 +58,7 @@
 
 ### F12 — 同名 crypto 劫持 ticker 查询
 **症状**：查某光通信公司的 fundamentals 返回 `asset_kind: crypto`。
-**修法**：`categories=["market","fundamentals"]` + query 带公司全名；仍失败 → 标"暂无 PT 数据"，不编。
+**修法**：query 带公司全名 + 明确意图词（如 `query="<公司全名> analyst price target"`, `asset_type="tradfi"`）；仍失败 → 标"暂无 PT 数据"，不编。（原 `categories=[...]` 数组写法已被 schema 拒——N-8，2026-08-04 复现）
 
 ## 信号判读端
 

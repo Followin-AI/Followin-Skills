@@ -23,7 +23,7 @@
 | | |
 |---|---|
 | **客户端** | Claude Code（其他支持 MCP + Markdown 指令的客户端也可，需自行适配格式）|
-| **MCP** | [Followin MCP](https://followin.io/en/mcp) —— 用到其中 4 个工具：`metrics`（行情/宏观/基本面）· `news`（新闻/社媒/研报）· `signal`（KOL 喊单/持仓/内部人）· `twitter`（推特读写）|
+| **MCP** | [Followin MCP](https://followin.io/en/mcp) —— 用到其中 5 个工具：`metrics`（行情/宏观/基本面）· `news`（新闻/社媒/研报）· `signal`（KOL 喊单/持仓/内部人）· `twitter`（推特读写）· `subscription`（喊单标的订阅收件箱）|
 
 接入（Claude Code）：
 

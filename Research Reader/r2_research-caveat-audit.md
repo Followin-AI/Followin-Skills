@@ -48,7 +48,7 @@ args: ticker(必填), focus(可选：报告标题关键词，只审匹配的那�
 metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradfi")
 ```
 
-同 r1 步骤 1 的全部铁律：query 必带研报意图词（红线 12）／不传 `time_range`·`limit`（N-38 均无效）／`default_fanout_fallback` 警告是假阴性别重试（N-21）／机构名先归一再按「机构+标题+日期」去重（N-38 + N-3）。
+同 r1 步骤 1 的全部铁律：query 必带研报意图词（红线 12）／`time_range` 已于 2026-08-03 修复可传，`limit` 仍被 10 硬顶、家数标下界（N-38 部分修复）／`default_fanout_fallback` 警告是假阴性别重试（N-21）／机构名先归一再按「机构+标题+日期」去重（N-38 + N-3）。
 
 > ✅ **与 r1 同源**：若本轮已跑过 r1，**直接复用它步骤 1 的返回，0 额度**。r2 用的字段（`key_caveat` / `coverage_flag` / `consensus_diff` / `content_truncated` / `novelty` / `detail.caveats` / `detail.risks`）r1 全都已经拉回来了。
 

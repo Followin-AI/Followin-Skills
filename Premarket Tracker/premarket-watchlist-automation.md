@@ -30,10 +30,10 @@ args: watchlist, positions, schedule, timezone
 ## 创建或更新自动化
 
 1. 查找已有的盘前任务；watchlist 与目的相同则更新，不另建重复任务。
-2. 验证 Followin MCP 已连接。Codex 环境可先运行：
+2. 验证 Followin MCP 已连接。可先运行：
 
    ```bash
-   codex mcp get followin
+   claude mcp get followin
    ```
 
 3. 使用客户端提供的自动化工具创建或更新任务，不手写不可执行的自动化指令。
@@ -58,15 +58,21 @@ http_headers = { "x-api-key" = "YOUR_API_KEY_HERE" }
 
 不得在报告、日志或回复中输出真实 API key。
 
+## SSOT 红线内联
+
+- **数组参数全域被拒（N-8）**：`keywords`/`categories`/`sources` 一律走 `query` 自然语言串，服务端自解析。
+- **批量 ≤5 个 symbol/次；SSE 并发 ≤4 路/批**（红线 2）。
+- **失败会静默**：把请求 symbol 列表与返回行、`meta.filters_applied` 做差集自查，差集非空即部分失败。
+
 ## Followin 调用顺序
 
 所有美股结构化调用都传 `asset_type="tradfi"`；`news` 不传 `asset_type`。
 
 1. **`metrics` 市场层**：指数或 ETF 市场背景、自选股当前价/最近收盘、涨跌、成交量、历史走势与技术指标。
 2. **`metrics` 基本面层**：近期财报、下一次财报日期、估值、分析师评级与结构化研报。
-3. **`news(sources=["media"])`**：最近 24 小时到 7 天的重大新闻、公告与催化。
-4. **`news(sources=["twitter"])`**：市场级或标的级社媒热度；按原帖 URL 去重后再统计。
-5. **`news(sources=["research"])`**：研报来源的原始文章；目标价、评级和结构化 thesis 仍以 `metrics` 为准。
+3. **`news(query="<主题词>", time_range="24h"~"7d", limit=N)`**：最近 24 小时到 7 天的重大新闻、公告与催化。返回是 articles + social 两桶（实际约 2N 条，N-25）。
+4. **`news(query="<标的/主题词>", time_range=…, limit=N)`**：市场级或标的级社媒热度看返回里的 **social 桶**；按原帖 URL 去重后再统计。
+5. **结构化研报改走 `metrics(query="<TICKER> research reports", asset_type="tradfi", date_from=…, date_to=…)`**（红线 12：query 必含研报意图词；news 侧的 `sources` 数组没有字符串替代形态）。目标价、评级和结构化 thesis 仍以 `metrics` 为准。
 6. **`signal`**：省略 `categories`，一次 fanout 获取可用的内部人、13F 与 KOL 喊单；只解读实际返回的类别。
 7. **`twitter`**：仅在用户点名账号、指定推文或需要原始线程时使用，不拿它替代一般社媒搜索。
 8. **`subscription`**：用户要求维护 KOL 喊单关注收件箱时使用。它是拉取式未读箱，不是服务端主动推送。
@@ -82,12 +88,12 @@ http_headers = { "x-api-key" = "YOUR_API_KEY_HERE" }
 
 每只股票给出：
 
-- 盘前价或最近可验证价格、涨跌和成交量/异动。
+- 盘前价或最近可验证价格、涨跌和成交量/异动。⚠️ `change` 是**美元变动量不是百分比**（N-47），百分比自算 `change/previousClose×100`，别拿 `change` 与新闻里的 % 交叉核实。
 - 关键技术位与触发条件。
 - 最近催化、重大新闻、公司公告、财报/研报变化。
 - 去重后的社媒热度、KOL/内部人/机构信号及样本量。
 
-美东 04:00 之前没有可验证盘前成交时，必须标为“最近收盘/实时快照”，不得称为真实盘前价。字段缺失就略过，不用旧数据补齐。
+是否为旧收盘用**字段判据**判定，不用挂钟时间猜：返回里 `_quote_session=="regular_inactive"` / `_quote_cache=="last_regular"`（N-48）即是上一个 regular 收盘——盘前时段 `metrics` 返回的仍是旧收盘，输出一律标"最近收盘"，不得称为真实盘前价。字段缺失就略过，不用旧数据补齐。
 
 ### 3. 持仓对应计划
 

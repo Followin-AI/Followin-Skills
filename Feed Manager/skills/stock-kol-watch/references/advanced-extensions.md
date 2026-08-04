@@ -51,10 +51,10 @@ metrics(query="<T> broker research reports", asset_type="tradfi",
 
 **是什么**：第三方独立分析师的长文 thesis（如 Substack 深度）——区别于卖方（偏多、利益相关），独立研究给"完整推理 + 中立裁决"，是 KOL 争议的第三方裁决源 + 反方深度的主要来源。落 `Research/Read/`，反链回 Tickers/Sectors。
 
-**怎么加**（followin 参考实现）：`news(sources=["research"], time_range="2d", verbosity="detail")` 每日宽扫 1 次，挑与持仓/活跃争议相关的取全文。
+**怎么加**（followin 参考实现）：`news(query="<主题短语>", time_range="2d", verbosity="detail")` 每日宽扫 1 次，挑与持仓/活跃争议相关的取全文。⚠️ `sources=[...]` 数组入参已被 schema 拒且**无字符串替代**（Followin caveats N-8/N-68）——独立深度只能客户端近似识别。
 
 **陷阱**：
-- 返回混两个子源：**独立深度**（`_source:"feeds"`，唯一采用）vs **散户财经媒体**（`_source:"fmp_news"`，标题级噪音，全丢）——需 post-hoc 过滤。
+- **识别独立深度只能近似**（N-68 实测：`_source` 字段已不存在，全部条目 `provenance:"feeds"`，`category` 是话题噪音标签）：① `social[]` 里 `kol_info.categories` 含 `"research"` 且正文挂 substack 链接；② `articles[]` 里 `source_quality=="research"`（⚠️ Motley Fool 混入，隔离不干净）。正文恒 `content_truncated`（~300-500 字预览，全文需原始 URL）。
 - 窗口别用 `1d`（常扫出 0 条深度漏判），默认 `2d`。
 - per-ticker query 命中率低；定向找某标的用其**独特主题短语**，别用纯代码；泛主题 query 可能被同名 ticker 劫持。
 - 独立研究本身也无胜率回环——作"加权参考"不作"权威判决"。

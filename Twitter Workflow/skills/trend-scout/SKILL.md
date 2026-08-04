@@ -79,9 +79,9 @@ NOW_MS=$(( $(date +%s) * 1000 ))
   必须按 `_asset_type` 筛（crypto vs tradfi），别把 28.08 当比特币价。crypto 一律显式传 `asset_type="crypto"`。
   - 🚨 批量写法：`query="BTC ETH SOL BNB XRP price"` —— 空格拼 symbol 走 query 串，服务端自解析成 keywords（meta 可见 `keywords:[...]`），一次全回。**禁传 `keywords=[...]` 数组**（§2.5）。
   - ⚠️ `time_range` <1d 有 bug（返一个月前数据），小时级用 `interval`。
-- 可用 tradfi symbol：`^GSPC ^IXIC ^DJI ^VIX ESUSD GCUSD SIUSD USO UUP EURUSD USDJPY`；`^DXY` / `CLUSD` / `NGUSD` 是 402 Special Endpoint，**禁调**。
+- 可用 tradfi symbol：`^GSPC ^IXIC ^DJI ^VIX ESUSD GCUSD SIUSD USO UUP EURUSD USDJPY`；`^DXY` / `NGUSD` 是 402 Special Endpoint，**禁调**；`CLUSD` 已结案为 `no_match` 返 0 结果、**不是 402**（N-30）——原油只有 `USO` 可用（WTI 近月期货 ETF 代理，非现货价）。GCUSD 可用（2026-08-04 实测返回 Gold Futures 真实价格），但 **query 勿含英文 "gold"**——会同时拖进 Gold.com 美股陷阱行（$42），须按 `symbol=="GCUSD"` 筛行。
 - 国债 / 经济日历 / CPI：纯 query 自然语言（`query="US 10 year treasury yield curve"` 即返全曲线）。🔴 **读之前必须按 `_resolved_from_keyword` 去重**——多 keyword 解析会返回内容相同的多行，不去重会把同一条曲线当三个独立数据点（细节见 `references/source-list.md` §MCP 坑位）。
-- **商品（黄金/原油）拿不到一手价**：四个符号里只有替代源可用，口径必须标注 → 见 §MCP 坑位。🔒 拿不到就按「价格数据铁律」标「未取到一手价」，**禁引用新闻里的涨跌幅当数据**。
+- **商品一手价口径**：黄金 `GCUSD` 可用（2026-08-04 实测）；原油仅 `USO` 代理（WTI 期货 ETF，非现货价），口径必须标注 → 见 §MCP 坑位。🔒 拿不到就按「价格数据铁律」标「未取到一手价」，**禁引用新闻里的涨跌幅当数据**。
 - **异动榜**：`metrics(query="most active stocks", asset_type="tradfi")`，🔴 **返回不含 `marketCap`，必须二次批量补市值再按 ≥$1B 过滤 + 按 name 剔 ETF/杠杆**（不做的话杠杆 ETF 会混进候选；正则见 §MCP 坑位）。`biggest gainers/losers` **禁用**。
 - **tradfi 降级路径**：行情端点（quote / historical_chart / most_actives）同时 403 → 实时价改用 `mcp__tradingview__yahoo_price`（symbol 直传 `^GSPC ^IXIC ^VIX GC=F CL=F` 及个股；偶发 SSL 瞬断重试 1 次即恢复），简报实时数据区**必须标「替代源」**；异动榜无替代 → 留空标注。
 - **crypto 备援**：`mcp__okx__market_get_ticker`（`instId` 如 `BTC-USDT`）；启用时同样标「替代源」，首次启用前先实测一个 symbol 交叉核对。
@@ -157,7 +157,7 @@ P0：**`config.md` 里已配置的每条 list 都必须成功**（失败重试 1
 
 1. **只有 `list_timeline` 派 Agent**（单 string 参数 + 返回巨大必须 jq 抽数）；`metrics` / `news` / `signal` 一律主进程直调，分批 ≤4 个/message。
 2. **一 Agent 一调用链一 jq**：翻页**覆盖驱动**——翻到最老一条 `createdAt` 早于窗口起点，或达上限（主 3 页 / 科技 2 页 / 大师 1 页）；到上限仍不足必须注明「⚠️ 覆盖不足：实覆盖 X.Xh（墙钟 Y.Yh）」（诚实标注 > 假装覆盖；🔴 报**实覆盖**不是墙钟跨度，见 §2.3 分页丢块）。刷新维持单页。prompt 必含「🚫 不要读 SKILL.md」。
-3. **首扫单批次全并发**：所有采集（主进程直调 + 全部 Agent）在**同一条 message** 发出，不分波；跨源综合（聚合 / 共振 / 跨界传导 / 纯交易预排除）等全返回后在主进程做。
+3. **首扫主进程直调分波执行**：每波 ≤4 路 MCP 调用（红线 2 + N-50）；Agent 派发不占 MCP 并发、可同批发出，但各 Agent 内部同样 ≤4。跨源综合（聚合 / 共振 / 跨界传导 / 纯交易预排除）等全返回后在主进程做。
 
 **Agent prompt**：用 `references/agent-prompt-template.md` **逐字复制、只替换占位符**。
 那份文件里是完整载荷（createdAt strptime 规范 / velocity 双轨公式 / RT 封顶 / age<0 报错口径 /
@@ -177,10 +177,11 @@ Skill 侧只做内容级过滤，**不维护点名黑名单**。
 ## 4. 标准执行流（首扫）
 
 ```
-单批次全并发（一条 message）：
-  主进程直调：metrics(crypto 批量) · metrics(tradfi 按需 4-12 单调) · metrics(国债/宏观 query)
-              metrics(most_actives → 二次补市值后过滤 mc≥$1B) · news(firehose) · news(TG 广拉 1 次)
-  Agent 并行：A 主list · B 科技list · C 大师list · D CT firehose 过滤
+主进程直调分波执行（每波 ≤4 路 MCP，红线 2 + N-50）：
+  波1：metrics(crypto 批量) · metrics(国债/宏观 query) · news(firehose) · news(TG 广拉 1 次)
+  波2起：metrics(tradfi 按需 4-12 单调，每波 ≤4) · metrics(most_actives → 二次补市值后过滤 mc≥$1B)
+  Agent 并行（不占 MCP 并发、可与波1 同批发出；各 Agent 内部同样 ≤4）：
+              A 主list · B 科技list · C 大师list · D CT firehose 过滤
               F Wave2B（议员/内部人快照，仅本周首个无缓存日建缓存[不限周几]；
                 有缓存日不派 F、主进程直接读）
 全部返回 → 主进程综合 → 按落盘顺序出文件 → 自查

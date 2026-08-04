@@ -24,7 +24,7 @@
 7. **fundamentals comprehensive 必须显式 `query="全面分析"`**（或 `"comprehensive analysis"` 精确双词）：不带 query 走 default 只返 5 block；带 query 返 14 block（仅缺 stock_peers）。`query="comprehensive"` 单词无效。
 8. **历史 OHLCV / 技术指标各自单调**：历史必须 `query="历史走势 30 day chart"` + `time_range`；RSI/EMA/SMA 用 `query="RSI 14"` / `"EMA 50"` / `"SMA 200"` 单独调，不要靠默认 fanout（撞错路径无 fallback）。历史路径支持多 ticker 批量（实测 2026-06-12：3 ticker × limit 各自完整返回，无丢条；~20 个上限未实测）。
 9. **mover 榜**：biggest gainers/losers 上游缺 marketCap 且全是仙股（trend-scout v1.8.0 实测）——弃用；改 `query="most active stocks"`，但实测（2026-07-22 2026-07-22 回归）board 行亦不带 marketCap（trend-scout 旧版记载已失效）——候选 ticker 需二次批量快照补市值后再过滤：marketCap ≥$1B + 剔杠杆 ETF。movers 仅美股。<br>⚠️ **2026-07-27 实测修正两点**：①ETF 过滤正则须为 `ETF\|ETN\|UltraPro\|Ultra\|Leveraged\|\dX\|Bull\|Bear\|Daily`——**只判 "ETF" 单词会漏**（`ProShares UltraPro QQQ`/TQQQ 与 `ProShares - UltraPro Short QQQ`/SQQQ 的 name 都不含 "ETF"）；②**慎用"仙股 <$5"闸**，实测误杀 GRAB（$3.31 但市值 $131 亿），市值闸是更准的同类过滤，价格闸只在市值不可得时兜底。
-10. **经济日历**：`metrics(keywords=["economic calendar"], categories=["macro"])`。query 别带"本周"——实测（2026-06-12）"本周"被解析成 lookback 7 天，返回**已发布历史**而非前瞻日历。
+10. **经济日历**：`metrics(query="economic calendar", country="US")`（⚠️ 2026-08-04 按 N-8 改写：原 keywords 数组形态已被 schema 拒；`country="US"` 必传，否则返 CN/JO/KR/MY 事件——N-32）。query 别带"本周"——实测（2026-06-12）"本周"被解析成 lookback 7 天，返回**已发布历史**而非前瞻日历。
 11. **news() 无匹配时不返回空，返回语义兜底的不相关内容**（实测 2026-06-12：查 Quhuo/Navios 返回的是 BoJ/伊朗等宏观新闻填充）。**所有"报道 ≤ N"类判定必须按 LLM 逐条判断后的相关报道数计数，不能用 raw count**——否则填充内容会把"无声异动"误判成"有报道"。
 12. **研报查询 query 必须含研报意图词**（"research reports" / "研报"等）：实测（2026-07-15）query 只放报告标题（如 `query="Can semi cap work if memory doesn't"` + keywords=["MU"]）**不会路由到 research-report 路径**，掉进 CORE fundamentals 默认全家桶（三表/估值/profile），且照常计 1 次额度。**钻取指定报告的正确姿势 = 保持 `query="research reports"` + `verbosity="detail"` 重查，客户端从结果挑目标报告**；无按 event_id/标题取单份的入参。返回分 `subject_reports`（主题报告）与 `mention_reports`（提及报告）两层。
 
@@ -39,7 +39,7 @@
 | — | fundamentals comprehensive 缺 stock_peers | 已上报 | 输出"同行"部分标数据不可用 | 恢复 peers 展示 |
 | — | OIL/GOLD/SILVER alias 错路由 | Dev 待修 | 金银用 `GCUSD`/`SIUSD` 具体 ticker；**原油的具体 ticker 现已全部失效，只能用 USO 代理（N-30）** | 金银可继续用具体 ticker；**原油需 Dev 修复 CLUSD/BZUSD 才能拿回现货价** |
 | — | insider 全量扫描聚簇（同公司多笔 filing 连排；2026-06-12 实测 SPCX Form 3 占 50 条中 13 条）| 数据特性 | `limit=50` + `sort_by="amount"` + 客户端按 ticker 去重 + 只留 formType="4" 的 P-Purchase；F-InKind/M-Exempt 为缴税代扣非主动交易；对外表述"内部人卖出"只认 S-Sale，买入只认 P-Purchase。 | —（数据特性，非 bug）|
-| — | 经济日历 query 带"本周"触发 lookback 返历史 | 行为特性 | 用 keywords 形式（红线 10）| —（语义解析特性）|
+| — | 经济日历 query 带"本周"触发 lookback 返历史 | 行为特性 | query 不带"本周" + `country="US"`（红线 10 现行写法）| —（语义解析特性）|
 | — | 研报无单份钻取入参：query 放报告标题会掉 fundamentals 默认集（红线 12，实测 2026-07-15）| 建议 Dev 增 event_id 入参（P2）| 保持研报意图词 + detail 重查 | Dev 支持 event_id 后可按 ID 直取 |
 | — | trader_position 美股标的覆盖**日级剧变**（实测 07-09 MU 4 人 vs 07-15 MU 1 人、海力士从无到 3 人）；且同一标的可能符号分裂成多组（海力士 underlying=000660.KS 散在 SKHYNIX/SKHX/SKHY 三个 symbol）。⚠️ **剧变粒度已被 N-59d 收紧到分钟级**（18 分钟内 SNDK 4 人→5 人）；字段级陷阱见 **N-59 组** | 数据特性 | 任何对外用途都当天现拉；空 keywords 拉 trending 看当前有货标的；符号分裂需按 underlying 合并 | —（数据特性，非 bug；符号分裂可提 Dev 归一）|
 
@@ -150,11 +150,13 @@
 
 ⚠️ 另：**`n < 10` 时不要给百分比**——3 笔里 2 胜写"2/3"，写成"67%"是伪精确。实测有 `n_trades=1` 且胜率 100% 的行（T5）。
 
-### 2026-07-30 研报通道 Tier4 实测（N-59）
+### 2026-07-30 研报通道 Tier4 实测（N-68）
+
+> ⚠️ 2026-08-04 改号：本条原编号 N-59 与上方 trader_position 组（N-59a-r）撞号，改为 N-68。
 
 | # | 现象 | 应对 | 证据 |
 |---|---|---|---|
-| N-59 | **`news()` 拿不到"独立研报 feeds 文章类"**：全部索引条目一律 `provenance:"feeds"`（`_source`/`fmp_news` 字段名**不存在**，Seeking Alpha/fool.com 也返 `provenance:"feeds"`+`source_name:"media"`）；`category` 是话题噪音标签；`sources=["research"]` 数组被 schema 拒（N-8 同源），无字符串替代 | 独立 Substack 深度只能近似捞：① `social[]` 里 `kol_info.categories` 含 `"research"` 且正文挂 substack 链接（真形态）② `articles[]` 里 `source_quality=="research"`（⚠️ Motley Fool 混入，隔离不干净）。正文恒 `content_truncated`（~300-500字预览，全文需原始 URL）。**结构化评级(`analyst ratings`)与整篇研报卡(`research reports`)是另两个通道，不能当 feeds 兜底** | 实测 2026-07-30（news 逐条字段核对） |
+| N-68 | **`news()` 拿不到"独立研报 feeds 文章类"**：全部索引条目一律 `provenance:"feeds"`（`_source`/`fmp_news` 字段名**不存在**，Seeking Alpha/fool.com 也返 `provenance:"feeds"`+`source_name:"media"`）；`category` 是话题噪音标签；`sources=["research"]` 数组被 schema 拒（N-8 同源），无字符串替代 | 独立 Substack 深度只能近似捞：① `social[]` 里 `kol_info.categories` 含 `"research"` 且正文挂 substack 链接（真形态）② `articles[]` 里 `source_quality=="research"`（⚠️ Motley Fool 混入，隔离不干净）。正文恒 `content_truncated`（~300-500字预览，全文需原始 URL）。**结构化评级(`analyst ratings`)与整篇研报卡(`research reports`)是另两个通道，不能当 feeds 兜底** | 实测 2026-07-30（news 逐条字段核对） |
 
 > **N-41 补充（研报卡 TP 水分族）**：研报卡 `target_price.currency` **同币种存在多写法**（实测 2330.TW 同新台币写成 `TWD` 与 `NT$` 两种）——做 TP 离散/跨机构比价前必须先归一 currency，否则字符串层把同币种当两种。
 >
@@ -264,7 +266,7 @@
 
 ## 附表 A：中英文 → FRED series_id 翻译表
 
-> 红线 3 的配套字典（原宿主 07_macro-analyzer 已删，表迁至此）。用法：用户说指标名 → 查本表转 series_id → `metrics(keywords=["<series_id>"], categories=["macro"], limit=N)` 直查。字典未命中才回退 query 兜底并人工 review 命中的 series。
+> 红线 3 的配套字典（原宿主 07_macro-analyzer 已删，表迁至此）。用法：用户说指标名 → 查本表转 series_id → `metrics(query="<series_id>", limit=N)` 直查（⚠️ 2026-08-04 按 N-8 改写，原 keywords 数组形态已被 schema 拒；query 只放纯 series_id，禁中文/混合语言）。字典未命中才回退 query 兜底并人工 review 命中的 series。
 
 | 用户可能说 | series_id | 备注 |
 |---|---|---|

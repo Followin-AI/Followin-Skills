@@ -124,7 +124,7 @@ ER 剔靶标 = (L+RT+R_非靶标) / V   ← 主判据（保留正常帖真评论
 ER 保守   = (L+RT)          / V   ← 下限，全剔 replies
 ```
 
-逐条算 `reply/like`，**>5 判为疑似 spam 靶标**（>3 会把正常帖划进来，>8 会漏）。**结论用「剔靶标」口径**——保守口径把全周 replies 一刀切掉，连正常帖的真评论也剔了，区间宽到三倍没法判断。靶标清单交给 engagement §2.6 处置。判 spam 的三条证据链见 `references/metrics-guide.md`；要点是 **API 测不出精确比例，"评论体取不到"本身就是折叠降权的证据、不是采集失败**。
+逐条算 `reply/like`，**>5 判为疑似 spam 靶标**（>3 会把正常帖划进来，>8 会漏）。**结论用「剔靶标」口径**——保守口径把全周 replies 一刀切掉，连正常帖的真评论也剔了，区间宽到三倍没法判断。靶标清单交给 engagement §2.6 处置。判 spam 的三条证据链见 `references/metrics-guide.md`；要点是 **API 测不出精确比例，且"返回数 < replyCount"在 `has_next_page` 仍 true 时多半只是分页没翻完——必须翻到 `has_next_page=false` 仍显著少于 replyCount 才可判折叠降权**（N-57，与 engagement 的修正表述一致）。
 
 ## Step 2：数据分析硬区块
 

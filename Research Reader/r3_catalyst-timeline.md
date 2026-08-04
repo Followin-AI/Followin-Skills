@@ -63,7 +63,7 @@ args: ticker(必填，可多个，每个 1 额度), horizon(可选，默认 180d
 metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradfi")
 ```
 
-同 r1 步骤 1 的全部铁律（红线 12 研报意图词 ／ N-38 不传 `time_range`·`limit` ／ N-21 假阴性警告别重试）。
+同 r1 步骤 1 的全部铁律（红线 12 研报意图词 ／ N-38 部分修复：`time_range` 已于 2026-08-03 生效可传，`limit` 仍被 10 硬顶、家数标下界 ／ N-21 假阴性警告别重试）。
 
 > ✅ **与 r1/r2 同源**：本轮已跑过 r1 或 r2 的话，**直接复用返回，0 额度**。
 >

@@ -167,8 +167,8 @@ GET https://api.dune.com/api/v1/query/{query_id}/results
 
 ## 商品符号
 
-- ⚠️ **商品符号实测（黄金/原油拿不到一手价）**：`CLUSD` 返 0 结果 · `BZUSD` 在 query 串里**静默丢弃** · `GCUSD` 单调亦返 0 · `OIL`/`GOLD` 别名会解析成 **iPath 原油 ETN / Gold.com 股票**（不是商品）。
-  **可用替代**：原油走 `USO`（WTI 近月期货 ETF，**代理指标非现货**，引用须标口径）；黄金优先试 `query="gold price"` 拿 `GCUSD` 行（会同时命中 Gold.com 股票，按 symbol 筛）。
+- ⚠️ **商品符号实测**：`CLUSD` 返 0 结果 · `BZUSD` 在 query 串里**静默丢弃** · `OIL`/`GOLD` 别名会解析成 **iPath 原油 ETN / Gold.com 股票**（不是商品）；`GCUSD` **已可用**（2026-08-04 实测返回 Gold Futures 真实价格，旧记载"单调亦返 0"作废）。
+  **可用口径**：原油走 `USO`（WTI 近月期货 ETF，**代理指标非现货**，引用须标口径）；黄金直接 `GCUSD`（query 勿含英文 "gold"——会同时拖进 Gold.com 美股陷阱行，按 `symbol=="GCUSD"` 筛行）。
   🔒 **拿不到就按「价格数据铁律」处理**：简报标「未取到一手价」，**禁止引用新闻里的涨跌幅当数据**。
 
 ## 异动榜

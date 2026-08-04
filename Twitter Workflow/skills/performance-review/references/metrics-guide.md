@@ -83,11 +83,11 @@ twitter(action="user_info", user_name="你的账号")
 
 API 拿不到折叠区，精确 spam 比例测不出来。可用的间接证据：
 
-1. `twitter(action="tweet_replies_v2", tweet_id=...)` 对 N 条评论只吐出 <10% → 折叠降权区存在
+1. `twitter(action="tweet_replies_v2", tweet_id=...)` **翻页翻到 `has_next_page=false`** 后仍显著少于 `replyCount` → 折叠降权区存在（N-57：`has_next_page` 仍 true 时返回数 < replyCount 多半只是分页，不可判折叠）
 2. `twitter(action="search", query="to:你的账号")` 全周索引数远小于 replies 总和
 3. 抽样看漏出评论者的昵称/粉丝数/注册日期 → 批量注册引流号特征
 
-**取不到评论体本身就是证据，不是采集失败。** 要精确数只能人工浏览器登录态展开。
+**"取不到评论体"单独不构成证据（N-57）：`has_next_page` 仍 true 时多半是分页没翻完，必须翻到 `has_next_page=false` 才可下折叠结论。** 要精确数只能人工浏览器登录态展开。
 
 ### 6. 对标账号数据
 

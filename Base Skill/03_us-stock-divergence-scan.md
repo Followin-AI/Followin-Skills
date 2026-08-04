@@ -39,9 +39,9 @@ args: scope, days
 | 用途 | 调用 | 参数 |
 |------|------|------|
 | 当日异动榜（涨跌合一）| `metrics()` | 🔄 `query="most active stocks"`, **`asset_type="tradfi"`**, `limit=30` —— ⚠️ **`biggest gainers/losers` 已弃用**（2026-07-27 实测返 VYNE +2656%、SGLY +1429%、"Fidelity 短期债券 ETF" +2009%，全是仙股与数据错误）。异动榜一次同时含涨跌两侧，按 `changesPercentage` 正负分组，**省掉原来的两次调用** |
-| 个股报价 + 市值 | `metrics()` | `keywords=["AAPL","TSLA",...]`, `categories=["market"]`, **`asset_type="tradfi"`** 一次最多 **10 个**（实测 18→10 静默截断，超出分批并检查 `keyword_count_over_max` warning）|
-| 多时间框架历史 | `metrics()` | `keywords=["AAPL"]`, `categories=["market"]`, `query="历史走势 30 day chart"`, `time_range="1m"`, **`asset_type="tradfi"`** |
-| 内部人交易 | `signal()` | `categories=["insider_trading"]`, `keywords=["AAPL"]`, **`asset_type="tradfi"`** |
+| 个股报价 + 市值 | `metrics()` | `query="AAPL TSLA ... 行情"`（ticker 并入 query 串——N-8 数组被拒）, **`asset_type="tradfi"`** 一次最多 **5 个**（超出**静默截断且无任何 warning**——旧"10 个 + `keyword_count_over_max` warning"是 keywords 数组时代行为已失效；超出分批，调用后核对 `meta.filters_applied.keywords` 差集）|
+| 多时间框架历史 | `metrics()` | `query="AAPL 历史走势 30 day chart"`, `time_range="1m"`, **`asset_type="tradfi"`** |
+| 内部人交易（单票）| `signal()` | `query="AAPL"`, **`asset_type="tradfi"`**, `limit=20`（N-59f：categories/keywords 数组被拒，走 query 串；不带 categories 仍 fanout 全类只计 1 额度 N-4，客户端只读 insider_trading）|
 | 媒体交叉验证 | `news()` | `query="[companyName 2 词]"`, `time_range="1w"` ⚠️ **不要传 asset_type**（实测加 tradfi 返 0 results）|
 
 > **关键变化（vs v1）**：
@@ -58,8 +58,9 @@ args: scope, days
 
 ```
 检测（⚠️ 必须全量扫描，不要只查涨跌榜 ticker — Silent 的本义是价格未动，上榜 = 已动）:
-1. signal(categories=["insider_trading"], asset_type="tradfi", time_range="1w",
+1. signal(query="insider trading", asset_type="tradfi", time_range="1w",
           limit=50, sort_by="amount")           # 1 次全量，替代旧版按榜单 ticker 逐个单查
+   # N-59f：categories 数组被 schema 拒，意图走 query 串路由；客户端只读 insider_trading 段
 2. 客户端过滤（实测 2026-06-12）:
    - formType="4" 且 transactionType="P-Purchase"（⚠️ formType 3 是初始持仓/期权申报
      不是交易，会聚簇污染——实测 SPCX 一家占 13 条）
@@ -67,12 +68,15 @@ args: scope, days
    - congress 记录（provenance="congress"）结构不同: type="Purchase" 且 amount 区间下限 ≥ $50K
    - 按 ticker 去重（同一人多笔合并金额）
 3. 排除已上当日涨跌幅榜的 ticker（价格已动 ≠ silent；榜内 ticker 有内部人买入 → 归"多重信号"）
-4. 对剩余 ticker 调 news(query="[companyName] 2-3 词", sources=["media","twitter"], time_range="1w")
-   ⚠️ 本 Skill 必须同时取 media + twitter，**不可收窄成 media-only**：
+4. 对剩余 ticker 调 news(query="[companyName] 2-3 词", time_range="1w")
+   ⚠️ sources 数组被 schema 拒且无字符串替代（N-8）——默认返回的 articles + social 两桶
+      恰好覆盖媒体 + 推特，本 Skill 判定必须两桶都算，**不可收窄成只看 articles 桶**：
       判定依据是"这只票有没有人在说"，只看媒体会把"推特热议但无媒体报道"的票
-      误判成无声异动（假阳性）。research/telegram 不算美股公开报道，故排除
+      误判成无声异动（假阳性）。research/telegram 类内容不算美股公开报道，逐条判相关时剔除
 5. 判定: 主动买入 > $100K 且报道 ≤ 2 篇
    ⚠️ 报道数必须按红线 11 逐条 LLM 判相关性后计数，不能用 raw count（语义兜底会塞不相关内容）
+   ⚠️ N-25：news(limit=N) 实返 2N 条（articles + social 两桶）——计数口径 = LLM 逐条判相关后的
+      相关报道数，两桶都算
 ```
 
 ### 信号二：Sentiment Mismatch（情绪错配）
@@ -97,7 +101,7 @@ args: scope, days
 1. metrics(query="most active stocks", asset_type="tradfi", limit=30) 取 changesPercentage < 0 一侧（🔄 可复用上一信号的结果，不必重调）
 2. 客户端过滤 marketCap > $1B（需二次调用补）
 3. 对每个 ticker 调 news
-4. 判定: 跌幅 >8% 且报道 ≤ 3 篇
+4. 判定: 跌幅 >8% 且报道 ≤ 3 篇（N-25：limit=N 实返 2N 条两桶，逐条判相关后计数、两桶都算）
 ```
 
 ### 信号四：Unreported Surge（无声暴涨）
@@ -108,7 +112,7 @@ args: scope, days
 1. metrics(query="most active stocks", asset_type="tradfi", limit=30) 取 changesPercentage > 0 一侧（🔄 可复用前面的结果）
 2. 客户端过滤 marketCap > $500M（⚠️ 需二次调用补市值；微盘妖股问题在异动榜依然存在，2026-07-27 实测 STAK +602% 市值仅 $0.93 亿）
 3. 对每个 ticker 调 news
-4. 判定: 涨幅 >20% 且报道 ≤ 2 篇
+4. 判定: 涨幅 >20% 且报道 ≤ 2 篇（N-25：limit=N 实返 2N 条两桶，逐条判相关后计数、两桶都算）
 ```
 
 ## 执行步骤
@@ -118,8 +122,9 @@ args: scope, days
 ```
 1. metrics(query="most active stocks", asset_type="tradfi", limit=30)   # 🔄 一次含涨跌两侧，替代原来的 gainers + losers 两次调用
 2. （原 biggest losers 一路已并入上面，省 1 次调用）
-3. signal(categories=["insider_trading"], asset_type="tradfi", time_range="1w",
+3. signal(query="insider trading", asset_type="tradfi", time_range="1w",
           limit=50, sort_by="amount")
+   # N-59f：categories 数组被 schema 拒，意图走 query 串；客户端只读 insider_trading 段
 ```
 🔒 必须带 `asset_type="tradfi"`，否则同名 ticker 会被错路由到 crypto。
 
@@ -134,14 +139,18 @@ mover 榜默认含 **3 类污染**，必须先过滤：
 # 污染 2：杠杆 ETF 衍生品（不是真实异动信号）
 # 污染 3：仙股（< $5）
 
-LEVERAGED_KEYWORDS = ["2X", "3X", "Long", "Short", "Bull", "Bear", "Daily", "Leveraged"]
+LEVERAGED_PATTERN = r"ETF|ETN|UltraPro|Ultra|Leveraged|\dX|Bull|Bear|Daily"
+# ⚠️ 必须用上面这份正则——只判 "ETF" 单词会漏：TQQQ(ProShares UltraPro QQQ)/
+#    SQQQ(ProShares - UltraPro Short QQQ) 的 name 都不含 "ETF" 字串
 
 filtered = [
     x for x in (gainers + losers)
-    if x.price > 5                                          # 排除仙股
-    and x.exchange in ["NYSE", "NASDAQ", "AMEX"]            # 排除 OTC
-    and not any(k in x.name for k in LEVERAGED_KEYWORDS)    # 排除衍生品
+    if x.exchange in ["NYSE", "NASDAQ", "AMEX"]             # 排除 OTC
+    and not re.search(LEVERAGED_PATTERN, x.name)            # 排除衍生品
 ]
+# 仙股闸以市值闸为主（Step 2 补市值后按 marketCap 过滤）；
+# `price > 5` 价格闸仅在 marketCap 不可得时兜底——
+# 实测 GRAB $3.31 但市值 $131 亿，会被价格闸误杀
 
 # 提取 ticker 列表（去重）
 tickers = list({x.symbol for x in filtered})
@@ -150,14 +159,15 @@ tickers = list({x.symbol for x in filtered})
 然后**二次调用补市值**：
 ```
 metrics(
-  keywords=tickers[:10],         # ⚠️ 一次最多 10 个（实测 18→10 静默截断），超出分批
-  categories=["market"],
+  query=" ".join(tickers[:5]) + " 行情",   # ⚠️ 一次最多 5 个（超出静默截断且无任何 warning），超出分批
   asset_type="tradfi"             # 🔒 必须，否则 AMN/WEST 等 ticker 会错路由到 crypto 山寨币
 )
+# N-8：keywords/categories 数组被 schema 拒，ticker 并入 query 串；
+# 调用后核对 meta.filters_applied.keywords 与请求的差集，缺失的 ticker 记缺口
 
 # 再用 marketCap 二次过滤
-final_gainers = [x for x in result if x.marketCap > 500_000_000 and x.changePercentage > 20]
-final_losers  = [x for x in result if x.marketCap > 1_000_000_000 and x.changePercentage < -8]
+final_gainers = [x for x in result if x.marketCap > 500_000_000 and x.changesPercentage > 20]
+final_losers  = [x for x in result if x.marketCap > 1_000_000_000 and x.changesPercentage < -8]
 ```
 
 ### Step 3: Silent Buy 候选构建（用 Step 1 的全量扫描结果，0 次新调用）
@@ -188,12 +198,12 @@ candidates = [
 对 Step 2 保留的 ticker 一次性查历史走势区分单日异动 vs 持续趋势：
 ```
 metrics(
-  keywords=[ticker_list],         # ⚠️ 最多 10 个，超出分批
-  categories=["market"],
+  query="<ticker1> <ticker2> ... 历史走势 30 day chart",   # ⚠️ 最多 5 个（超出静默截断无 warning），超出分批；
+                                   # N-8：ticker 并入 query 串；历史 OHLCV 必须靠"历史走势 30 day chart"意图词路由（同 11/14 实测）
   asset_type="tradfi",            # 🔒 必须（本 Skill 红线，漏传会错路由 crypto）
-  query="历史走势 30 day chart",   # 历史 OHLCV 必须靠该 query 路由（同 11/14 实测）
   time_range="1m"
 )
+# 调用后核对 meta.filters_applied.keywords 差集
 ```
 
 ### Step 5: 媒体交叉验证
@@ -215,6 +225,9 @@ news(
 3. 不写"impact / 影响 / 解读" — embedding 过拟合 0 results
 4. 单股票符号会被同名公司劫持（"CPI" → CPI Card），用全名
 
+⚠️ N-35：两个不同标的召回失败会返回**逐字相同**的兜底内容——返回里一条都不含
+   目标公司名/ticker 即判召回失败，记缺口不重试（同 query 重试、换措辞均无效）
+
 举例:
   AAPL    → query="Apple iPhone"
   TSLA    → query="Tesla Musk"
@@ -229,6 +242,9 @@ Silent Buy:        insider P-Purchase > $100K && 不在当日涨跌榜 && articl
 Sentiment Mismatch: |Δ| > 5% && mktCap > $1B && 情绪与价格相反
 Unreported Drop:   Δ < -8% && mktCap > $1B && articles ≤ 3
 Unreported Surge:  Δ > +20% && mktCap > $500M && articles ≤ 2
+
+# ⚠️ N-25：上述 articles 计数口径 = news(limit=N) 实返 2N 条（articles + social 两桶）中
+#    LLM 逐条判相关后的相关报道数，两桶都算
 
 排序: 多信号命中 > 单信号；市值大者前；涨跌绝对值大者前
 ```

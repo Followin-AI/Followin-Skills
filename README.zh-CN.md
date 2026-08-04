@@ -19,7 +19,8 @@
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 个独立 Skill | 财报季发现器——不属于任何 bundle，可单独取用（含[目录 README](./Earnings%20Screener/)：方法论映射 + 被否决方案） |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 个独立 Skill | 美股盘前自选追踪——按自选股、持仓和时区创建周期报告或即时盘前分析 |
 | **[`Feed Manager/`](./Feed%20Manager/)** | 1 个 Skill | **读你自己关注的那些股票账号，让你不再刷完就忘。**每天把他们的推文变成一份简报，再按标的和板块归进累积笔记——"三周前谁在 $85 说的多"五秒能查到。你报的每笔交易自动记一条决策日志，带到期回顾提醒。三道检查防静默遗漏：有账号没拉、有推文没拉全、拉到了却没写进文件。**没有出处的数字一律不写**（含[目录 README](./Feed%20Manager/)）|
-| **[`Research Reader/`](./Research%20Reader/)** | 4 个 Skill | 研报投研台——单标的研报深读：能不能信 / 信到什么程度 / 接下来盯哪天 / 还有谁被卷进来（含[目录 README](./Research%20Reader/) 与[产出样张](./docs/研报投研台样张.md)）|
+| **[`Research Reader/`](./Research%20Reader/)** | 5 个 Skill | 研报投研台——r0 覆盖雷达（不点名标的的发现腿：这周卖方在写谁）+ r1-r4 单标的深读：能不能信 / 信到什么程度 / 接下来盯哪天 / 还有谁被卷进来（含[目录 README](./Research%20Reader/) 与[产出样张](./docs/研报投研台样张.md)）|
+| **[`Trader Diligence/`](./Trader%20Diligence/)** | 1 个 Skill | 实盘尽调台——谁在用真钱做这只票、他值不值得跟。六道闸拦住最会骗人的字段（幽灵仓/马甲/净方向/胜率/盈亏比/无价敞口），不算收益（含[目录 README](./Trader%20Diligence/)）|
 | **[`Twitter Workflow/`](./Twitter%20Workflow/)** | 7 个 Skill | 推特日运营——加密/宏观/美股内容账号的「扫热点→选题→写稿→互动→复盘」流水线，MCP 实时驱动，发布永远人工确认（含[目录 README](./Twitter%20Workflow/)）|
 | **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
@@ -91,7 +92,7 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 **几条关键约定**：
 
 - 美股传 `asset_type="tradfi"`，加密传 `asset_type="crypto"`，且必须显式传 —— 唯一例外是 `news()`，它不应该收到这个参数。
-- **结构化券商研报走 `metrics`，不走 `news`**。`news(sources=["research"])` 是研报来源的**原始文章**检索；报告卡、目标价、thesis/catalyst 这些结构化字段来自 `metrics(categories=["fundamentals"])`。
+- **结构化券商研报走 `metrics`，不走 `news`**。`news(sources=["research"])` 是研报来源的**原始文章**检索；报告卡、目标价、thesis/catalyst 这些结构化字段来自 `metrics` 且 query 必须带研报意图词（如 `query="<T> research reports"`——红线 12；`categories=[...]` 数组入参已被 schema 拒，N-8）。
 - **`signal()` 省略 `categories` 会 fanout** 到内部人交易 + 13F 机构持仓 + KOL 喊单，**三类合计只计 1 次额度** —— 比分三次带过滤条件调用更省，且数据完全相同。
 
 完整调用红线与已知问题登记见 [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md)。
@@ -168,7 +169,7 @@ cp "Premarket Tracker/premarket-watchlist-automation.md" ~/.claude/commands/
 
 ---
 
-## 研报投研台（4 个）
+## 研报投研台（5 个）
 
 **你手上有一只股票，想弄明白券商研报到底怎么看它。**
 
@@ -177,12 +178,13 @@ cp "Premarket Tracker/premarket-watchlist-automation.md" ~/.claude/commands/
 
 | # | 模块 | 干什么 |
 |---|---|---|
+| **r0** | 覆盖雷达 | **发现腿，不用点名标的**——"这周卖方在写谁"（默认 7 天真窗口 + 累计口径对照），带强制主/配角预检，防止空手进 r1 |
 | **r1** | 跨源印证读数卡 | 一份研报说"目标价 350"该不该信——拿全街共识、股价走势、网红与高管动向、最近一季财报四边对撞。输出不给买卖，只答三句：**该锚哪个价、跌是哪种跌、什么信号出现了该改主意** |
 | **r2** | 口径审计器 | 不看结论，只看结论的地基：这话是分析师查出来的还是**管理层路演时自己说的**？对比图是实测还是分析师建模算的？报告自己承认了什么对不上？ |
 | **r3** | 催化剂时间线 | 研报点名的未来节点排成一条线——新品量产、竞品发布会、投资付款日，**公开财报日历里一个都没有**。按精确度分层，说不清的标着说不清 |
 | **r4** | 产业链读穿 | 别人的研报里你这只票被放在什么位置——谁提到它、判它受益还是受损、理由是什么，以及**这条链上还有谁被改了目标价**。实测查英特尔一次顺带拿到联电目标价被上调 87%、世界先进 55% |
 
-四支**共用同一次研报调用**，跑完 r1 之后 r2/r3/r4 都是白送的。单只股票跑满四支 = 3 次计费调用。安装：
+r1-r4 **共用同一次研报调用**，跑完 r1 之后 r2/r3/r4 都是白送的。单只股票跑满四支 = 3 次计费调用。安装：
 
 ```bash
 cp "Research Reader"/*.md ~/.claude/commands/
@@ -218,7 +220,7 @@ cp -rn "Twitter Workflow/skills/"* ~/.claude/skills/    # -n = 不覆盖你已�
 ⚠️ **没有 Twitter list？** `config.md` 给了一个公开示例 list 先跑通，但它是**示例不是默认**（约 17% 内容跑题、产权不在你手上）——跑通一次后换成自己的。
 ⚠️ **不填会被拦。** 首次「跑一轮」检测到还是模板配置就停下、告诉你缺哪几项，不用先背配置表。
 
-完整说明见 **[`Twitter Workflow/README.md`](./Twitter%20Workflow/README.md)**。7 支全部在 live 数据上端到端验证过；端点/字段坑记在 [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md) 的 N-47~N-58。
+完整说明见 **[`Twitter Workflow/README.md`](./Twitter%20Workflow/README.md)**。7 支中 5 支（trend-scout / topic-engine / tweet-composer / performance-review / engagement）有端到端实跑记录（N-47~N-58）；twitter-ops 与 competitor-watch 为编排层、暂无独立 N 系列记录。端点/字段坑记在 [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md) 的 N-47~N-58。
 
 ---
 
@@ -258,7 +260,7 @@ cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 | # | 模块 | 产出 |
 |---|---|---|
 | **c1** | 每日早報 | 晨報 · 開盤前瞻 · 盤中刷新 |
-| **c2** | 週報 | 上周"预期 vs 兑现"回顾 + 本周日历 |
+| **c2** | 週報 | 本週市場底色 + 本週主線 + 下週已確認事項（600-800 字繁體）|
 | **c3** | 研報熱議榜 | 每周研报密集度榜 + 深度研究笔记 |
 | **c4** | 熱議標的溫度計 | 推特情绪 × 真金白银 × 内部人三维交叉，或全市场讯号汇总 |
 | **c5** | 熱點掃描 | 热点菜单 + 300–500 字速报贴 + 财报速读 |
@@ -282,6 +284,11 @@ cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 | `这个目标价能信吗` / `研报解读` | [r1 跨源印证](./Research%20Reader/r1_cross-source-readout.md) | 研报结论 + 四边对撞；只看研报讲了什么走 c3 |
 | `这份研报靠谱吗` / `基准是谁` | [r2 口径审计](./Research%20Reader/r2_research-caveat-audit.md) | 审地基不复述结论 |
 | `接下来盯什么` / `有什么催化剂` | [r3 催化剂时间线](./Research%20Reader/r3_catalyst-timeline.md) | 研报点名的节点；"XX 哪天发财报"不走这里（日历已判废，见 caveats N-22）|
+| `黄金宏观` / `Gold macro` | 05 黄金看盘 | 单一资产（黄金）的宏观评分 |
+| `谁被研报提得最多` / `这周卖方在看谁` | [r0 覆盖雷达](./Research%20Reader/r0_coverage-radar.md) | 研报侧**不点名标的**的发现腿（7 天真窗口）|
+| `产业链读穿` / `还有谁被改了目标价` | [r4 产业链读穿](./Research%20Reader/r4_supply-chain-readthrough.md) | 跨标的提及 + 链上连带调价 |
+| `谁在做 SNDK` / `钱在挤哪些票` | [实盘尽调](./Trader%20Diligence/live-position-diligence.md) | 真金白银仓位 + 战绩六道闸，**不是跟单清单** |
+| `跑一下 KOL` / `run KOL watch` | [Feed Manager](./Feed%20Manager/README.md) | 你自己名单的日报 + 累积档案；全网喊单走 c4、实盘仓位走实盘尽调 |
 | `CPI 影响` / `CPI impact` | *（无专门 Skill）* | 指标解读是模型自带能力——直接调 `metrics`+`news`；FRED 字典见 caveats 附表 A |
 
 每个 Skill 的 frontmatter 都带显式的 `trigger` 与 `not_trigger` 列表 —— 这是相邻 Skill 不互相抢词的关键。

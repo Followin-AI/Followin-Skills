@@ -17,7 +17,7 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 |---|---|---|---|
 | 晨報 | 台北早晨跑，美股昨夜已收盘 | 全流程步骤 1-7 | ≤1000 字，六段结构（S-4） |
 | 開盤前瞻 | 台北 21:00 前后跑，美股开盘前约 30 分钟 | 只跑步骤 1、7 | 约 300 字，2-3 点 |
-| 刷新 | 当日已出晨报后，盘中任意时刻 | 步骤 1、3、4 增量（`time_range` 缩到 4h） | 200-400 字增量补丁贴 |
+| 刷新 | 当日已出晨报后，盘中任意时刻 | 步骤 1、3、4 增量（`time_range` 仍用 24h——4h 窗口实测返 0 篇，同 c5 记载；增量靠客户端按 published_ts 过滤） | 200-400 字增量补丁贴 |
 
 - **晨報**＝全流程 7 步：美股昨夜已收盘，出完整「收盘复盘 + 今日看点」六段结构（见第 3 节）。
 - **開盤前瞻**＝只跑步骤 1、7：美股尚未开盘，精简输出三点——今晚开盘關注 / 盘前异动快照（引用快照自带的 `extendedHoursQuote` 字段，标注「盤前」）/ 今晚数据几点，约 300 字 2-3 点。与晨报同一 skill、共用触发词组（"早報"/"開盤前瞻"，含简体形式），路由到同一份调用序列，只是只跑其中两步。
@@ -31,7 +31,7 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 |---|---|---|
 | 1 | `news(空 query, asset_type="tradfi", time_range="24h")` 热点趋势榜 | 0（实测） |
 | 2 | （按需）对头条事件 `news(query="<核心名词×2>", time_range="24h")` 补细节，≤3 次 | 0（实测） |
-| 3 | `metrics(query="most active stocks", asset_type="tradfi")` 异动榜——**弃用 biggest gainers/losers**（trend-scout v1.8.0 实测：上游缺 marketCap 且全是仙股）；**2026-07-22 回归实测更正**：该 board 行本身也不带 marketCap 字段（10/10 行仅有 price/change/name/symbol），需对候选 ticker 另发一次批量 `metrics(query="<TICKER1> <TICKER2> ...", asset_type="tradfi")` 补 snapshot 取 marketCap 后再套用 ≥$1B 过滤（≤10 个一批；query 串批量会静默丢部分 ticker，需核对 `meta.filters_applied.keywords` 是否齐全，缺的单独补查） | 2 |
+| 3 | `metrics(query="most active stocks", asset_type="tradfi")` 异动榜——**弃用 biggest gainers/losers**（trend-scout v1.8.0 实测：上游缺 marketCap 且全是仙股）；**2026-07-22 回归实测更正**：该 board 行本身也不带 marketCap 字段（10/10 行仅有 price/change/name/symbol），需对候选 ticker 另发一次批量 `metrics(query="<TICKER1> <TICKER2> ...", asset_type="tradfi")` 补 snapshot 取 marketCap 后再套用 ≥$1B 过滤（**≤5 个一批**，红线 4/N-23：超出被静默截断到 5 且无任何 warning；query 串批量还会静默丢部分 ticker，调用后必须核对 `meta.filters_applied.keywords` 与请求列表的差集是否为空，缺的单独补查） | 2 |
 | 4 | `signal(query="consensus", asset_type="tradfi", time_range="24h")` 无 categories 一次拿全：喊单榜+多空比+内部人大额动向 | 1 |
 | 5 | ⚠️ **原市场级财报日历已废弃（N-22）** → 改为对关注池逐批查 `metrics(query="<T1>…<T5> next earnings date", asset_type="tradfi")`，取 `next_earnings_estimate.date` = 今日的；做法与铁律见 c2 第 2 节 | 关注池数 ÷5 |
 | 6 | `metrics(query="economic calendar upcoming releases")` 当日宏观数据发布（2026-07-22 回归实测确认可用：query 路径能路由，返回调用当下自然日的日历，满足"当日"需求；date_from/date_to 不影响窗口宽度，传或不传都只回传锚定日当天，见 c2 关于多日窗口限制的记载） | 1 |
@@ -39,7 +39,7 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 
 调用形态铁律（本序列全程通用）：
 
-> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-07-22 复现）**：`keywords/categories/sources` 等数组参数在当前环境会被序列化成字符串遭 schema 拒（连环 -32602）。所有调用规范以 **query 自然语言/空格拼串为主写法**（服务端自解析成 keywords，meta 可验证），数组形式仅作"标准客户端若可传数组"的备选注记。批量降级梯：① keywords 数组批量（≤10，B-31）→ ② query 串批量（crypto 实测可行，tradfi 多 ticker 可能被路由到 fundamentals，实现时验证）→ ③ 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-08-04 复核仍复现，N-8）**：`keywords/categories/sources` 等数组参数被 tool schema 拒（连环 -32602；schema 中这些入参无类型，**任何客户端均不可用**）。所有调用一律以 **query 自然语言/空格拼串为唯一形态**（服务端自解析成 keywords，`meta.filters_applied.keywords` 可验证）。批量上限 **≤5**（红线 4/N-23）：超出被**静默截断到 5 且无任何 warning**（旧记载的 `keyword_count_over_max` warning 已不存在），调用后必须拿请求列表与 `filters_applied.keywords`（及 `snapshot[].symbol`）做差集自查，缺的分批补。降级梯：① query 串批量（≤5）→ ② 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
 
 每步 query 主形态调用示例：
 

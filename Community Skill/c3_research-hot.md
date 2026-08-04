@@ -28,7 +28,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 | 步骤 | 调用 | 额度 |
 |---|---|---|
 | 1 | `metrics(query="research reports most mentioned stocks", asset_type="tradfi", time_range="7d")` 聚合榜（**N-37 已修，可传窗口**）| 1 |
-| 2 | 对榜单 Top 3-5 逐个 `metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")`（实测可路由；标准客户端可用 keywords=[TICKER] 数组形态） | 各 1 |
+| 2 | 对榜单 Top 3-5 逐个 `metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")`（实测可路由；数组入参任何客户端均不可用，N-8） | 各 1 |
 
 ### 层 1：本週研報點名榜（`7d` 窗口）
 
@@ -56,13 +56,13 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
 ### 层 2：研究笔记（对 Top 3-5 或指定标的）
 
-调用：`metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")`（实测可路由；标准客户端可用 `keywords=["<TICKER>"]` 数组形态）。
+调用：`metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")`（实测可路由；`keywords=["<TICKER>"]` 数组形态任何客户端均不可用——tool schema 无类型导致，N-8）。
 
 对层 1 榜单 Top 3-5 逐个调用；若触发时带 args `ticker`，跳过层 1，只对该 ticker 调用一次。
 
 调用形态铁律（本序列全程通用）：
 
-> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-07-22 复现）**：`keywords/categories/sources` 等数组参数在当前环境会被序列化成字符串遭 schema 拒（连环 -32602）。所有调用规范以 **query 自然语言/空格拼串为主写法**（服务端自解析成 keywords，meta 可验证），数组形式仅作"标准客户端若可传数组"的备选注记。批量降级梯：① keywords 数组批量（≤10，B-31）→ ② query 串批量（crypto 实测可行，tradfi 多 ticker 可能被路由到 fundamentals，实现时验证）→ ③ 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-08-04 复核仍复现，N-8）**：`keywords/categories/sources` 等数组参数被 tool schema 拒（连环 -32602；schema 中这些入参无类型，**任何客户端均不可用**）。所有调用一律以 **query 自然语言/空格拼串为唯一形态**（服务端自解析成 keywords，`meta.filters_applied.keywords` 可验证）。批量上限 **≤5**（红线 4/N-23）：超出被**静默截断到 5 且无任何 warning**（旧记载的 `keyword_count_over_max` warning 已不存在），调用后必须拿请求列表与 `filters_applied.keywords`（及 `snapshot[].symbol`）做差集自查，缺的分批补。降级梯：① query 串批量（≤5）→ ② 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
 
 每步 query 主形态调用示例：
 
@@ -72,7 +72,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
    # ✅ time_range 已于 2026-08-03 修复；返回带 date_from/date_to/time_scope，文案引用返回值
 
 2. metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")
-   # 层 2 单标的钻取；标准客户端备选：keywords=["<TICKER>"], query="research reports", verbosity="detail", time_range="7d", asset_type="tradfi"
+   # 层 2 单标的钻取；数组形态 keywords=["<TICKER>"] 任何客户端均不可用（N-8），一律走本行 query 串形态
    # Top 3-5 逐个调用，每批 ≤4 路并行（SSE 红线 2，Top 5 时拆成 4+1 两批）；带 args ticker 时只此一次，跳过步骤 1
 ```
 
@@ -165,7 +165,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
   第 1 节层 1 输出已述；此处重申：层 2 若榜单 Top 3-5 里出现非美股 ticker（如台积电 2330.TW、三星 005930.KS），研究笔记照样可以产出，只需在标题/一句話先懂里标注市场，运营自行决定是否收录进当周产出。
 
-- **meta.warnings 检查（`research_report_limit_capped`）**：每次调用（层 1 聚合榜、层 2 detail 钻取）后按 设计文档对应章节）"）。研报路径对应的告警键预期为 `research_report_limit_capped`——出现即代表本次榜单排名或 detail 报告数被上游截断，不代表"研报本来就这么少"，成稿前须知会运营；该键名沿用红线 4/B-31 的 `keyword_count_over_max` 同一惯例，键名本身尚待实测最终确认，实现时以实际返回字段为准。
+- **meta.warnings 检查（`research_report_limit_capped`）**：每次调用（层 1 聚合榜、层 2 detail 钻取）后检查一次 `meta.warnings`。研报路径对应的告警键预期为 `research_report_limit_capped`——出现即代表本次榜单排名或 detail 报告数被上游截断，不代表"研报本来就这么少"，成稿前须知会运营；该键名尚待实测最终确认，实现时以实际返回字段为准。⚠️ 另注意 N-21：研报调用的 `default_fanout_fallback` warning 是**假阴性**（实测该警告出现时 payload 里 `fundamentals.research_reports` 数据齐全），不要据此判定失败或重试——重试白烧额度；成败一律以 `results.fundamentals.research_reports` 是否存在为准，不看这个 warning。
 
 - **S-5 多空平衡**：
 
@@ -179,7 +179,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
   機構怎麼看段落引用的现价、目标价、涨跌幅度，一律只用本次 metrics 调用返回值；最新動態/推特風向段落若要写具体涨跌幅百分比，同样必须是本次调用返回的快照数据，不能照抄新闻/推特转述的数字。
 
-- **榜单高位 ≠ 有专题报告（N-19，2026-07-23 实测）**：榜单排名基于 mention count。实测 GOOGL 排名第 2、66 篇提及、16 家机构，钻取后 `subject_reports` 为 **0**，4 篇全是行业报告里的顺带提及（`mention_reports`）。钻取后必须先看两层比例：只有 mention 没有 subject 时，贴文不能写成"X 家機構出了專題研究"，只能写"在多份行業報告裡被提到"，并把 `mention_context.rationale` 当作机构观点来源。层 2 研究笔记若某标的 subject_reports=0，考虑改出"行業視角"体裁或换标的。
+- **榜单高位 ≠ 有专题报告（N-19 原则仍成立，例证已按 N-64 更新）**：榜单排名基于 mention count，排名高不保证有以该标的为核心研究对象的专题报告。⚠️ 原 GOOGL 例子已过期——`subject_reports` 数量是时点状态、会日间剧变（07-23 实测 GOOGL subject=0，07-29 复测 subject=6），**绝不照抄历史结论，每次当场看返回的 subject 报告数**。现行 subject=0 的实测例子是 **F（福特）**：2026-07-29 实测 `report_returned_count=3`，3 篇全是行业报告里的顺带提及（`mention_reports`），无一篇专题。钻取后必须先看两层比例：只有 mention 没有 subject 时，贴文不能写成"X 家機構出了專題研究"，只能写"在多份行業報告裡被提到"，并把 `mention_context.rationale` 当作机构观点来源。层 2 研究笔记若某标的 subject_reports=0，考虑改出"行業視角"体裁或换标的。
 
 ## 4. 发前自检 + 额度哨兵
 
