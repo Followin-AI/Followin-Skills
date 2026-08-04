@@ -40,7 +40,7 @@ args: scope, days
 |------|------|------|
 | 当日异动榜（涨跌合一）| `metrics()` | 🔄 `query="most active stocks"`, **`asset_type="tradfi"`**, `limit=30` —— ⚠️ **`biggest gainers/losers` 已弃用**（2026-07-27 实测返 VYNE +2656%、SGLY +1429%、"Fidelity 短期债券 ETF" +2009%，全是仙股与数据错误）。异动榜一次同时含涨跌两侧，按 `changesPercentage` 正负分组，**省掉原来的两次调用** |
 | 个股报价 + 市值 | `metrics()` | `query="AAPL TSLA ... 行情"`（ticker 并入 query 串——N-8 数组被拒）, **`asset_type="tradfi"`** 一次最多 **5 个**（超出**静默截断且无任何 warning**——旧"10 个 + `keyword_count_over_max` warning"是 keywords 数组时代行为已失效；超出分批，调用后核对 `meta.filters_applied.keywords` 差集）|
-| 多时间框架历史 | `metrics()` | `query="AAPL 历史走势 30 day chart"`, `time_range="1m"`, **`asset_type="tradfi"`** |
+| 多时间框架历史 | `metrics()` | `query="AAPL 历史走势"`, `time_range="1m"`, **`asset_type="tradfi"`** |
 | 内部人交易（单票）| `signal()` | `query="AAPL"`, **`asset_type="tradfi"`**, `limit=20`（N-59f：categories/keywords 数组被拒，走 query 串；不带 categories 仍 fanout 全类只计 1 额度 N-4，客户端只读 insider_trading）|
 | 媒体交叉验证 | `news()` | `query="[companyName 2 词]"`, `time_range="1w"` ⚠️ **不要传 asset_type**（实测加 tradfi 返 0 results）|
 
@@ -58,7 +58,7 @@ args: scope, days
 
 ```
 检测（⚠️ 必须全量扫描，不要只查涨跌榜 ticker — Silent 的本义是价格未动，上榜 = 已动）:
-1. signal(query="insider trading", asset_type="tradfi", time_range="1w",
+1. signal(query="内部人交易", asset_type="tradfi", time_range="1w",
           limit=50, sort_by="amount")           # 1 次全量，替代旧版按榜单 ticker 逐个单查
    # N-59f：categories 数组被 schema 拒，意图走 query 串路由；客户端只读 insider_trading 段
 2. 客户端过滤（实测 2026-06-12）:
@@ -122,7 +122,7 @@ args: scope, days
 ```
 1. metrics(query="most active stocks", asset_type="tradfi", limit=30)   # 🔄 一次含涨跌两侧，替代原来的 gainers + losers 两次调用
 2. （原 biggest losers 一路已并入上面，省 1 次调用）
-3. signal(query="insider trading", asset_type="tradfi", time_range="1w",
+3. signal(query="内部人交易", asset_type="tradfi", time_range="1w",
           limit=50, sort_by="amount")
    # N-59f：categories 数组被 schema 拒，意图走 query 串；客户端只读 insider_trading 段
 ```
@@ -198,8 +198,8 @@ candidates = [
 对 Step 2 保留的 ticker 一次性查历史走势区分单日异动 vs 持续趋势：
 ```
 metrics(
-  query="<ticker1> <ticker2> ... 历史走势 30 day chart",   # ⚠️ 最多 5 个（超出静默截断无 warning），超出分批；
-                                   # N-8：ticker 并入 query 串；历史 OHLCV 必须靠"历史走势 30 day chart"意图词路由（同 11/14 实测）
+  query="<ticker1> <ticker2> ... 历史走势",   # ⚠️ 最多 5 个（超出静默截断无 warning），超出分批；
+                                   # N-8：ticker 并入 query 串；历史 OHLCV 必须靠"历史走势"意图词路由（同 11/14 实测）
   asset_type="tradfi",            # 🔒 必须（本 Skill 红线，漏传会错路由 crypto）
   time_range="1m"
 )

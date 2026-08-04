@@ -37,8 +37,8 @@ args: ticker
 |------|------|
 | **基本面真聚合**（含 profile / 三表 / 估值 / 评级 / shares_float / beat-miss / consensus / eps_trend / latest_quarter / next_earnings / financial_growth / sec_filings — 14 block，唯独缺 stock_peers）| `metrics(query="<T> 全面分析", asset_type="tradfi")` |
 | 行情快照（price / change / volume / dayHigh/Low / yearHigh/Low / marketCap）| `metrics(query="<T> 行情", asset_type="tradfi")`（批量 ≤5 个，超出静默截断且无任何 warning——红线 4）|
-| 多时间框架历史 OHLCV | `metrics(query="<T> 历史走势 30 day chart", asset_type="tradfi", time_range="1y")` |
-| 技术指标（按需）| `metrics(query="<T> RSI 14", asset_type="tradfi", period=14)` 或 `query="<T> EMA 50"` |
+| 多时间框架历史 OHLCV | `metrics(query="<T> 历史走势", asset_type="tradfi", time_range="1y")` |
+| 技术指标（按需）| `metrics(query="<T> 相对强弱 指标", asset_type="tradfi", period=14)` 或 `query="<T> 均线 指标"` |
 | 媒体覆盖 | `news(query="<companyName> <ticker>", time_range="2w", limit=10)` 读 `articles` 桶（sources 数组被拒无字符串替代 N-8；news 实返 2N 条 = articles + social 两桶 N-25；**不要带 asset_type**，实测会返 0）|
 | 推特风向（可选）| `news(query="<companyName> <ticker>", time_range="1w", limit=10)` 读 `social` 桶 |
 | **机构研报·结构化**（目标价 / rating_action / thesis / key_caveat / latest_catalyst）| `metrics(query="<TICKER> research reports", asset_type="tradfi", verbosity="detail", time_range="7d")` ⚠️ warning 误报见 N-21 |
@@ -113,11 +113,11 @@ metrics(query="[T] 全面分析", asset_type="tradfi")
    → 现价 snapshot: price / change / volume / dayHigh/Low / yearHigh/Low / marketCap
    → ⚠️ change 是美元变动量不是百分比（N-47），百分比自算 change/previousClose×100
 
-3. metrics(query="[T] 历史走势 30 day chart", asset_type="tradfi", time_range="1y")
+3. metrics(query="[T] 历史走势", asset_type="tradfi", time_range="1y")
    → 1y daily OHLCV，自算多周期涨跌（1D/5D/1M/3M/6M/YTD/1Y）
 
-4. metrics(query="[T] RSI 14", asset_type="tradfi", period=14)
-   → RSI 时间序列；EMA/SMA 同理用 query="[T] EMA 50" / "[T] SMA 200"
+4. metrics(query="[T] 相对强弱 指标", asset_type="tradfi", period=14)
+   → RSI 时间序列；EMA/SMA 同理用 query="[T] 均线 指标" / "[T] SMA 200"
 ```
 
 ### Step 2: 媒体覆盖
@@ -283,8 +283,8 @@ PE: XX.X | PS: X.X | ROE: XX.X% | D/E: X.X | Gross Margin: XX.X%
   - `query="<T> 现金流量表"` = cashflow + financial_growth
   - `query="<T> 估值"` = valuation_block only
   - `query="<T> 评级变化"` = analyst_grades only
-- **多周期涨跌**：用 `query="<T> 历史走势 30 day chart"` + `time_range="1y"` 拿 1y daily OHLCV 自算（market snapshot 不含 priceAvg50/200）
-- **技术指标 RSI / EMA / SMA**：各自单调 `query="<T> RSI 14"` / `query="<T> EMA 50"` / `query="<T> SMA 200"`（不要靠默认 fanout）
+- **多周期涨跌**：用 `query="<T> 历史走势"` + `time_range="1y"` 拿 1y daily OHLCV 自算（market snapshot 不含 priceAvg50/200）
+- **技术指标 RSI / EMA / SMA**：一次 `query="<T> 均线 指标"` 即 fanout 全部 9 个指标，按 `indicator` 字段筛（实测 2026-08-04） / `query="<T> 均线 指标"`（不要靠默认 fanout）
 - **`news()` query 三原则**：2-3 核心名词 / 不混搭中英 / 不写元词；`sources=` 数组已被 schema 拒且无字符串替代（N-8/N-59）——**分源改在客户端做**：报道读 `articles` 桶、风向读 `social` 桶（news 实返 2N 条两桶，N-25）
 - **避免高并发**：单批 ≤ 4 路并发，否则 SSE 可能挂
 - **`metrics()` FRED 字典未命中走 fred_search_fallback** → 改用 `query="<series_id>"`（纯 series_id 串）兜底

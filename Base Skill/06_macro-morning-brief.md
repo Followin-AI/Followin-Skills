@@ -109,7 +109,7 @@ metrics(query="<gainers/losers tickers 空格拼接> 行情", asset_type="tradfi
    - 原油 + 美元趋势方向
 
 2. **新闻热点**：
-   - 两路 news（信号驱动 + 泛市场）合并后再多源去重（cluster_id_v2 / cluster_id_v3）
+   - 两路 news（信号驱动 + 泛市场）合并后再多源去重（⚠️ 2026-08-04 实测 news 返回**无 cluster_id 字段**，可用字段仅 title/source_url/source_name/published_ts——按 `source_url` 去重 + 标题近似判重）
    - 提取 top 3 热门话题（不要只从单一 query 的结果选题）
    - Claude 推断每篇情绪聚合
 

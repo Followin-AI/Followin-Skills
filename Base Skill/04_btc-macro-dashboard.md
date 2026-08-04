@@ -88,8 +88,8 @@ tools: WebSearch, WebFetch
 
 | # | 指标 | 权重 | 数据获取 |
 |---|------|------|---------|
-| ⑤ | DXY 美元指数 | 8% | `metrics(query="DXUSD 行情", asset_type="tradfi")` 拿现价 + yearHigh/Low；均线另调 `metrics(query="DXUSD EMA 50")` |
-| ⑥ | 纳斯达克趋势 | 7% | `metrics(query="^IXIC 行情", asset_type="tradfi")` + `metrics(query="^IXIC EMA 50")` 均线 |
+| ⑤ | DXY 美元指数 | 8% | `metrics(query="DXUSD 行情", asset_type="tradfi")` 拿现价 + yearHigh/Low；均线另调 `metrics(query="DXUSD 均线 指标")` |
+| ⑥ | 纳斯达克趋势 | 7% | `metrics(query="^IXIC 行情", asset_type="tradfi")` + `metrics(query="^IXIC 均线 指标")` 均线 |
 | ⑦ | VIX 恐慌 | 5% | `metrics(query="^VIX 行情", asset_type="tradfi")` 现价（VIX 看绝对水平，不依赖均线；N-48：盘外拿到的是最近 regular 收盘，须标"最近收盘"）|
 | ⑧ | 实际利率趋势 | 5% | `metrics(query="DFII10", limit=4)` |
 | ⑨ | 收益率曲线 2Y-10Y | 3% | `metrics(query="T10Y2Y", limit=4)` |

@@ -18,7 +18,12 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
 
 **实测裁决**（本次 sweep 中现场验证）：GCUSD **可用**（返回 Gold Futures $4,109.8，2026-08-04），trend-scout:84 与 source-list:170 的"拿不到/返 0"系过期记载已更正；但 query 含英文 "gold" 会拖进 Gold.com 美股行，须按 symbol 筛。
 
-**⚠️ 本次改写引入的未实测形态**（下轮实跑须验证，验后销此条）：① 指标类合并 query：`metrics(query="DXUSD EMA 50")`；② 无 ticker 全量内部人扫描：`signal(query="insider trading", ...)`；③ 历史/RSI 的 ticker 并入 query：`query="<T> 历史走势 30 day chart"` / `"<T> RSI 14"`（英文词有 N-14 撞 ticker 风险）。
+**✅ 三个未实测形态已于同日实测销案——三种里两种当场失败，已全部改正并立 N-69/N-70**：
+- ① `metrics(query="DXUSD EMA 50")` → 🔴 **DXUSD 被静默丢弃**，"EMA" 被劫持成 Emera Inc（$52-54 加拿大公用事业股），返回 90 条全是错标的的指标 → 改 `query="<T> 均线 指标"`（实测 `keywords:["NVDA"]` 干净，且**一次 fanout 给全部 9 个指标**，红线 8 原"各自单调"是多余额度）
+- ② `signal(query="insider trading")` → 🔴 `results:{}` / `total:0` / `status:"ok"` **空结果不报错** → 改 `query="内部人交易"`（正常返回全市场 insider 行）
+- ③ `query="<T> 历史走势 30 day chart"` → ⚠️ "day" 被劫持成 Dayforce(DAY) 白占批量名额 → 去英文尾巴改 `query="<T> 历史走势"`
+- **统一规律（N-69）**：query 里的**英文意图词会被当 ticker 劫持或让调用返空，中文意图词干净**。N-14 此前只记了财报类英文词，本轮证明是 query 解析的普遍行为。
+- **附带证伪（N-70）**：06 号长期记载的 `cluster_id_v2/v3` 多源去重字段**实测不存在**，news 返回无任何 cluster id → 改按 source_url + 标题近似判重。
 **流程补丁**：新增 `tools/sweep-check.sh` 并装为 pre-commit——staged 新增行含肯定式数组参数即拦（反例行凭 ❌/已失效/N-8 等标记放行），防止第四次 sweep 半途而废。三次 sweep 烂尾（N-8/N-37·38/N-57）证明这事靠自觉记不住。
 
 ## 2026-08-03（晚）— 新增 `Feed Manager/`：美股信息流管理（从 Apatheticco/stock-kol-watch-framework 同步）

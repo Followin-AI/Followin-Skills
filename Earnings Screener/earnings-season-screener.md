@@ -289,7 +289,7 @@ gap = beat_miss.date − latest_quarter.date
 > 判别方法：降级返回里若**一条都不含目标公司名或 ticker**，即判为召回失败，记数据缺口，**不要重试**。
 
 **（可选）精算财报后涨跌**：默认打分用当日涨跌。要算"财报日至今"真实反应，对 Top N 各加一次
-`metrics(asset_type="tradfi", query="<TICKER> 历史走势 30 day chart", time_range="3m")`（+N 额度）。
+`metrics(asset_type="tradfi", query="<TICKER> 历史走势", time_range="3m")`（+N 额度）。
 
 ---
 
