@@ -143,7 +143,7 @@ SMA(200) = 简单 200 日均线
 
 > ⚠️ **数据硬闸（⑭⑮⑲ 强制执行）**：
 > - ⑭ Valuation：`valuation_block.dcf` 偏离现价 >5 倍即判失效，不进任何输出（SSOT 实测 INTC dcf 2.95 vs 现价 86.57——亏损期 DCF 直接崩且无失效标注）
-> - ⑮ Fundamentals / ⑲ Growth：`beat_miss.epsActual` 与 `latest_quarter.eps` **反号即口径错位**（非 GAAP vs GAAP），引用超预期必须标"非 GAAP"（N-29）
+> - ⑮ Fundamentals / ⑲ Growth：`beat_miss.epsActual` 与 `latest_quarter.eps` **只要不相等即口径错位**（非 GAAP vs GAAP；⚠️ 2026-08-05 由「反号」放宽——实测 NVDA 同号差 28% 照样错位）。反号时引用超预期必须标"非 GAAP"；同号不等时**严禁跨序列组合**（N-29）
 > - ⑮ Fundamentals / ⑲ Growth：`revenueActual` 为 null 时 `revenue_surprise_pct` 会显示 -100——那是缺失不是暴跌，**revenueActual 非 null 才可读 surprise_pct**（N-33）
 
 ### Step 4: ⑳ 风控经理（Risk Manager）

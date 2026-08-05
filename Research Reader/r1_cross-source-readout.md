@@ -140,9 +140,18 @@ metrics(query="<TICKER> analyst ratings price target", asset_type="tradfi")
 > 实测 INTC：公布日 2026-07-23、财季结束 2026-06-27 → **gap = 26 天 < 90 → 同季**，闸 1 生效。若按朴素比日期则判为不同季，闸 1 被误作废。
 > gap ≥ 90 天才标"口径无法核对"并作废闸 1——跨季比对会让一盈一亏的相邻两季产生假阳性。
 
-**闸 1 · GAAP 口径错位（N-29）**：`beat_miss.epsActual` 与 `latest_quarter.eps` **反号即判定口径错位**。
-实测 INTC：`epsActual 0.42`（非 GAAP，对预期 **+100%**）与 `latest_quarter.eps −2.16` / `netIncome −$110.33 亿`（GAAP 巨亏）**同处一个返回，无任何字段标明口径**。
-反号时强制标注"该超预期为非 GAAP 口径"，**营收 surprise（INTC +11.7%）才是可信主锚**。
+**闸 1 · GAAP 口径错位（N-29）**：`beat_miss.epsActual`（等价 `earnings_surprise.actual_eps`）与 `latest_quarter.eps`（等价 `financial_statement.eps` / `eps_trend`）**只要不相等即判定口径错位**——服务端始终不标 basis。
+
+> ⚠️ **2026-08-05 判据放宽**：原文写「**反号**即判定」，那是照 INTC 定的（`+0.42` vs `−2.16`，一正一负很扎眼）。**实测 NVDA 是同号不同值**——`actual_eps 1.87` vs `financial_statement.eps 2.40`，同一个季度、都为正、差 **28%**，按旧判据**这道闸不会触发**。
+> **同号错位比反号更危险**：反号一眼看得出不对劲，同号会被当成同一个数直接混用。
+
+- **反号**（如 INTC）：强制标注"该超预期为非 GAAP 口径"，**营收 surprise（INTC +11.7%）才是可信主锚**
+- **同号不等**（如 NVDA）：两条序列都可用，但**严禁跨序列组合**——
+  · 要和 `next_earnings_estimate.epsEstimated` 比 → 只能用 `actual_eps`（NVDA：`1.87 → 2.08` 是 **+11%**，与营收 +12.6% 吻合）
+  · 要看历史趋势 → 只能用 `eps_trend`（与 `financial_statement` 同源）
+  · ⛔ 绝不允许「上季 2.40 → 下季预期 2.08」（伪装成利润下滑 13%）或「实际 2.40 vs 预期 1.76 超预期 6.3%」（该式算出来是 +36%，自己就不成立）
+
+✅ **自检**：任何两个 EPS 放进同一句话前，先确认来自同一字段族。
 
 > ⛔ **`valuation_block.dcf` 在亏损期会给出荒谬值，一律不引用**（2026-07-29 实测新增）。
 > INTC：`dcf = 2.95` vs 现价 `86.57`——**相差 29 倍**。亏损公司的现金流折现模型直接崩掉，而返回里没有任何字段标注它失效。

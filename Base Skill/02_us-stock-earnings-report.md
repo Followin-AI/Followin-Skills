@@ -65,7 +65,7 @@ args: ticker
 ### ⚠️ 四条财报陷阱（硬闸，Beat/Miss 判定前必读）
 
 1. **N-15 财报当晚 beat_miss 仍是上一季**（实测 GOOGL 盘后发 Q2，当晚返回的仍是 Q1，FMP 侧延后更新）——财报当晚的"实际 vs 预期"一律取 `news()` 媒体/披露原文，metrics 只用于盘后快照与目标价；**次日后才可用 beat_miss 复核**。
-2. **N-29 反号即口径错位**：`beat_miss.epsActual` 与 `latest_quarter.eps` **反号即判定口径错位**（非 GAAP vs GAAP，实测 INTC 0.42 vs −2.16——只看 beat_miss 会把巨亏季读成"完美超预期"），强制标注"该超预期为非 GAAP 口径"。原"差异 >30% 标注"规则保留，但**反号才是硬判据**。
+2. **N-29 两个 EPS 不相等即口径错位**（⚠️ 2026-08-05 由「反号」放宽：实测 NVDA `1.87` vs `2.40` 同号差 28% 照样错位，旧判据不触发）：`beat_miss.epsActual` 与 `latest_quarter.eps` **只要不相等即判定口径错位**（非 GAAP vs GAAP，实测 INTC 0.42 vs −2.16——只看 beat_miss 会把巨亏季读成"完美超预期"），强制标注"该超预期为非 GAAP 口径"。原"差异 >30% 标注"规则保留，但**反号才是硬判据**。
 3. **N-33 null 伪装成 -100%**：`revenueActual` 为 null 时服务端把 null 当 0 减，输出 `revenue_surprise_pct: -100`——那是缺失不是暴跌。**第 4 道检查 = `revenueActual` 非 null 才可读 surprise_pct**；见 -100 一律先当缺失查证。同季确认用 `gap = beat_miss.date − latest_quarter.date < 90 天`（公布日 vs 季末日天然不相等，**不能直接比日期相等**）；不同季则 N-29 反号判定作废并标"口径无法核对"。
 4. **N-54 最新季 YoY 不在 4 季窗口**：季度数组只返最近 4 季，最新季 YoY 的对比季（去年同期）拿不到——趋势表只做 QoQ，YoY 一律标"需外源"；**别把 3 季前那季当去年同期**。
 
@@ -172,7 +172,7 @@ news(
 趋势:
 - 是否连续 beat？
 - Revenue / EPS QoQ 增速加速 / 减速？（YoY 需外源，N-54）
-- Adjusted vs GAAP 差异 > 30%？反号即口径错位（N-29 硬判据）
+- Adjusted vs GAAP 两个 EPS 只要不相等即口径错位（N-29 硬判据；不限反号）
 
 #### 维度二：媒体覆盖与情绪
 
