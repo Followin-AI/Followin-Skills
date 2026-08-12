@@ -17,7 +17,7 @@ args: ticker(必填), window(可选，默认 30d，仅用于客户端过滤报�
 > 通用红线见 [`references/followin-mcp-caveats.md`](../references/followin-mcp-caveats.md)，本文内联的是镜像，冲突以该文件为准。
 >
 > **隔一段时间再用，先花两分钟自查这 3 条**：
-> ① `metrics(query="NVDA research reports", verbosity="detail", asset_type="tradfi")` → `report_limit` 仍是 10 = 未修（N-38）
+> ① `metrics(query="NVDA research reports", verbosity="detail", asset_type="tradfi")` → 看 `meta.pagination` 在不在。**在 = 翻页能力健在（N-81 已修）**；不在 = 出现回退，记回 SSOT。`report_limit` 单页是 10 属正常，不再是缺陷
 > ② 同上调用传 `time_range="7d"` 与 `time_range="30d"`，返回**应不同**且 meta 带 `time_scope`/`date_from`（time_range 腿 2026-08-03 已修，N-38 部分销案）；逐个相同 = 出现回退，记回 SSOT
 > ③ `signal(query="NVDA", asset_type="tradfi")` → kol_call 里有没有 `symbol=="NVDA"` 的行；没有 = N-40 仍在
 
@@ -26,7 +26,7 @@ args: ticker(必填), window(可选，默认 30d，仅用于客户端过滤报�
 | 参数 | 必填 | 默认 | 说明 |
 |------|------|------|------|
 | ticker | ✅ | — | 单个美股代码。**本 Skill 不做批量**——四维对撞每标的 3 额度，且需逐份读报告论点 |
-| window | 否 | 30d | 报告新鲜度窗口。**服务端 `time_range` 腿已于 2026-08-03 修复**（`date_from`/`date_to` 可用、`time_scope` 字段透明），窗口过滤可服务端做；但 `report_limit:10` 硬顶与机构名不归一仍在（N-38 部分修复）|
+| window | 否 | 30d | 报告新鲜度窗口。**服务端 `time_range` 腿已于 2026-08-03 修复**（`date_from`/`date_to` 可用、`time_scope` 字段透明），窗口过滤可服务端做；但 `report_limit:10` **单页**硬顶与机构名不归一仍在（N-38 部分修复；**翻页能力已于 2026-08-12 补上**，见 N-81）|
 
 ## 为什么必须跨源
 
@@ -58,8 +58,12 @@ MCP 侧还额外叠了一层削弱：**每票最多看得到 10 篇、去重后�
 metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradfi")
 ```
 
+> 🔴 **取数前先认块（N-86，2026-08-12 实测）**：解析层会静默扩展出额外候选 ticker，**每个候选都是一个平级结果块，顺序不保证主匹配在前**（实测 `ASML.AS` 的 `[0]` 是空块、数据在 `[1]`）。
+> ① ⛔ **禁止用 `research_reports[0]` 取数**　② 逐块比对 `query_ticker` == 本次标的，**只认相等的块**　③ ⛔ **禁止用 `meta.total` 判条数**（它数的是块）
+
 > ⚠️ **query 必须含研报意图词**（红线 12）。只放报告标题或"半导体/AI"这类话题词**不会路由到研报路径**，会静默掉进 CORE fundamentals 全家桶，且照常计 1 额度。
-> ⚠️ **`time_range` 已于 2026-08-03 修复生效，可传**（`date_from`/`date_to`/`time_scope` 字段透明）；`limit` 仍被 10 硬顶（N-38 部分修复），"N 家机构"仍须标下界。
+> ⚠️ **`time_range` 已于 2026-08-03 修复生效，可传**（`date_from`/`date_to`/`time_scope` 字段透明）。
+> ⚠️ `limit` 单页仍被 10 硬顶，但 **2026-08-12 起返回体带 `meta.pagination.next_cursor`，可翻页枚举完**（N-81 销案）——**没翻页才需要把家数标下界**。翻完了就可以直接写家数，不必再标下界。
 > ⚠️ **`meta.warnings` 会误报 `default_fanout_fallback`**（N-21）——**这是假阴性，不要据此重试**，重试白烧 1 额度。以 `results.fundamentals.research_reports` 是否存在为准。
 
 **返回结构**：`subject_reports`（主题报告，核心研究对象就是这支股）+ `mention_reports`（提及报告，主题是别的，只是点了名）。**至多 10 篇**——`report_returned_count` 不保证等于 10，有货才给（N-64，实测 F 只返回 3 篇）。
@@ -228,7 +232,7 @@ news(query="<公司名> <TICKER>")
 · 盯什么反向信号：<具体到可观测的事件/数据，不是"关注市场变化">
 
 【口径声明】（强制，不可省）
-· 研报侧只看得到 N 篇（上游硬顶 10 篇），去重后 M 家 —— **家数是下界，不是全街覆盖**
+· 研报侧可见 N 篇（单页 10 篇，<已翻页至尽头 ／ 仅取首页>），去重后 M 家 —— **仅取首页时家数是下界，不是全街覆盖**
 · 分析师家数由 analyst_grades 去重估算，consensus_price 本身不提供家数
 · <若有>news 召回失败，维度 2 判定不成立
 · <若有>13F 环比因申报季回补未完成，未引用
@@ -269,7 +273,7 @@ news(query="<公司名> <TICKER>")
 
 | 边界 | 性质 | 处置 |
 |---|---|---|
-| 只看得到 10 篇 / 去重后 3–5 家 | 上游硬顶（N-38）| 所有家数标下界；**不做需要全覆盖的信号（错位族/信念族）**。实测去重后：NVDA 3 家、INTC 5 家、GOOGL 5 家 |
+| 单页 10 篇 / 去重后 3–5 家 | 上游单页硬顶（N-38）| **可翻页补全**（N-81，每页各 1 额度）。仅取首页时所有家数标下界；**需要全覆盖的信号（错位族/信念族）必须先翻完再做**。实测首页去重后：NVDA 3 家、INTC 5 家、GOOGL 5 家 |
 | 孤儿阈值 1.3× / 0.95× | **拍的，未回测** | 同时输出原始百分比 + 跑「≥2 家同时触发则判中位滞后」的反向检查 |
 | 榜单方向字段不可用 | 连带污染（N-39；字段 2026-08-04 改名为 `mention_impact`）| 本 Skill 全程不读榜单方向，只读钻取后的 `subject_reports`。⚠️ **也不读 `mention_reports[].rating_current`**——那是报告自己主角的评级 |
 | **停止覆盖信号：未证实，不是做不了** | ⚠️ **2026-07-29 修正此前的错误断言**：`revision_summary.list_changes[]` **字段确实存在**（结构 `{action, list, security}`），此前写"MCP 无此字段"是错的 | 实测三标的只见到 `action` 为 `initiate`（Bernstein 07-27 组合名单）与 `add`（J.P. Morgan 加入 Positive Catalyst Watch），**未见到停覆类 action**。→ 表述为"**样本内未出现，机制上可能支持**"，出现时按库内时钟族读法处理；**不承诺一定能抓到** |

@@ -61,6 +61,10 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
 对层 1 榜单 Top 3-5 逐个调用；若触发时带 args `ticker`，跳过层 1，只对该 ticker 调用一次。
 
+> 🔴 **取数前先认块（N-86，2026-08-12 实测）**：解析层会静默扩展出额外候选 ticker，**每个候选都是一个平级结果块，顺序不保证主匹配在前**（实测 `ASML.AS` 的 `[0]` 是空块、数据在 `[1]`；`2330.TW` 会多出一个 `TW` 块，而 `TW` 是 Tradeweb 的真实代码）。
+> ① ⛔ **禁止用 `research_reports[0]` 取数**　② 逐块比对 `query_ticker` == 本次标的，**只认相等的块**　③ ⛔ **禁止用 `meta.total` 判条数**（它数的是块）
+> 💡 本 Skill 出的是**对外贴文**，取错块＝把别家公司的研报写成这只票的。这条比别处更要紧。
+
 调用形态铁律（本序列全程通用）：
 
 > **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-08-04 复核仍复现，N-8）**：`keywords/categories/sources` 等数组参数被 tool schema 拒（连环 -32602；schema 中这些入参无类型，**任何客户端均不可用**）。所有调用一律以 **query 自然语言/空格拼串为唯一形态**（服务端自解析成 keywords，`meta.filters_applied.keywords` 可验证）。批量上限 **≤5**（红线 4/N-23）：超出被**静默截断到 5 且无任何 warning**（旧记载的 `keyword_count_over_max` warning 已不存在），调用后必须拿请求列表与 `filters_applied.keywords`（及 `snapshot[].symbol`）做差集自查，缺的分批补。降级梯：① query 串批量（≤5）→ ② 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。

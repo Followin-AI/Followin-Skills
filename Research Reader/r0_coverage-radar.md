@@ -122,8 +122,8 @@ metrics(query="research reports most mentioned stocks", asset_type="tradfi",
 | 字段 | 读法 | 铁律 |
 |---|---|---|
 | `rank` / `mentioned_report_count` | **叙事中心度**——卖方写东西时绕不开谁 | 写"被点名 N 次"，**绝不写"N 篇研报覆盖它"** |
-| `distinct_institution_count` | 榜面家数 | ⚠️ **仍当上界写**，但 **2026-08-04 起虚高证据消失**：实测 NVDA 榜面 **8 家 / 28 篇**，钻取 10 篇见 **5 家**（旧口径是 25→3）。差额可由 10 篇硬顶完全解释 → **不能再说"虚高"，只能说"钻取所见是下界"** |
-| `target_price_coverage` | **2026-08-04 起改为对象** `{with_numeric_target, with_text_target}`（**含 mention 级**）| ⛔ **不能用它推断专题密度**——见 N-60 弯路。⚠️ 数值口径也变严了：NVDA 7d 仅 `with_numeric_target:1`（旧口径曾报 15）|
+| `distinct_institution_count` | 榜面家数 | ⚠️ **仍当上界写**，但 **2026-08-04 起虚高证据消失**：实测 NVDA 榜面 **8 家 / 28 篇**，钻取 10 篇见 **5 家**（旧口径是 25→3）。差额可由 10 篇单页硬顶完全解释 → **不能再说"虚高"，只能说"钻取所见是下界"**。🔄 2026-08-12 起可翻页把差额补齐（N-81）|
+| `target_price_coverage` | 🔄 **2026-08-12 起字段合并为 `{with_target_price}` 单值**——旧的 `with_numeric_target` / `with_text_target` **已不存在，读它们会拿到 undefined**。<br>合并原因（N-82 销案）：那两个数**恒相等**，是同一个值的两种序列化冒充两种口径 | ⛔ **不能用它推断专题密度**——见 N-60 弯路。⚠️ 数值本身偏小是正常的：实测 NVDA 7d `with_target_price:7` / 累计 `23` |
 | `latest_report_date` | 最近一次被点名 | ✅ 可直接引用 |
 | **`mention_impact`**`{counts:{adverse,beneficiary,mixed,neutral}, dominant}` | ⛔ **不读、不输出、不引用** | 🔄 **2026-08-04 改名**：旧 `direction_counts`/`net_direction` 已不存在。<br>✅ **新名是诚实的**——字段自己说明这是 **mention 层影响**不是机构共识。<br>⛔ 但**底层性质未变**，仍不可当方向引用：实测同一标的换窗口就换 `dominant`（NVDA 7d=`neutral`、7/1–7/15=`beneficiary`）|
 
@@ -134,6 +134,9 @@ metrics(query="research reports most mentioned stocks", asset_type="tradfi",
 ```
 metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradfi", time_range="<同层1窗口>")
 ```
+
+> 🔴 **取数前先认块（N-86，2026-08-12 实测）**：解析层会静默扩展出额外候选 ticker，**每个候选都是一个平级结果块，顺序不保证主匹配在前**（实测 `ASML.AS` 的 `[0]` 是空块、数据在 `[1]`）。
+> ① ⛔ **禁止用 `research_reports[0]` 取数**　② 逐块比对 `query_ticker` == 本次标的，**只认相等的块**　③ ⛔ **禁止用 `meta.total` 判条数**（它数的是块）
 
 > 🔴 **为什么改成强制**：短窗口下 `subject_reports` **经常为 0**。实测 NVDA——
 >
@@ -152,10 +155,11 @@ metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradf
 |---|---|---|---|
 | **主角票** | subject 高、mention 低 | 该窗口内卖方专门研究它 | ✅ 进 r1（**且 r1 要传同一窗口**）|
 | **配角票** | subject 低/为 0、mention 高 | **它出现在别人的故事里** | ✅ 进 [r4](./r4_supply-chain-readthrough.md) 读产业链位置；**不要进 r1** |
-| **枢纽票** | `subject 10 / mention 0` | 10 篇硬顶被 subject 吃满 | ⚠️ N-66：拿不到跨标的数据，r4 会空手 |
+| **枢纽票** | `subject 10 / mention 0` | 首页 10 个名额被 subject 吃满 | 🔄 N-66 **已可绕过**：翻页取后续 mention（N-81）。只取首页才会让 r4 空手 |
 
 > 💡 **v2.0 新发现：收窄窗口可以"腾出"名额给 mention**（N-66 的可用绕法）。
-> 10 篇硬顶仍在，但**组成随窗口变**：NVDA 不传时 `6 subject + 4 mention`，7d 时 `0 subject + 10 mention`。
+> 10 篇**单页**硬顶仍在，但**组成随窗口变**：NVDA 不传时 `6 subject + 4 mention`，7d 时 `0 subject + 10 mention`。
+> 🔄 2026-08-12 起可翻页枚举完（N-81），**收窄窗口不再是换取 mention 的唯一手段**。
 > → **想做产业链分析（要 mention）时，收窄窗口反而拿到更多关系边。** 这是 v1.x 没有的手段。
 
 > ⛔ **别走这条弯路：`target_price_coverage` 高 ≠ 专题报告多**（N-60，实测证伪）。三星 TP 30、GOOGL 14、NVDA 15，钻取后 subject/mention **全是 6/4**。主/配角只能靠钻取判，没有层 1 捷径。
@@ -229,4 +233,4 @@ metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradf
 | 方向字段不可用 | 上游（N-39 **未修**）| 全程不读。**换窗口就换方向**这一现象可当作它不是共识的旁证 |
 | `target_price_coverage` 不能推专题密度 | 被实测证伪的直觉（N-60）| 没有层 1 捷径 |
 | 入榜率约 26–31% | 上游数据管线 | 分母含两个疑似停更的桶（N-61）|
-| 10 篇硬顶仍在 | 上游（N-66）| 但组成随窗口变——**可用收窄窗口换取更多 mention** |
+| 10 篇**单页**硬顶仍在 | 上游（N-66）| 组成随窗口变；**优先翻页补全（N-81），收窄窗口是备选** |

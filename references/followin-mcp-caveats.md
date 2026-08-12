@@ -284,7 +284,49 @@
 - ⛔ **`valuation_block.dcf` 在亏损期给出荒谬值，且无任何字段标注失效**。实测 INTC `dcf = 2.95` vs 现价 `86.57`——**差 29 倍**（该季 GAAP 净亏 $110.33 亿，现金流折现模型直接崩）。**自检：`dcf` 偏离现价 >5 倍即判失效**，不进任何输出。
 - ⚠️ **N-33 的「同季确认」判据必须用 N-34 的 gap，不能直接比日期**。`beat_miss.date` 是**财报公布日**、`latest_quarter.date` 是**财季结束日**，**两者天然不相等**——朴素比日期会把每个正常样本都判成"不同季"，从而**作废掉本该生效的 N-29 GAAP 错位检测**。正确判据：`gap = beat_miss.date − latest_quarter.date < 90 天 = 同季`。实测 INTC gap = 26 天（07-23 公布 / 06-27 季末）→ 同季，N-29 检测生效并成功抓出 `epsActual 0.42`（非 GAAP，+100%）与 `latest_quarter.eps −2.16`（GAAP 巨亏）的反号错位。
 
+### 研报通道（2026-08-07 立单 → 2026-08-12 复测）
+
+> ⚠️ **本批编号已于 2026-08-12 由 N-70~N-77 改为 N-78~N-85** —— 立单时撞了 2026-08-04 批已占用的 N-70/71/72（cluster_id / 数组参数 / has_more×partial，CHANGELOG 有引用）。
+> 本批立单仅 5 天且无仓内外部引用，故让号。**引用本批时用新号。**
+>
+> 复测结论：**P0 四条 + P1 五条全部已修**（→ 归档区），**P2 三条未动**（N-85 + 下方两条另记）。
+> 复测新发现的 ticker 解析扩展问题另立 **N-86**（下表首行）。
+
+| ID | 现象 | 调用侧怎么办 | 证据 |
+|---|---|---|---|
+| N-86 🔴 | **ticker 解析会静默扩展出额外候选，每个候选摊成一个平级结果块，且顺序不保证主匹配在前**。<br>实测 `ASML.AS` → `keywords:["ASML.AS","ASML"]`，**`[0]` 是空块、数据在 `[1]`**；`NOKIA.HE` → `keywords:["NOKIA.HE","HE","NOK"]` 但只有 2 个块（keywords 与块不一一对应），且这次好块在 `[0]`；`2330.TW` → `["2330.TW","TW"]`，而 **`TW` 是可解析的真实标的（Tradeweb）**——独立验证返回 `no_research_reports` 而非 `ticker_unresolved`。<br>不扩展的：`5274.TWO` / `6857.T` / `005930.KS` / `1810.HK`。<br>⚠️ 机制未明：两个假设（「后缀可解析就拆」「恰好 2 字母才拆」）都被实测证伪——`T` 单独可解析但 `6857.T` 不拆；`NOKIA.HE` 多出的 `NOK` 是 ADR 别名不是后缀。<br>⚠️ 扩展本身在干活：`ASML.AS` 库里查不到，是靠扩展出的 `ASML` 才拿到报告的，**不能简单当解析错误** | 🔴 **三条硬规矩**：<br>① **禁止用 `research_reports[0]` 取数**——顺序不保证主匹配在前<br>② **逐块比对 `query_ticker` 与你查的标的，只认相等的块**<br>③ **禁止用 `meta.total` 判条数**——它数的是结果块，扩展时会虚高 | 实测 2026-08-12<br>`e005bd86…`(ASML.AS) / `cc03abdf…`(NOKIA.HE) / `6158d03d…`(2330.TW) / `cd7bbe63…`(TW 独立) / `ba70be87…`(HK 对照) |
+| N-85 | **参数校验不一致**：`time_range="banana"` ✅ 正确报错（`expected <number><unit> where unit is h\|d\|w\|m\|y`）；`verbosity="compact"` / `"ultra"` ❌ **静默降级成 standard**，无 warning，meta 回显 standard，照扣额度。<br>✅ **合法值已实测确认**：`concise` / `standard` / `detail` 三个都真实生效（`concise` 实测内容确被截断、meta 回显 `"concise"`）。仓内 Skill 用的就是这三个，**当前无踩坑** | `verbosity` 只用 `concise`/`standard`/`detail`。**拼错不会报错**，只会静默返回 standard——单标的 `detail` 实测 65K 字符，拼错可能撑爆上下文而不是报错。按返回体积做流控时以 `meta.verbosity` 回显为准 | 立单 2026-08-07 `ce90a05d…`<br>复测未修 2026-08-12 |
+
+**同批另记（未单独编号，状态为 2026-08-12 复测后）**
+
+- ✅ **`date_from` + `date_to` 可精确取窗，且独立于 `time_range`**（此前无记录的可用能力）。实测 `date_from=2026-08-01, date_to=2026-08-03` → `eligible_event_count: 48`、`time_scope:"report_date_window"`、榜单顺序整个变（AMZN 第 1）。**按自然周/事件窗取数用这个，比 time_range 精确**。req `af242e96…`
+- ✅ **【已修】N-65 `affected_names` 现在有内容了**。`detail.affected_names` 返回 `{items:[{name, ticker, direction, rating, context_snippet}], total, truncated}`；实测 BofA 一篇 `total:17, truncated:true`（截断如实标注）。**产业链名单终于可取**，`revision_summary.by_name[]` / `mention_context` 这两条替代路径不再是唯一选择。复测 2026-08-12 `faf6dc57…`
+- ✅ **【已修】`rating_current` 值域问题由新字段 `stance_normalized` 解决**：`positive` / `neutral` / **行业报告给 `null`**（实测 UBS「Constructive industry view」→ null，语义正确）。原始值仍在 `rating_current`。**做评级分布统计直接用 `stance_normalized`，不必自建映射表**。复测 2026-08-12
+- ⚠️ **【未修】crypto 无研报**：`asset_type="crypto"` 查研报 → `results:{}`、`total:0`、**无 warning**、扣 1 额度。研报通道是 tradfi 专属，**别在 crypto 侧浪费额度**。req `686dab2f…`（08-07）/ `3731e6c5…`（08-12 复测同样）
+- ⚠️ **【未修】`excluded_counts` 的 key 是复合路径串且随窗口伸缩**：7d 两个 key、累计四个 key。**硬编码 key 读取会在切窗口时静默漏字段**——按整个对象求和则不受影响（r0 就是这么读的，故实际风险低）。
+- 📊 **入榜量会飘，禁止在对外文案写死**：7d 窗口实测 08-06 = 163、08-07 = **126**、08-12 = **168**（滚动窗口，旧报告出窗即掉）；08-01→08-03 = 48；累计 08-07 = 770 → 08-12 = 913。**入榜率约三分之一**（08-12 的 7d：收 168，剔 314 篇只有标题 + 32 篇待入库）。
+- 🔴 **榜首标的可能一篇专题报告都没有**（N-19 的极端案例）：08-07 实测 NVDA 7d 排第 1、25 篇提及/6 家机构，钻取 10 篇**全是 mention**，subject 为空。<br>⚠️ 08-12 复测 NVDA 7d 已有 2 篇 subject（高盛 2Q Preview、BofA）——**那是数据变了不是修复**，榜面仍然只给 `mentioned_report_count`、不给 `subject_report_count`。**贴文/文案里「被最多研报写到」必须和「最多机构在研究它」严格区分**。<br>💰 代价已量化：`r0_coverage-radar` 因此对 Top 3 强制预检，每跑一次多烧 3 额度（2 → 5）。已向 dev 提「榜单暴露 `subject_report_count`」的需求。
+- ⚠️ **【停更佐证】`out_of_scope` / `ignored_over_page` 两个桶跨期不动**：08-07 与 08-12 的累计榜均为 `70` / `12` 逐位相同，同期 `eligible_event_count` 从 770 涨到 913。**这为 N-61 的「疑似停更」提供了跨期证据**，不要把这两个桶的绝对值说成「本期排除了多少」。
+
 ### 🗄️ 已修 / 已作废归档（销案不删条，防回归自查用）
+
+#### 2026-08-12 销案批 · 研报通道 P0/P1 全清（N-78~N-84）
+
+> 立单 2026-08-07（原编号 N-70~N-76，因撞号改为 N-78~N-84）→ **2026-08-12 复测确认全部修复**。
+> ⚠️ **这批的旧规避动作已全部作废，继续套用会主动降低产出质量**（例如 N-79 的「mention 层目标价一律不引用」——现在有专门字段了）。
+
+| ID | 原问题 | 验收证据（2026-08-12） |
+|---|---|---|
+| N-78 ✅ | ticker 解析失败静默 fallback 到全市场榜单，无 warning | `query="ZZZZ research reports"` → `warnings:[{severity:"info", source:"metrics_fundamentals_research_report_most_mentioned", reason:"ticker_unresolved", keyword:"ZZZZ", message:"The requested ticker could not be resolved; aggregate research-report results were returned."}]`。**结构化 reason 码，可机读**。req `6b667b6d…` |
+| N-79 ✅ | `mention_reports[].target_price` 是报告主体的价，且 mention 层没有「查询标的自己的价」字段 | **歧义字段 `target_price` 已整体移除**，拆成两个自解释字段：`matched_asset_target_price`（查询标的自己的，无则**显式 null**）+ `report_subject_target_price`（报告主体的）。实测 AMD mention 块 `matched_asset_target_price:null` + `report_subject_target_price:{RIOT $35}`。req `15b75b82…` |
+| N-80 ✅ | `dominant:"mixed"` 与 `counts.mixed` 语义碰撞 | 平局值改为 **`"tie"`**。实测累计榜 INTC `counts{adverse:17, beneficiary:35, mixed:4, neutral:35}` → `dominant:"tie"`。req `806b7028…` |
+| N-81 ✅ | `limit` 无分层配额、无翻页，分不清「真没有 subject」和「被挤掉」 | **加了游标分页**：`meta.pagination{returned, has_more, next_cursor}`。实测带 cursor 重查 AMD（offset 3→6）返回不同报告，且第二页 `subject 1 / mention 2`——**可枚举，歧义消除**。req `b6785932…`(page1) / `15b75b82…`(page2) |
+| N-82 ✅ | `with_numeric_target` 恒等于 `with_text_target`（假分列） | **合并为单字段 `with_target_price`**。实测榜单 item：`target_price_coverage:{"with_target_price":7}`。req `166f9dd7…` |
+| N-83 ✅ | 同一 ticker 跨窗口返回不同公司名 | 7d 与累计榜逐条一致（`Alphabet Inc.` / `Amazon.com Inc.` / `NVIDIA Corporation` / `Microsoft Corporation` / `Advanced Micro Devices`）。**按 ticker 聚合的旧规避可以放宽，但仍建议保留**（成本为零）。req `166f9dd7…` / `4acab5ac…` |
+| N-84 ✅ | 币种写法同一返回体内打架（`NT$` vs `TWD`） | **`currency` 归一到 ISO，原始写法保留在 `text`**——实测 `{"currency":"TWD", "new":3650, "text":"NT$3,650"}`、`{"currency":"KRW", "new":490000}`。修法比工单建议的更好（既归一又不丢原文）。req `6158d03d…` / `2dde95c5…` |
+
+**这批修复里值得记一笔的三个做法**（以后提工单可以直接引用为范例）：
+① N-79 用**改名**消除歧义，而不是加注释；② N-84 **归一字段 + 原值另存**，两边都不牺牲；③ N-65 的 `affected_names` 补 `truncated` 标志，**截断如实告知**而不是静默截断。
 
 > 下列条目的问题**已被 dev 修复或已被后续条目取代**，从正文移到这里。ID 永久保留（全仓 `见 N-xx` 引用仍可检索）；**回归自查时按各条目内的验收证据复测**。
 

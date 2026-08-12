@@ -48,7 +48,10 @@ args: ticker(必填), focus(可选：报告标题关键词，只审匹配的那�
 metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradfi")
 ```
 
-同 r1 步骤 1 的全部铁律：query 必带研报意图词（红线 12）／`time_range` 已于 2026-08-03 修复可传，`limit` 仍被 10 硬顶、家数标下界（N-38 部分修复）／`default_fanout_fallback` 警告是假阴性别重试（N-21）／机构名先归一再按「机构+标题+日期」去重（N-38 + N-3）。
+> 🔴 **取数前先认块（N-86，2026-08-12 实测）**：解析层会静默扩展出额外候选 ticker，**每个候选都是一个平级结果块，顺序不保证主匹配在前**（实测 `ASML.AS` 的 `[0]` 是空块、数据在 `[1]`）。
+> ① ⛔ **禁止用 `research_reports[0]` 取数**　② 逐块比对 `query_ticker` == 本次标的，**只认相等的块**　③ ⛔ **禁止用 `meta.total` 判条数**（它数的是块）
+
+同 r1 步骤 1 的全部铁律：query 必带研报意图词（红线 12）／`time_range` 已于 2026-08-03 修复可传，`limit` 单页仍被 10 硬顶，但 **2026-08-12 起返回体带 `meta.pagination.next_cursor`，可翻页枚举完**（N-81 销案）——**没翻页才需要把家数标下界**（N-38 部分修复）／`default_fanout_fallback` 警告是假阴性别重试（N-21）／机构名先归一再按「机构+标题+日期」去重（N-38 + N-3）。
 
 > ✅ **与 r1 同源**：若本轮已跑过 r1，**直接复用它步骤 1 的返回，0 额度**。r2 用的字段（`key_caveat` / `coverage_flag` / `consensus_diff` / `content_truncated` / `novelty` / `detail.caveats` / `detail.risks`）r1 全都已经拉回来了。
 
@@ -124,7 +127,7 @@ metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradf
 
 ```
 🔍 <TICKER> 研报口径审计 · <日期>
-可见 N 篇（去重后 M 家）｜上游硬顶 10 篇
+可见 N 篇（去重后 M 家）｜单页 10 篇，<已翻页至尽头 ／ 仅取首页>
 
 【🔎 领读】（先写这段）
 <2–4 句。这批报告的地基整体牢不牢？最该警惕的是哪一篇、为什么？
@@ -197,5 +200,5 @@ metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradf
 | `completeness` 取值域未穷举 | 实测 20 篇（NVDA 10 + INTC 10）只见 `high`(8+) / `medium`(2+) | `low` 是否存在待观察；出现时按 🔴 提示人核 |
 | `content_truncated` 实测 **20/20 全为 True** | 数据特性 | 恒为真 ⇒ **零判别力**，只能单列进④轴。若拿它扣分，每份报告都会被判不完整 |
 | 内部校验器抓不到报告自身的推断错误 | 已知（外部核验首轮 3/6 命中全属此类）| 靠步骤 3 三类规则 + 步骤 4 外部核验，**不承诺自动化能兜住** |
-| 只能审可见的 10 篇，且不一定给满 | 上游硬顶（N-38）| 审计结论标下界。实测 F 只返回 3 篇且全是 mention |
+| 单页只有 10 篇，且不一定给满 | 上游单页硬顶（N-38）| **可翻页补全**（N-81）。仅取首页时审计结论标下界。实测 F 首页只返回 3 篇且全是 mention |
 | `subject_reports=0` 时仍可审 | 实测 F 全 mention | mention 报告同样带 `key_caveat` / `coverage_flag` / `consensus_diff`，**照样可审**——F 的两条 🔴 基准问题就出自 mention 报告 |
