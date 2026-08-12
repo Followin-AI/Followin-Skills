@@ -289,21 +289,24 @@
 > ⚠️ **本批编号已于 2026-08-12 由 N-70~N-77 改为 N-78~N-85** —— 立单时撞了 2026-08-04 批已占用的 N-70/71/72（cluster_id / 数组参数 / has_more×partial，CHANGELOG 有引用）。
 > 本批立单仅 5 天且无仓内外部引用，故让号。**引用本批时用新号。**
 >
-> 复测结论：**P0 四条 + P1 五条全部已修**（→ 归档区），**P2 三条未动**（N-85 + 下方两条另记）。
+> 复测结论：**P0 四条 + P1 五条全部已修**（→ 归档区）。
+> **P2 三条 dev 未动，产品侧 2026-08-12 决定不修、结案**（N-85 + 下方 crypto / `excluded_counts` 两条另记）——
+> 判据：三条的实际消费方都查过，对仓内为零影响或已被现有读法吸收。
+> 🔴 **结案 ≠ 行为消失**：三条的规避动作仍然有效，照守；**只是不再作为待修项在复核时上报**。
 > 复测新发现的 ticker 解析扩展问题另立 **N-86**（下表首行）。
 
 | ID | 现象 | 调用侧怎么办 | 证据 |
 |---|---|---|---|
 | N-86 🔴 | **ticker 解析会静默扩展出额外候选，每个候选摊成一个平级结果块，且顺序不保证主匹配在前**。<br>实测 `ASML.AS` → `keywords:["ASML.AS","ASML"]`，**`[0]` 是空块、数据在 `[1]`**；`NOKIA.HE` → `keywords:["NOKIA.HE","HE","NOK"]` 但只有 2 个块（keywords 与块不一一对应），且这次好块在 `[0]`；`2330.TW` → `["2330.TW","TW"]`，而 **`TW` 是可解析的真实标的（Tradeweb）**——独立验证返回 `no_research_reports` 而非 `ticker_unresolved`。<br>不扩展的：`5274.TWO` / `6857.T` / `005930.KS` / `1810.HK`。<br>⚠️ 机制未明：两个假设（「后缀可解析就拆」「恰好 2 字母才拆」）都被实测证伪——`T` 单独可解析但 `6857.T` 不拆；`NOKIA.HE` 多出的 `NOK` 是 ADR 别名不是后缀。<br>⚠️ 扩展本身在干活：`ASML.AS` 库里查不到，是靠扩展出的 `ASML` 才拿到报告的，**不能简单当解析错误** | 🔴 **三条硬规矩**：<br>① **禁止用 `research_reports[0]` 取数**——顺序不保证主匹配在前<br>② **逐块比对 `query_ticker` 与你查的标的，只认相等的块**<br>③ **禁止用 `meta.total` 判条数**——它数的是结果块，扩展时会虚高 | 实测 2026-08-12<br>`e005bd86…`(ASML.AS) / `cc03abdf…`(NOKIA.HE) / `6158d03d…`(2330.TW) / `cd7bbe63…`(TW 独立) / `ba70be87…`(HK 对照) |
-| N-85 | **参数校验不一致**：`time_range="banana"` ✅ 正确报错（`expected <number><unit> where unit is h\|d\|w\|m\|y`）；`verbosity="compact"` / `"ultra"` ❌ **静默降级成 standard**，无 warning，meta 回显 standard，照扣额度。<br>✅ **合法值已实测确认**：`concise` / `standard` / `detail` 三个都真实生效（`concise` 实测内容确被截断、meta 回显 `"concise"`）。仓内 Skill 用的就是这三个，**当前无踩坑** | `verbosity` 只用 `concise`/`standard`/`detail`。**拼错不会报错**，只会静默返回 standard——单标的 `detail` 实测 65K 字符，拼错可能撑爆上下文而不是报错。按返回体积做流控时以 `meta.verbosity` 回显为准 | 立单 2026-08-07 `ce90a05d…`<br>复测未修 2026-08-12 |
+| N-85 ⚪ | **【2026-08-12 产品侧决定不修，已接受】行为仍在，规避照守。** 参数校验不一致：`time_range="banana"` ✅ 正确报错（`expected <number><unit> where unit is h\|d\|w\|m\|y`）；`verbosity="compact"` / `"ultra"` ❌ **静默降级成 standard**，无 warning，meta 回显 standard，照扣额度。<br>✅ **合法值已实测确认**：`concise` / `standard` / `detail` 三个都真实生效（`concise` 实测内容确被截断、meta 回显 `"concise"`）。仓内 Skill 用的就是这三个，**当前无踩坑** | `verbosity` 只用 `concise`/`standard`/`detail`。**拼错不会报错**，只会静默返回 standard——单标的 `detail` 实测 65K 字符，拼错可能撑爆上下文而不是报错。按返回体积做流控时以 `meta.verbosity` 回显为准 | 立单 2026-08-07 `ce90a05d…`<br>复测未修 2026-08-12<br>**结案：不修**（仓内只用三个合法值，仅剩拼错时的掩盖风险）|
 
 **同批另记（未单独编号，状态为 2026-08-12 复测后）**
 
 - ✅ **`date_from` + `date_to` 可精确取窗，且独立于 `time_range`**（此前无记录的可用能力）。实测 `date_from=2026-08-01, date_to=2026-08-03` → `eligible_event_count: 48`、`time_scope:"report_date_window"`、榜单顺序整个变（AMZN 第 1）。**按自然周/事件窗取数用这个，比 time_range 精确**。req `af242e96…`
 - ✅ **【已修】N-65 `affected_names` 现在有内容了**。`detail.affected_names` 返回 `{items:[{name, ticker, direction, rating, context_snippet}], total, truncated}`；实测 BofA 一篇 `total:17, truncated:true`（截断如实标注）。**产业链名单终于可取**，`revision_summary.by_name[]` / `mention_context` 这两条替代路径不再是唯一选择。复测 2026-08-12 `faf6dc57…`
 - ✅ **【已修】`rating_current` 值域问题由新字段 `stance_normalized` 解决**：`positive` / `neutral` / **行业报告给 `null`**（实测 UBS「Constructive industry view」→ null，语义正确）。原始值仍在 `rating_current`。**做评级分布统计直接用 `stance_normalized`，不必自建映射表**。复测 2026-08-12
-- ⚠️ **【未修】crypto 无研报**：`asset_type="crypto"` 查研报 → `results:{}`、`total:0`、**无 warning**、扣 1 额度。研报通道是 tradfi 专属，**别在 crypto 侧浪费额度**。req `686dab2f…`（08-07）/ `3731e6c5…`（08-12 复测同样）
-- ⚠️ **【未修】`excluded_counts` 的 key 是复合路径串且随窗口伸缩**：7d 两个 key、累计四个 key。**硬编码 key 读取会在切窗口时静默漏字段**——按整个对象求和则不受影响（r0 就是这么读的，故实际风险低）。
+- ⚪ **【已决不修·2026-08-12】crypto 无研报**：`asset_type="crypto"` 查研报 → `results:{}`、`total:0`、**无 warning**、扣 1 额度。研报通道是 tradfi 专属，**别在 crypto 侧浪费额度**——这条规避照守，但不再作为待修项上报（仓内本就从不在 crypto 侧查研报，零影响）。req `686dab2f…`（08-07）/ `3731e6c5…`（08-12 复测同样）
+- ⚪ **【已决不修·2026-08-12】`excluded_counts` 的 key 是复合路径串且随窗口伸缩**：7d 两个 key、累计四个 key。**硬编码 key 读取会在切窗口时静默漏字段**——**按整个对象求和则不受影响**（r0 就是这么读的）。因此结案不修：**读法保持「整体求和、不硬编码 key」即可**。
 - 📊 **入榜量会飘，禁止在对外文案写死**：7d 窗口实测 08-06 = 163、08-07 = **126**、08-12 = **168**（滚动窗口，旧报告出窗即掉）；08-01→08-03 = 48；累计 08-07 = 770 → 08-12 = 913。**入榜率约三分之一**（08-12 的 7d：收 168，剔 314 篇只有标题 + 32 篇待入库）。
 - 🔴 **榜首标的可能一篇专题报告都没有**（N-19 的极端案例）：08-07 实测 NVDA 7d 排第 1、25 篇提及/6 家机构，钻取 10 篇**全是 mention**，subject 为空。<br>⚠️ 08-12 复测 NVDA 7d 已有 2 篇 subject（高盛 2Q Preview、BofA）——**那是数据变了不是修复**，榜面仍然只给 `mentioned_report_count`、不给 `subject_report_count`。**贴文/文案里「被最多研报写到」必须和「最多机构在研究它」严格区分**。<br>💰 代价已量化：`r0_coverage-radar` 因此对 Top 3 强制预检，每跑一次多烧 3 额度（2 → 5）。<br>✅ **2026-08-12 产品侧决定：不向 dev 提「榜单暴露 `subject_report_count`」，维持现状。** 这 3 额度是**已接受的固定成本，不是待办**——后续复核不必再提。
 - ⚠️ **【停更佐证】`out_of_scope` / `ignored_over_page` 两个桶跨期不动**：08-07 与 08-12 的累计榜均为 `70` / `12` 逐位相同，同期 `eligible_event_count` 从 770 涨到 913。**这为 N-61 的「疑似停更」提供了跨期证据**，不要把这两个桶的绝对值说成「本期排除了多少」。
