@@ -2,7 +2,7 @@
 
 > 📌 **本目录从 [`Apatheticco/twitter-ops-template`](https://github.com/Apatheticco/twitter-ops-template) 同步而来，README 以该仓为准**（那里是开发主源，本目录是快照）。下方安装命令已适配 Followin-Skills 的目录结构。
 
-**一套跑在 Claude Code 上的 Twitter 日运营工作流**——把「扫热点 → 选题 → 写稿 → 互动 → 复盘」这条链路拆成 7 个可组合的 Skill，用真实市场数据驱动，每一步都可以人工接管。
+**一套跑在 Claude Code 上的 Twitter 日运营工作流**——把「扫热点 → 选题 → 写稿 → 互动 → 复盘」这条链路拆成 7 个可组合的 Skill（外加一个可选的台账 Skill），用真实市场数据驱动，每一步都可以人工接管。
 
 面向**加密 / 宏观 / 美股方向的内容账号**。
 
@@ -41,7 +41,7 @@ claude mcp add followin https://mcp.followin.io/v2/mcp --scope user --transport 
 
 ```bash
 # ⚠️ 先看看会不会覆盖你已有的 skill
-ls ~/.claude/skills/ 2>/dev/null | grep -E "trend-scout|topic-engine|tweet-composer|performance-review|competitor-watch|engagement|twitter-ops"
+ls ~/.claude/skills/ 2>/dev/null | grep -E "trend-scout|topic-engine|tweet-composer|performance-review|competitor-watch|engagement|twitter-ops|ledger"
 
 # 没有输出 → 安全，直接拷
 cp -rn "Twitter Workflow/skills/"* ~/.claude/skills/
@@ -130,7 +130,7 @@ cp -rn "Twitter Workflow/skills/"* ~/.claude/skills/
 
 ---
 
-## 7 个 Skill
+## 7 个 Skill + 1 个可选台账
 
 ### 调度
 
@@ -158,6 +158,16 @@ cp -rn "Twitter Workflow/skills/"* ~/.claude/skills/
 |---|---|---|
 | **performance-review** | 周复盘：数据、诊断、优化建议，顺手把好稿子入素材库 | 「这周数据怎么样」 |
 | **competitor-watch** | 对标账号监控——学手法，也看自己在坐标系里的位置 | 「竞对在发什么」 |
+
+### 台账（可选）
+
+| Skill | 作用 | 触发 |
+|---|---|---|
+| **ledger** | 把各节点产出写进飞书多维表格，并回读三类查询：7 天撞题查重 / Pattern「≥2 次」闸 / P0 落地率与断点告警。**全仓唯一调 lark-cli 的地方** | 「写台账」「落地率多少」 |
+
+> 不配 `config.md` 的 `LARK_BASE` 就整条跳过，其余 7 个 Skill 照常跑。
+> 装了之后的好处是**几个"靠模型数数"的判断改由数据库算**——
+> 尤其素材库去重和 Pattern 的「≥2 次」准入闸，那两处数错了不会报错，只会让一次偶发爆款被制度化成"稳定模式"。
 
 ---
 
