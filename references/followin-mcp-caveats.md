@@ -32,7 +32,7 @@
 
 > ### 📊 状态总览（2026-08-12 · 每轮验收更新此块）
 >
-> **102 个条目 = 活跃 80 + 存根 5 + 归档 17。** 条目数是认知覆盖率，不是产品破损度——大多数条目是「读法纪律」（数据的脾气，永远不会"修好"），真正需要客户端设闸的硬问题见下。
+> **105 个条目 = 活跃 83 + 存根 5 + 归档 17。** 条目数是认知覆盖率，不是产品破损度——大多数条目是「读法纪律」（数据的脾气，永远不会"修好"），真正需要客户端设闸的硬问题见下。
 > 🆕 **08-12 验收轮**：研报通道 P0/P1 九条销案（N-78~N-84 + N-65）、P2 三条产品侧结案不修、新增 N-86。⚠️ 编号 **N-73~N-77 为空号段**（08-07 批撞号让位改为 N-78~N-85 所致），**保持空置，不要复用**。
 >
 > **🔴 当前仍需客户端设闸的硬问题（速览，权威以正文为准）**
@@ -42,6 +42,7 @@
 > · **先截断再过滤**：N-22 财报日历 `country` 在「取前 500 候选」之后才生效，候选按 symbol 字母序 → 美股永远够不着（⚠️ **单窗口验收会误判已修**）· N-72 has_more vs status:partial 语义打架
 > · **部分修复待收尾**：N-38 单页 10 篇仍在（🔄 08-12 起可翻页枚举完，N-81——只剩「每页 1 额度」的成本问题）· N-39 改名后仍不可当共识
 > · **🆕 取数认块**：N-86 ticker 解析静默扩展出平级结果块且顺序不保证——禁用 `[0]` 取数 / 逐块比对 `query_ticker` / 禁用 `meta.total` 判条数
+> · **🆕 Twitter×美股（08-13）**：N-87 热榜生成段臆造（只读事实段）· N-88 kol_call 个股共识 mention 污染（钻原帖核 symbol）· N-89 twitter search 传 `query_type="Top"`+时间窗客户端自滤
 >
 > **维护纪律**：销案→移入文末归档段（ID 不删不复用）· 新坑先看能否归入既有家族 · 编号只增不改（全仓上百处 `见 N-xx` 引用）
 >
@@ -71,7 +72,7 @@
 | N-5 | kol_call 原帖按提及 fanout 成多行（同 URL 不同 symbol/方向）；按 source_url 去重、symbol 字段归属 | 按 source_url 去重/symbol 归属 | 实测 2026-07-22 · **复核 2026-07-24 仍有效**：同一条 `$MU $GOOGL $NVDA` 推文返回 3 行，仅 symbol / sector 不同，其余字段完全相同 |
 | N-6 | insider/congress 行无视 time_range（7d 返回 2020 年记录）；客户端按 transactionDate 过滤强制 | 客户端按 transactionDate 过滤强制 | 实测 2026-07-22 |
 | N-7 | 13F institutional 申报季中期 investorsHolding 环比为残缺假信号（实测 NVDA 6234→1441）；申报季内禁止引用环比 | 申报季禁引环比 | 实测 2026-07-22 · **复核 2026-07-24 仍有效**：同一标的 investorsHolding 已回补到 1882（`ownershipPercentChange` −64.4%、`putCallRatioChange` +174% 同为残缺假信号），说明申报季回补持续进行中，环比字段在季内任何时点都不可引用 |
-| N-8 | 🐛 **【数组参数家族·主条】`keywords`/`categories`/`sources` 数组入参全域被 schema 拒**（2026-07-20 起）。🔑 **根因已锁定（2026-08-04）**：这几个参数在工具 schema 里声明为**无类型空对象 `{}`**——客户端无从知道该发数组，只能序列化成字符串，服务端却要求 array。<br>**家族成员**：① metrics 侧（本条原始记录，07-22 复现、07-24 仍在）② signal 侧同源（原 N-59f 前半，07-30）③ 107 处 v2 Skill 示例受累盘点（N-31，已归档，示例均已改写）④ 🐛 **服务端自己的补救建议照做必报错**（原 N-71，08-04）：空返回的 `no_match` warning 推荐 `categories=[kol_call] keywords=[BTC]` 写法——照抄必被 schema 拒。<br>💡 **根因层面**：若 schema 声明为 `{"type":"array","items":{"type":"string"}}`，全家族一并消失 | 统一走 query 串（服务端自解析，`meta.filters_applied.keywords` 可验证）；⛔ **不要照抄 warning 里的数组建议**；Dev 修复后回退 | trend-scout v1.11.x + 07-22/07-24/07-30/**08-04** 四轮复现<br>request_id：`28a68c92…` |
+| N-8 | 🐛 **【数组参数家族·主条】`keywords`/`categories`/`sources` 数组入参全域被 schema 拒**（2026-07-20 起）。<br>🆕 **08-13 两条新证据**：① `news.sources` 两种写法（裸字符串/数组）均被拒，服务端错误信息现为 `want one of "null, array"`——**证明服务端就绪，缺的只是 schema 类型声明**；② `subscription.items` 同病，**该工具的 set 动作从守 schema 的客户端整个调不通**（list/ack/delete 正常，读路活写路死）——产品侧已知悉，**不跟进、不上报**，各 Skill 勿调 subscription.set。🔑 **根因已锁定（2026-08-04）**：这几个参数在工具 schema 里声明为**无类型空对象 `{}`**——客户端无从知道该发数组，只能序列化成字符串，服务端却要求 array。<br>**家族成员**：① metrics 侧（本条原始记录，07-22 复现、07-24 仍在）② signal 侧同源（原 N-59f 前半，07-30）③ 107 处 v2 Skill 示例受累盘点（N-31，已归档，示例均已改写）④ 🐛 **服务端自己的补救建议照做必报错**（原 N-71，08-04）：空返回的 `no_match` warning 推荐 `categories=[kol_call] keywords=[BTC]` 写法——照抄必被 schema 拒。<br>💡 **根因层面**：若 schema 声明为 `{"type":"array","items":{"type":"string"}}`，全家族一并消失 | 统一走 query 串（服务端自解析，`meta.filters_applied.keywords` 可验证）；⛔ **不要照抄 warning 里的数组建议**；Dev 修复后回退 | trend-scout v1.11.x + 07-22/07-24/07-30/**08-04** 四轮复现<br>request_id：`28a68c92…` |
 | N-9 | biggest gainers/losers 上游缺 marketCap 且全是仙股，禁用；改 `query="most active stocks"`，但实测（2026-07-22 2026-07-22 回归）board 行亦不带 marketCap（trend-scout 旧版记载已失效），需二次批量快照补市值后过滤；红线 9 的过滤清单继续沿用 | 改 query="most active stocks"；客户端 marketCap ≥$1B 过滤 + 剔杠杆 ETF + 仙股 <$5 | trend-scout 实测（N-9）＋2026-07-22 回归修正 |
 | N-10 | metrics time_range <1d 返一个月前旧数据 bug；小时级用 interval 参数或只用实时快照 | 小时级用 interval/实时快照 | trend-scout 实测（N-10）|
 | N-12 | ➡️ **并入 N-23（query 解析家族·主条①）**。原记录：query 串批量静默丢弃 ticker（9 传 5 收，ONDS 连跳两次无 warning，实测 07-22）——N-23 已将其拆解定量化，ONDS 在其不可解析清单内 | 见 N-23 | 存根（2026-08-04 归并）|
@@ -312,6 +313,16 @@
 - 📊 **入榜量会飘，禁止在对外文案写死**：7d 窗口实测 08-06 = 163、08-07 = **126**、08-12 = **168**（滚动窗口，旧报告出窗即掉）；08-01→08-03 = 48；累计 08-07 = 770 → 08-12 = 913。**入榜率约三分之一**（08-12 的 7d：收 168，剔 314 篇只有标题 + 32 篇待入库）。
 - 🔴 **榜首标的可能一篇专题报告都没有**（N-19 的极端案例）：08-07 实测 NVDA 7d 排第 1、25 篇提及/6 家机构，钻取 10 篇**全是 mention**，subject 为空。<br>⚠️ 08-12 复测 NVDA 7d 已有 2 篇 subject（高盛 2Q Preview、BofA）——**那是数据变了不是修复**，榜面仍然只给 `mentioned_report_count`、不给 `subject_report_count`。**贴文/文案里「被最多研报写到」必须和「最多机构在研究它」严格区分**。<br>💰 代价已量化：`r0_coverage-radar` 因此对 Top 3 强制预检，每跑一次多烧 3 额度（2 → 5）。<br>✅ **2026-08-12 产品侧决定：不向 dev 提「榜单暴露 `subject_report_count`」，维持现状。** 这 3 额度是**已接受的固定成本，不是待办**——后续复核不必再提。
 - ⚠️ **【停更佐证】`out_of_scope` / `ignored_over_page` 两个桶跨期不动**：08-07 与 08-12 的累计榜均为 `70` / `12` 逐位相同，同期 `eligible_event_count` 从 770 涨到 913。**这为 N-61 的「疑似停更」提供了跨期证据**，不要把这两个桶的绝对值说成「本期排除了多少」。
+
+### 2026-08-13 Twitter × 美股推广前置实测（N-87~N-89）
+
+> 背景：拟向美股用户推广，按新用户首次会话旅程实测 11 次。subscription 问题产品侧已决忽略（并入 N-8 证据注）。
+
+| ID | 现象 | 调用侧怎么办 | 证据 |
+|---|---|---|---|
+| N-87 🔴 | **tradfi 热榜（news 空 query）的「交易指南/KOL观点」段是模板臆造**：SNDK（实价 ~$200）写「跌破关键支撑位 0.85 美元」「链上活跃地址数下降」「项目方解锁代币」；CRWV（实价 ~$80）写「0.85 美元附近震荡」「巨鲸增持」——**加密模板硬套美股，价格数量级全错**，引用的 CryptoWhale/TokenMetrics/TraderMax 是模板名。5 篇中 2 篇中招。⚠️ 同批文章的**事实段**（财报数字/盘前涨跌）核对无误——坏的只有生成段 | **热榜文章只可引用事实段**（发生了什么/数字），**「交易指南」「技术面」「KOL观点」三类段落一律不读、不转述、不当数据源**。对外产出若引热榜，必须自己另拉行情核价 | 实测 2026-08-13<br>`04b7fd20…` |
+| N-88 🔴 | **kol_call 按 ticker 查是 mention 污染**（与研报侧已修的 N-79 同构，KOL 侧未修）：`query="NVDA consensus"` → total_posts 4，top_calls 混着 WYFI/IONQ；钻取原帖实锤——唯一返回帖 `symbol:"IONQ"`，正文「找下一个 $NVDA？看这 10 只量子股」。**表层 `bull_bear_ratio` 会被读成个股共识，实际混着别的票**。且旗舰票样本极薄（NVDA 24h 真喊单仅 2 条）| ① 个股 KOL 共识**不能只读表层 ratio**，必须钻原帖逐条核 `symbol == 查询票`；② `total_posts < 10` 时不得对外表述为「共识」；③ 全市场聚合（不带票）不受此病影响，可正常用 | 实测 2026-08-13<br>`0acc97a9…`(聚合) / `35507a87…`(实锤) |
+| N-89 | **twitter search 三件套**：① `time_range` 被静默无视——传 `2d` 返回含 10 个月前的帖，无 warning；② 默认 `query_type` 是 Latest，首屏全是营销号/抽奖帖/低粉盘口帖，**质量可用的是 Top**（Kobeissi/Burry/pelositracker 级别）；③ Latest 返回的 `entities.symbols` 带 ticker 解析 tag（`$soc`→Sable Offshore 都认得），**Top 返回没有这层 tag**——同工具两种字段形态 | ① 时间过滤只能客户端按 `createdAt` 做；② **搜索一律显式传 `query_type="Top"`**，要时效再用 Latest 但需自己过滤垃圾；③ 依赖 ticker tag 的解析逻辑对 Top 结果要走文本兜底。另：twitter 是**独立额度池**（limit 2500），与主池分开计 | 实测 2026-08-13（三次对照）|
 
 ### 🗄️ 已修 / 已作废归档（销案不删条，防回归自查用）
 
