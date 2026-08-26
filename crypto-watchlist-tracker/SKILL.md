@@ -39,7 +39,7 @@ Followin is the primary evidence layer. Explicitly use `asset_type="crypto"` for
 For each batch of up to five watchlist assets:
 
 1. Call `metrics` for the live market snapshot: price, 24-hour change, 24-hour volume, and source timestamp.
-2. Call `metrics` for at least 30 days of price/technical context, requesting RSI 14, MACD, EMA 20, EMA 50, SMA 200, ATR, and Bollinger Bands when available.
+2. Call `metrics` for at least 30 days of price/technical context. Inspect trend, momentum, heat, and volatility indicators such as RSI, moving averages, MACD, ATR, and Bollinger Bands when available.
 3. Use the latest dated value for each indicator. Never combine values from different dates without saying so.
 
 If a requested snapshot field such as 24-hour change or source timestamp is absent, mark that field unavailable. Do not substitute a daily-close calculation unless the returned candle timestamps define an exact 24-hour interval.
@@ -51,6 +51,8 @@ Translate indicators into three separate labels rather than one opaque score:
 - **Trend**: strong / improving / range / weakening, based on price relative to available moving averages plus MACD direction.
 - **Heat**: cool / neutral / hot / extreme. Treat RSI 70 as hot and 80 as extreme, but note that strong crypto trends can remain overbought.
 - **Volatility**: normal / elevated / extreme, using ATR and recent range only when available.
+
+These labels are primarily for internal synthesis. In the visible brief, summarize the technical state in one natural sentence. Mention at most one or two indicator values only when they are exceptional or decision-relevant, such as overbought/oversold RSI, a major moving-average break, a MACD reversal, an ATR spike, or a Bollinger breakout. Never print a mechanical indicator inventory.
 
 ### 2. News, events, and project developments
 
@@ -105,12 +107,15 @@ When available, use `subscription` to store the watchlist and surface unread KOL
 
 Read [references/report-format.md](references/report-format.md) before writing the final report.
 
-- Separate **facts**, **AI interpretation**, and **unknowns**.
+- Default to a concise morning or evening brief, not a research report. A single-asset report should normally fit on one phone screen.
+- Separate facts from interpretation through wording, but do not add bulky `Facts` and `AI interpretation` subsections when a short sentence is clear.
 - Compare the current report with the previous successful report in the same task when available. State what is new, what changed direction, and what remained unchanged. Without a baseline, label the run “initial snapshot”.
 - Highlight cross-source alignment and divergence: price vs news, KOL speech vs real positioning, active direction vs add/reduce actions, and project event vs price confirmation.
 - Rank events by impact and freshness, not by article count.
+- Merge duplicate coverage into one event and keep no more than three important developments per asset by default.
+- Attribute visible facts to `Followin MCP` because it is the report's retrieval layer. Do not clutter the brief with a list of downstream media domains or raw links. Name an original project, regulator, exchange, or researcher only when that distinction materially affects credibility; preserve source URLs and request IDs for traceability when the user asks.
 - If a required leaf is missing, mark it unavailable; do not backfill it with old values or uncited memory.
-- Include the effective window, timezone, data timestamps, sample sizes, and Followin request IDs.
+- Include the effective window and timezone in one compact line. Surface sample sizes or timestamp problems only when they affect the conclusion. Keep Followin request IDs internally and show them only when the user asks, a data-quality problem needs diagnosis, or auditability is required.
 - Keep the report useful for decisions, but phrase next steps as observation/validation conditions rather than trade instructions.
 
 ## Failure and stopping rules

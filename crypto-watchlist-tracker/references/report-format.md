@@ -1,73 +1,81 @@
-# Report format
+# Morning and evening brief format
 
-Use this structure for scheduled and on-demand reports. Keep the default report compact enough to scan on a phone; expand a coin only when a material event or conflicting signal deserves it.
+The default deliverable is a compact daily brief, not a full research report. Optimize for a phone screen and write in the user's language.
 
-## Header
+## Single-asset morning brief
 
-State:
+```text
+# <ASSET> 早报｜<DATE>
+更新：<END TIME AND TIMEZONE>｜覆盖：<WINDOW>｜<INITIAL OR DELTA>
 
-- report mode: morning / evening / on demand;
-- effective start and end time with timezone;
-- watchlist;
-- whether this is an initial snapshot or a delta from the previous successful report.
+一句话：<what matters most this morning>
 
-## 1. Portfolio-level summary
+## 隔夜重点
+- <event and why it matters>
+- <event and why it matters>
 
-Start with a table containing one row per asset:
+## 盘面与资金
+<current price and 24h move when reliable; one natural technical conclusion; KOL/trader or flow change>
 
-| Asset | Price / 24h | Trend | Heat | New events | KOL | Trader action | Attention |
-|---|---:|---|---|---|---|---|---|
+## 今天关注
+- <validation condition>
+- <validation condition>
 
-`Attention` is `high`, `medium`, or `low`, based on the combination of event impact, price displacement, and genuinely new KOL/trader actions. It is a research priority, not a bullish/bearish recommendation.
+数据：Followin MCP（<tools used>）<short material data gap if any>
+仅供研究参考，不构成投资建议。
+```
 
-Then give no more than three cross-asset observations, such as:
+## Single-asset evening brief
 
-- strongest relative move and whether it has event support;
-- clearest KOL/position divergence;
-- highest near-term risk from security, unlock, listing, or extreme heat.
+Use the same compact shape, with these labels:
 
-## 2. Per-asset card
+- headline: `<ASSET> 晚报｜<DATE>`;
+- `一句话`: what changed during the day;
+- `今天发生了什么`: only new or materially updated events since the morning report;
+- `盘面与资金`: current move, one technical conclusion, and new KOL/trader actions;
+- `今晚关注`: up to three overnight validation conditions.
 
-For every watchlist asset, include the following labels. Omit empty subfields only after stating that the corresponding leaf returned no usable data.
+Do not repeat unchanged morning items except when their price confirmation has materially changed.
 
-### `<SYMBOL>｜<project name>`
+## Multiple assets
 
-**Market data.** Current price, 24-hour change, volume, data source and timestamp.
+Start with `自选概览`, using one natural line per asset:
 
-**Technical state.** Trend / heat / volatility labels, followed by the actual latest RSI, available moving averages, MACD direction, ATR, and the most relevant recent range or Bollinger position. Do not invent support or resistance where history was not returned.
+```text
+- BTC：<price/move>｜<state>｜<main new event or signal>
+- ETH：<price/move>｜<state>｜<main new event or signal>
+```
 
-**New events and project developments.** Deduplicated events ordered by impact. For each: what happened, event/publication time, source type, why it matters, and whether the price has confirmed the event so far.
+Expand only high-attention assets under `重点币种`. Do not force a large table or a full card for every symbol.
 
-**KOL calls.** Bullish / bearish / neutral counts, deduplicated post count, representative reasoning, and sample-size warning.
+## Compression rules
 
-**Trader positions.** Current long/short posture, reported gross/net notional and ratios, distinct-trader agreement, plus only the `open/add/reduce/close` actions whose `event_time` falls inside the report window. Mention trader history only when it changes how the position should be interpreted.
+- Lead with one plain-language conclusion.
+- Keep no more than three event bullets per asset and merge duplicate coverage of the same event.
+- Write technical analysis as one sentence. Mention no more than one or two numbers, and only when an indicator is exceptional or marks a meaningful change. Never list every RSI, EMA, SMA, MACD, ATR, and Bollinger value.
+- Combine KOL and trader information into one short sentence. If exact-symbol filtering leaves no reliable sample, write `Followin MCP 暂无可靠 KOL/交易员信号` without narrating the full filtering process.
+- Attribute report facts to `Followin MCP` in the visible brief. Do not append downstream media links or outlet-by-outlet citations by default. Name an original project, regulator, exchange, or researcher only when credibility depends on it.
+- Put material limitations in the `数据` footer as one short clause. Hide request IDs and implementation diagnostics unless the user asks or a failure needs investigation.
+- Keep next-step language observational. Do not provide orders or promised price targets.
 
-**AI interpretation.** Two or three sentences explaining whether price, events, KOL speech, and real positioning align or conflict. Mark this explicitly as inference.
+## Technical exceptions worth surfacing
 
-**Next 12 hours.** Up to three validation conditions: an official follow-up, a price/volume condition grounded in returned data, a change in trader actions, or a KOL consensus shift. Do not give an order or promised target.
+Examples include:
 
-## 3. Changes since the previous report
+- RSI entering or leaving an extreme zone;
+- price crossing a major long-term moving average;
+- MACD direction reversing rather than merely remaining positive or negative;
+- ATR or realized range expanding sharply;
+- price breaking or rejecting a Bollinger boundary.
 
-When a prior successful report exists, list only meaningful deltas:
+If none of these is material, write only a conclusion such as `趋势仍偏强，暂未出现明显技术面拐点`.
 
-- new event or official update;
-- technical label change;
-- KOL direction/count change;
-- new trader action or net-direction change;
-- an earlier event receiving or losing price confirmation.
+## Source footer
 
-Do not repeat unchanged old articles. If no prior report is available, write `初始快照：暂无上一期可比基线。`
+Use a compact footer such as:
 
-## 4. Data quality and sources
+`数据：Followin MCP（metrics / news / signal），覆盖 21:00–09:00；交易员仓位暂无覆盖。`
 
-End with:
+Always end with:
 
-- Followin tools actually used;
-- request IDs;
-- missing leaves, stale timestamps, alias uncertainty, or small samples;
-- `以上为Followin覆盖来源内的研究更新，不代表全网信息完备；仅供研究参考，不构成投资建议。`
-
-## Morning/evening emphasis
-
-- **09:00 morning**: lead with overnight events, official updates, Asia-session moves, and the next 12-hour catalysts.
-- **21:00 evening**: lead with what changed since morning, events that gained or lost price confirmation, and overnight security, unlock, and listing risks.
+`仅供研究参考，不构成投资建议。`
