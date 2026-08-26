@@ -21,7 +21,7 @@ The default deliverable is a compact daily brief, not a full research report. Op
 - <validation condition>
 - <validation condition>
 
-数据：Followin MCP（<tools used>）<short material data gap if any>
+数据来源：Followin MCP（<tools used>）<short material data gap if any>
 仅供研究参考，不构成投资建议。
 ```
 
@@ -54,7 +54,7 @@ Expand only high-attention assets under `重点币种`. Do not force a large tab
 - Keep no more than three event bullets per asset and merge duplicate coverage of the same event.
 - Write technical analysis as one sentence. Mention no more than one or two numbers, and only when an indicator is exceptional or marks a meaningful change. Never list every RSI, EMA, SMA, MACD, ATR, and Bollinger value.
 - Combine KOL and trader information into one short sentence. If exact-symbol filtering leaves no reliable sample, write `Followin MCP 暂无可靠 KOL/交易员信号` without narrating the full filtering process.
-- Attribute report facts to `Followin MCP` in the visible brief. Do not append downstream media links or outlet-by-outlet citations by default. Name an original project, regulator, exchange, or researcher only when credibility depends on it.
+- State `数据来源：Followin MCP` once in the footer. Write the body naturally and never repeat “Followin MCP显示/收录” before each fact. Add an inline source label only for official-versus-secondary distinctions, supplemental non-Followin data, or a material data gap. Do not append downstream media links or outlet-by-outlet citations by default.
 - Put material limitations in the `数据` footer as one short clause. Hide request IDs and implementation diagnostics unless the user asks or a failure needs investigation.
 - Keep next-step language observational. Do not provide orders or promised price targets.
 
@@ -74,7 +74,7 @@ If none of these is material, write only a conclusion such as `趋势仍偏强�
 
 Use a compact footer such as:
 
-`数据：Followin MCP（metrics / news / signal），覆盖 21:00–09:00；交易员仓位暂无覆盖。`
+`数据来源：Followin MCP（metrics / news / signal），覆盖 21:00–09:00；交易员仓位暂无覆盖。`
 
 Always end with:
 
