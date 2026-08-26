@@ -1,0 +1,4 @@
+interface:
+  display_name: "Crypto Watchlist Tracker"
+  short_description: "Twice-daily crypto watchlist intelligence reports"
+  default_prompt: "Use $crypto-watchlist-tracker to create 09:00 and 21:00 crypto watchlist reports. Ask for my symbols and timezone if they are missing."
