@@ -17,6 +17,10 @@ The default deliverable is a compact daily brief, not a full research report. Op
 ## 盘面与资金
 <current price and 24h move when reliable; one natural technical conclusion; KOL/trader or flow change>
 
+## KOL 怎么看
+- <@handle and direct link>：<thesis plus its key evidence or condition>
+- <@handle and direct link>：<a distinct or opposing angle>
+
 ## 今天关注
 - <validation condition>
 - <validation condition>
@@ -33,6 +37,7 @@ Use the same compact shape, with these labels:
 - `一句话`: what changed during the day;
 - `今天发生了什么`: only new or materially updated events since the morning report;
 - `盘面与资金`: current move, one technical conclusion, and new KOL/trader actions;
+- `KOL 怎么看`: two or three new, high-signal X views only when useful;
 - `今晚关注`: up to three overnight validation conditions.
 
 Do not repeat unchanged morning items except when their price confirmation has materially changed.
@@ -53,7 +58,8 @@ Expand only high-attention assets under `重点币种`. Do not force a large tab
 - Lead with one plain-language conclusion.
 - Keep no more than three event bullets per asset and merge duplicate coverage of the same event.
 - Write technical analysis as one sentence. Mention no more than one or two numbers, and only when an indicator is exceptional or marks a meaningful change. Never list every RSI, EMA, SMA, MACD, ATR, and Bollinger value.
-- Combine KOL and trader information into one short sentence. If exact-symbol filtering leaves no reliable sample, write `Followin MCP 暂无可靠 KOL/交易员信号` without narrating the full filtering process.
+- Keep `KOL 怎么看` to two or three selected X posts. Summarize the thesis and its evidence or condition rather than quoting the post at length. Link the handle or original post because the user's purpose is to inspect the KOL view. Prefer one fundamental/flow view, one conditional technical view, and one risk/positioning view when strong examples exist; never manufacture balance from weak posts.
+- Keep structured KOL consensus and trader positions in `盘面与资金`. If those leaves have no reliable exact-symbol sample, state the gap briefly without narrating the full filtering process; curated X analysis can still appear separately.
 - State `数据来源：Followin MCP` once in the footer. Write the body naturally and never repeat “Followin MCP显示/收录” before each fact. Add an inline source label only for official-versus-secondary distinctions, supplemental non-Followin data, or a material data gap. Do not append downstream media links or outlet-by-outlet citations by default.
 - Put material limitations in the `数据` footer as one short clause. Hide request IDs and implementation diagnostics unless the user asks or a failure needs investigation.
 - Keep next-step language observational. Do not provide orders or promised price targets.

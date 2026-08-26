@@ -82,6 +82,12 @@ Call `signal` with category `kol_call`, query `consensus`, the watchlist batch, 
 
 One post can fan out into multiple symbol rows, and short aliases can retrieve longer symbols such as `ETHFI` for `ETH`. Verify every returned row's canonical `symbol` against the requested asset and discard non-matches. If an aggregate contains non-matching symbols and cannot be recomputed safely, call the detail view, filter exact-symbol rows, and aggregate those rows; otherwise mark the asset-specific KOL sample unavailable. Deduplicate retained posts by `source_url`, or by author plus timestamp plus normalized content when no URL is returned. Do not call a one-sided sample “market consensus” without its sample size.
 
+Also search `news` with `sources=["twitter"]` over the report window for broader KOL analysis that may not be classified as a structured call. Search both the exact ticker and project name, then use `twitter` with `tweets_by_ids` to verify the full text, author, timestamp, engagement, and direct link for the final candidates.
+
+Select two or three posts per high-attention asset when useful. Prefer original posts that contain a thesis plus data, reasoning, a time horizon, or a falsifiable condition. Aim for viewpoint diversity: fundamental/flow, technical/conditional, and risk/positioning where available. Exclude referral or exchange promotions, copied ATH commentary, pure price targets, self-congratulation, unrelated word matches, and claims whose supporting detail is not present. Do not rank a post solely by follower count or engagement. Preserve disclosures such as “holding HYPE” and distinguish a KOL opinion from verified market data.
+
+Keep structured `kol_call` consensus and curated X analysis separate. A missing structured consensus does not prohibit a `KOL 怎么看` section when the broader Twitter search yields strong exact-asset analysis.
+
 ### 4. Trader positions and new actions
 
 Call `signal` with category `trader_position` for the watchlist batch. Retrieve the current active posture without forcing a short time filter, then use each position leg's `event_time` to identify actions inside the report window.
