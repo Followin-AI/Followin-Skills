@@ -1,4 +1,4 @@
 interface:
-  display_name: "Crypto Watchlist Tracker"
-  short_description: "Twice-daily crypto watchlist intelligence reports"
-  default_prompt: "Use $crypto-watchlist-tracker to create 09:00 and 21:00 crypto watchlist reports. Ask for my symbols and timezone if they are missing."
+  display_name: "币圈自选早晚报 / Crypto Watchlist"
+  short_description: "每天09:00与21:00更新币圈自选新闻、行情与KOL观点"
+  default_prompt: "使用 $crypto-watchlist-tracker 为我的自选币创建每天 09:00 和 21:00 的早报与晚报；如果缺少币种或时区，请先询问我。"

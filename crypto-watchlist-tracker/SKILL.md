@@ -1,9 +1,35 @@
 ---
 name: crypto-watchlist-tracker
-description: "Track a user-supplied crypto watchlist twice daily or on demand with Followin MCP, combining project/news events, live prices, technicals, KOL calls, and trader positions. Use for requests such as ‘每天早晚跟踪我的自选币’, ‘创建币圈自选监控’, ‘更新我的币圈雷达’, or ‘crypto watchlist report’. Do not use for order execution or a general market brief with no watchlist."
+description: "使用 Followin MCP 每天早晚或按需跟踪用户自选币，整合项目与新闻事件、实时价格、技术面、推特 KOL 观点和交易员仓位。适用于‘每天早晚跟踪我的自选币’‘创建币圈自选监控’‘更新我的币圈雷达’或‘crypto watchlist report’；不用于执行交易或没有自选币列表的泛市场早报。 Track a user-supplied crypto watchlist twice daily or on demand with Followin MCP."
 ---
 
-# Crypto Watchlist Tracker
+# Crypto Watchlist Tracker｜币圈自选每日跟踪
+
+## 中文说明
+
+这个 Skill 用 Followin MCP 跟踪用户指定的币种，并在每天早上 09:00、晚上 21:00 生成简洁早报和晚报。没有指定时区时默认使用 `Asia/Shanghai`，币圈周末也照常更新。
+
+每期重点回答：
+
+- 这个币在上一期之后发生了哪些项目公告、新闻、安全、上币、解锁、监管或资金事件；
+- 当前价格、24 小时变化和技术面是否出现明显过热、转弱或拐点；
+- 最近推特上有哪些值得看的 KOL 分析，观点依据和成立条件是什么；
+- KOL 说法与交易员真实的开仓、加仓、减仓、平仓行为是否一致；
+- 接下来 12 小时最值得验证的两三个条件是什么。
+
+默认输出是适合手机阅读的早报/晚报，不机械罗列 RSI、EMA、MACD 等全部指标。只有出现极端或方向变化时才点出一两个关键指标。KOL 栏目通常挑选 2–3 条有数据、逻辑或明确条件的推文，过滤交易所推广、复制文案、无依据喊单和无关同名词。
+
+正文直接讲事实和观点，只在结尾统一写一次 `数据来源：Followin MCP`。原始推文可以保留账号和链接，方便用户查看上下文。这个 Skill 只做信息跟踪，不执行下单，也不承诺收益。
+
+调用示例：
+
+```text
+用 $crypto-watchlist-tracker 跟踪 HYPE。
+每天早上 9 点和晚上 9 点更新，时区 Asia/Shanghai。
+重点关注项目事件、价格变化、优秀推特 KOL 分析和交易员仓位变化。
+```
+
+以下为英文技术执行规范，供 Agent 和英文用户使用。
 
 Use Followin MCP to maintain a focused crypto watchlist and produce two evidence-backed updates per day. The default schedule is 09:00 and 21:00 in the user's timezone; if the timezone is unknown, use `Asia/Shanghai` and state the assumption.
 
