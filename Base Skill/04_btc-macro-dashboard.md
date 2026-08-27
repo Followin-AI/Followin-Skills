@@ -1,6 +1,6 @@
 ---
 name: BTC Macro Dashboard
-description: 评估BTC当前宏观环境，输出0-100综合评分和分层分析。当用户问"BTC宏观怎么样"、"宏观环境如何"、"现在几分"时触发。
+description: 评估BTC当前宏观环境，输出0-100综合评分和分层分析。当用户问"BTC宏观怎么样"、"BTC 宏观环境如何"、"BTC 现在几分"时触发；不带资产限定词的"宏观环境如何/现在几分"先追问问的是哪个资产（黄金→05，市场早报→06）。
 trigger: BTC宏观、BTC宏观看盘、BTC宏观评分、BTC宏观环境、BTC macro、BTC macro dashboard、BTC macro score、BTC macro environment、how is BTC macro
 not_trigger: 策略信号、KOL、喊单、热点、TG频道、日报、代币舆情、黄金、行情、价格、strategy、KOL calls、trending、TG channels、daily brief、gold、token news
 mcp: mcp__followin__metrics
@@ -19,6 +19,8 @@ tools: WebSearch, WebFetch
 
 > 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
 
+> 🧭 **N-8 总括**：本文件所有 `metrics` 调用均为 `query` 串形态；数组入参（`keywords=[...]`/`categories=[...]`）已于 2026-07-20 起被 schema 拒（-32602，2026-08-04 复现仍未修复），Dev 修复前禁止回退数组写法。
+
 ## 数据源（v2 大幅简化）
 
 ### MCP — Followin 单工具
@@ -26,18 +28,18 @@ tools: WebSearch, WebFetch
 
 | 用途 | 调用 | 备注 |
 |------|------|------|
-| FRED 宏观指标 | `metrics(keywords=["<series_id>"], categories=["macro"], limit=N)` | 🔒 红线 3：先转 series_id 再直查，禁 query 自然语言；字典见 caveats 附表 A |
-| FMP 行情批量 | `metrics(keywords=["DXUSD","GCUSD"], categories=["market"])` | tradfi |
-| ^VIX | `metrics(keywords=["^VIX"], categories=["market"])` | 直接命中 |
-| 纳斯达克 | `metrics(keywords=["^IXIC"], categories=["market"])` | 直接命中 |
-| BTC 价格 | `metrics(keywords=["BTC"], categories=["market"], asset_type="crypto")` | crypto，**必传 asset_type** 否则美股 BTC Inc 污染 |
-| 经济日历 | `metrics(keywords=["economic calendar"], categories=["macro"])` | FMP 端点 |
+| FRED 宏观指标 | `metrics(query="<series_id>", limit=N)` | 🔒 红线 3：先转 series_id 再直查，query 只放纯 series_id，禁中文/自然语言；字典见 caveats 附表 A |
+| FMP 行情批量 | `metrics(query="DXUSD GCUSD 行情", asset_type="tradfi")` | 批量上限 5（红线 4）；调用后核对 `meta.filters_applied.keywords` |
+| ^VIX | `metrics(query="^VIX 行情", asset_type="tradfi")` | 直接命中 |
+| 纳斯达克 | `metrics(query="^IXIC 行情", asset_type="tradfi")` | 直接命中 |
+| BTC 价格 | `metrics(query="BTC 行情", asset_type="crypto")` | crypto，**必传 asset_type** 否则美股 BTC Inc 污染 |
+| 经济日历 | `metrics(query="economic calendar", country="US")` | FMP 端点；N-32：`country` 只对经济日历有效，不传返 CN/JO/KR/MY 事件 |
 
 > **关键变化（vs v1）**：
 > - 5 个老工具 → 1 个 Followin metrics
 > - 删除 `limit 必须 integer / null 跳过 / 500 错误降级` 等历史 caveat（Followin 已稳定）
 > - 删除 `^NDX 402 / DXUSD 必须 batch / ^VIX 不能批量` 等 schema 修复说明
-> - FRED 32 个 series 全 100% 命中（已实测）
+> - FRED series 覆盖：BAMLH0A0HYM2 与 CPIMEDSL **不可用**（B-33，直查被错抓到 M2SL / headline CPI），其余已实测命中
 
 ### HTTP 直调（Followin 不覆盖）
 - **DeFiLlama** 稳定币总市值：`GET https://stablecoins.llama.fi/stablecoins?includePrices=true`
@@ -75,10 +77,10 @@ tools: WebSearch, WebFetch
 
 | # | 指标 | 权重 | 数据获取 |
 |---|------|------|---------|
-| ① | 净流动性趋势 | 12% | `metrics(keywords=["WALCL"], categories=["macro"], limit=4)` + `metrics(keywords=["WTREGEN"], categories=["macro"], limit=4)` + `metrics(keywords=["RRPONTSYD"], categories=["macro"], limit=4)` 计算 WALCL - WTREGEN - RRPONTSYD |
-| ② | 美联储政策方向 | 10% | `metrics(keywords=["FEDFUNDS"], categories=["macro"], limit=12)` + `metrics(keywords=["WALCL"], categories=["macro"], limit=12)` + Web 检索最新 FOMC 声明 |
+| ① | 净流动性趋势 | 12% | `metrics(query="WALCL", limit=4)` + `metrics(query="WTREGEN", limit=4)` + `metrics(query="RRPONTSYD", limit=4)` 计算 WALCL - WTREGEN - RRPONTSYD |
+| ② | 美联储政策方向 | 10% | `metrics(query="FEDFUNDS", limit=12)` + `metrics(query="WALCL", limit=12)` + Web 检索最新 FOMC 声明 |
 | ③ | FedWatch 降息概率 | 8% | Web 检索 CME FedWatch（看变化方向，不是绝对值） |
-| ④ | 美国 M2 趋势 | 5% | `metrics(keywords=["M2SL"], categories=["macro"], limit=12)` |
+| ④ | 美国 M2 趋势 | 5% | `metrics(query="M2SL", limit=12)` |
 
 评分规则同 v1（每个指标 -2 到 +2）。
 
@@ -86,12 +88,12 @@ tools: WebSearch, WebFetch
 
 | # | 指标 | 权重 | 数据获取 |
 |---|------|------|---------|
-| ⑤ | DXY 美元指数 | 8% | `metrics(keywords=["DXUSD"], categories=["market"])` 拿现价 + yearHigh/Low；均线另调 `metrics(keywords=["DXUSD"], query="EMA 50")` |
-| ⑥ | 纳斯达克趋势 | 7% | `metrics(keywords=["^IXIC"], categories=["market"])` + `metrics(keywords=["^IXIC"], query="EMA 50")` 均线 |
-| ⑦ | VIX 恐慌 | 5% | `metrics(keywords=["^VIX"], categories=["market"])` 现价（VIX 看绝对水平，不依赖均线）|
-| ⑧ | 实际利率趋势 | 5% | `metrics(keywords=["DFII10"], categories=["macro"], limit=4)` |
-| ⑨ | 收益率曲线 2Y-10Y | 3% | `metrics(keywords=["T10Y2Y"], categories=["macro"], limit=4)` |
-| ⑩ | 黄金趋势 | 2% | `metrics(keywords=["GCUSD"], categories=["market"], asset_type="tradfi")` ⚠️ 必须用 GCUSD（GOLD 会错抓 Gold.com 美股） |
+| ⑤ | DXY 美元指数 | 8% | `metrics(query="DXUSD 行情", asset_type="tradfi")` 拿现价 + yearHigh/Low；均线另调 `metrics(query="DXUSD 均线 指标")` |
+| ⑥ | 纳斯达克趋势 | 7% | `metrics(query="^IXIC 行情", asset_type="tradfi")` + `metrics(query="^IXIC 均线 指标")` 均线 |
+| ⑦ | VIX 恐慌 | 5% | `metrics(query="^VIX 行情", asset_type="tradfi")` 现价（VIX 看绝对水平，不依赖均线；N-48：盘外拿到的是最近 regular 收盘，须标"最近收盘"）|
+| ⑧ | 实际利率趋势 | 5% | `metrics(query="DFII10", limit=4)` |
+| ⑨ | 收益率曲线 2Y-10Y | 3% | `metrics(query="T10Y2Y", limit=4)` |
+| ⑩ | 黄金趋势 | 2% | `metrics(query="GCUSD 行情", asset_type="tradfi")` ⚠️ 必须用 GCUSD（GOLD 会错抓 Gold.com 美股） |
 
 评分规则同 v1。
 
@@ -107,8 +109,8 @@ tools: WebSearch, WebFetch
 
 | # | 指标 | 权重 | 数据获取 |
 |---|------|------|---------|
-| ⑭ | 通胀数据脉冲 CPI/PCE | 5% | `metrics(keywords=["CPILFESL"], categories=["macro"], limit=12)` + `metrics(keywords=["PCEPILFE"], categories=["macro"], limit=12)` + Web 检索预期 vs 实际 |
-| ⑮ | 就业数据脉冲 | 5% | `metrics(keywords=["PAYEMS"], categories=["macro"], limit=12)` + `metrics(keywords=["UNRATE"], categories=["macro"], limit=12)` + Web 检索预期 vs 实际 |
+| ⑭ | 通胀数据脉冲 CPI/PCE | 5% | `metrics(query="CPILFESL", limit=12)` + `metrics(query="PCEPILFE", limit=12)` + Web 检索预期 vs 实际 |
+| ⑮ | 就业数据脉冲 | 5% | `metrics(query="PAYEMS", limit=12)` + `metrics(query="UNRATE", limit=12)` + Web 检索预期 vs 实际 |
 
 > 数据保鲜期：发布后超过 3 周的脉冲评分自动衰减 50%。
 
@@ -128,41 +130,45 @@ tools: WebSearch, WebFetch
 
 ### 第一步：数据获取（4-5 批并行，每批 ≤4 防 SSE 挂）
 
-> 🔒 **v3 强制规则**（基于 2026-05-27 实测）：**所有 FRED 指标 + 大宗商品 ticker 一律走 `keywords=[series_id]` 直查，禁止用 `query=` 中文/混合自然语言**。query 路径有 4 类语义陷阱，已实测被 M2SL/DGS30/Gold.com 等抢路由。
+> 🔒 **v3 强制规则**（2026-05-27 实测语义陷阱 + 2026-07-20 起 N-8 改写）：**所有 FRED 指标一律走 `query="<series_id>"` 纯串直查**（N-8：`keywords=[...]`/`categories=[...]` 数组入参被 schema 拒 -32602）；**禁止 query 里放中文/混合自然语言**（红线 3 语义陷阱仍成立：已实测被 M2SL/DGS30/Gold.com 等抢路由）。
 
 **Batch 1：第一层流动性 FRED（4 个并行）**
 ```
-# 每个单独发，避免 batch keywords 静默丢条目（B-31）
-metrics(keywords=["WALCL"],    categories=["macro"], limit=4)   # ① 美联储资产负债表
-metrics(keywords=["WTREGEN"],  categories=["macro"], limit=4)   # ① 财政部账户 TGA
-metrics(keywords=["RRPONTSYD"],categories=["macro"], limit=4)   # ① 隔夜逆回购
-metrics(keywords=["M2SL"],     categories=["macro"], limit=12)  # ④ M2
+# 每个单独发，避免 FRED series 批量静默丢条目（B-31）
+metrics(query="WALCL",     limit=4)   # ① 美联储资产负债表
+metrics(query="WTREGEN",   limit=4)   # ① 财政部账户 TGA
+metrics(query="RRPONTSYD", limit=4)   # ① 隔夜逆回购
+metrics(query="M2SL",      limit=12)  # ④ M2
 ```
 
 **Batch 2：第二层 + 利率（4 个并行）**
 ```
-metrics(keywords=["FEDFUNDS"], categories=["macro"], limit=12)  # ② 联邦基金利率
-metrics(keywords=["DFII10"],   categories=["macro"], limit=4)   # ⑧ 10Y TIPS 实际利率
-metrics(keywords=["T10Y2Y"],   categories=["macro"], limit=4)   # ⑨ 收益率曲线 2Y-10Y
-metrics(keywords=["DXUSD","^IXIC","^VIX","GCUSD"], categories=["market"], asset_type="tradfi")
-                                                                # ⑤⑥⑦⑩（GOLD → GCUSD 黄金期货，
-                                                                #  GOLD 会错抓 Gold.com 美股 $42）
+metrics(query="FEDFUNDS", limit=12)   # ② 联邦基金利率
+metrics(query="DFII10",   limit=4)    # ⑧ 10Y TIPS 实际利率
+metrics(query="T10Y2Y",   limit=4)    # ⑨ 收益率曲线 2Y-10Y
+metrics(query="DXUSD ^IXIC ^VIX GCUSD 行情", asset_type="tradfi")
+                                      # ⑤⑥⑦⑩（GOLD → GCUSD 黄金期货，
+                                      #  GOLD 会错抓 Gold.com 美股 $42）
+                                      # 批量上限 5（红线 4：超出静默截断、无任何 warning）；
+                                      # 调用后核对 meta.filters_applied.keywords 与请求清单做差集
 ```
 
 **Batch 3：第四层经济脉冲（4 个并行）**
 ```
-metrics(keywords=["CPILFESL"], categories=["macro"], limit=12)  # ⑭ 核心 CPI
-metrics(keywords=["PCEPILFE"], categories=["macro"], limit=12)  # ⑭ 核心 PCE
-metrics(keywords=["PAYEMS"],   categories=["macro"], limit=12)  # ⑮ 非农就业
-metrics(keywords=["UNRATE"],   categories=["macro"], limit=12)  # ⑮ 失业率
+metrics(query="CPILFESL", limit=12)   # ⑭ 核心 CPI
+metrics(query="PCEPILFE", limit=12)   # ⑭ 核心 PCE
+metrics(query="PAYEMS",   limit=12)   # ⑮ 非农就业
+metrics(query="UNRATE",   limit=12)   # ⑮ 失业率
 ```
 
 **Batch 4：BTC 实时价 + 经济日历**
 ```
-metrics(keywords=["BTC"], categories=["market"], asset_type="crypto")
-                                                                # 必传 asset_type=crypto，
-                                                                # 否则 fanout 到美股 BTC Inc ($33) 污染（B-18）
-metrics(keywords=["economic calendar"], categories=["macro"])
+metrics(query="BTC 行情", asset_type="crypto")
+                                      # 必传 asset_type=crypto，
+                                      # 否则 fanout 到美股 BTC Inc ($33) 污染（B-18）
+metrics(query="economic calendar", country="US")
+                                      # N-32：country 只对经济日历有效，不传返 CN/JO/KR/MY 事件；
+                                      # query 别带"本周"（会被解析成 lookback 7 天）
 ```
 
 **Batch 5：HTTP + Web（异步）**
@@ -175,13 +181,16 @@ Web: FedWatch CME / Farside Investors ETF flows
 
 | ❌ 不要写 | ✅ 改成 | 原因 |
 |---|---|---|
-| `metrics(query="财政部账户 TGA")` | `metrics(keywords=["WTREGEN"], categories=["macro"])` | query 路径 degraded 0.82 |
-| `metrics(query="逆回购 RRP")` | `metrics(keywords=["RRPONTSYD"], categories=["macro"])` | 路由错到 fundamentals |
-| `metrics(query="10Y 2Y 利差")` | `metrics(keywords=["T10Y2Y"], categories=["macro"])` | query degraded 0.86 |
-| `metrics(query="10Y TIPS 实际利率")` | `metrics(keywords=["DFII10"], categories=["macro"])` | 拿到 DFII10 但污染 TIPS 美股+crypto |
-| `metrics(keywords=["GOLD"])` | `metrics(keywords=["GCUSD"])` | GOLD → Gold.com 美股 $42 |
-| `metrics(keywords=["BTC"])` 不带 asset_type | `metrics(keywords=["BTC"], asset_type="crypto")` | fanout 双返污染 |
-| `keywords=["X","Y"]` 批量 FRED macro series | 各自单独 fire | 静默丢条目（B-31）。⚠️ 边界：仅 FRED macro 受影响，market 快照可批量但上限 10 个 keywords（实测 18→10 静默截断；Batch 2 的 4 个 ticker 合法）|
+| `metrics(query="财政部账户 TGA")` | `metrics(query="WTREGEN")` | 中文 query 路径 degraded 0.82（红线 3）|
+| `metrics(query="逆回购 RRP")` | `metrics(query="RRPONTSYD")` | 路由错到 fundamentals |
+| `metrics(query="10Y 2Y 利差")` | `metrics(query="T10Y2Y")` | query 自然语言 degraded 0.86 |
+| `metrics(query="10Y TIPS 实际利率")` | `metrics(query="DFII10")` | 拿到 DFII10 但污染 TIPS 美股+crypto |
+| `metrics(keywords=[...])` / `categories=[...]` 任何数组入参 | `query` 串形态 | N-8：2026-07-20 起被 schema 拒（-32602）|
+| `metrics(query="GOLD 行情")` | `metrics(query="GCUSD 行情", asset_type="tradfi")` | GOLD → Gold.com 美股 $42 |
+| `metrics(query="BTC 行情")` 不带 asset_type | `metrics(query="BTC 行情", asset_type="crypto")` | fanout 双返污染 |
+| query 串里塞多个 FRED macro series | 各自单独 fire | 静默丢条目（B-31）。⚠️ 边界：仅 FRED macro 受影响，market 快照可批量但**上限 5 个**（红线 4 现行：传 8 个静默截断到 5、**无任何 warning**；Batch 2 的 4 个 ticker 合法，调用后核对 `meta.filters_applied.keywords`）|
+
+⚠️ **N-48 时段提示**：非交易时段 `metrics` 行情返回的是上一个 regular 收盘（`_quote_session:"regular_inactive"`），^VIX/^IXIC 等"现价"在盘外要标"最近收盘"，不当实时价引用。
 
 ### 第二步：逐指标评分
 

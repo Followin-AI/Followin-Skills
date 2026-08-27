@@ -21,7 +21,7 @@ args: topic_or_ticker(可选，点名则跳过扫描)
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
-| 1 | `news(空 query, asset_type="tradfi", time_range="4h")` 趋势榜（hot 排序，实测 sort_by_effective="hot"） | 0（2026-07-22 回归实测确认：4h 窗口不可用，返回 0 篇，`meta.warnings` 报 `asset_type_filter_emptied`——该窗口候选池太小，仅有的几条话题全被 tradfi 过滤器剔除；已改走 24h + 按 published_ts 客户端取最近，本行不再标"待验证"） |
+| 1 | `news(空 query, asset_type="tradfi", time_range="24h")` 趋势榜（hot 排序，实测 sort_by_effective="hot"）＋客户端按 `published_ts` 取最近 | 0（2026-07-22 回归实测确认：4h 窗口不可用，返回 0 篇，`meta.warnings` 报 `asset_type_filter_emptied`——该窗口候选池太小，仅有的几条话题全被 tradfi 过滤器剔除；故固定走 24h + 按 published_ts 客户端取最近，本行不再标"待验证"） |
 | 2 | `signal(query="consensus", asset_type="tradfi", time_range="24h")` 喊单热度佐证 | 1 |
 
 步骤 1 的 4h 窗口 2026-07-22 回归实测已确认不可行——`news(query="", asset_type="tradfi", time_range="4h")` 返回 0 篇，`meta.warnings` 明确报"followin_trending: all N trending topics dropped by asset_type filter"（4h 窗口候选池太小，仅有的几条话题全被 tradfi 过滤器滤掉，upstream tag gap 待 Dev 排查）；1h 窗口大概率同样受限，未逐一复测但按同一机制推断。可行的是 24h 窗口（`sort_by_effective="hot"`），**已确认降级为 24h 窗口 + 客户端按每条的 `published_ts` 字段自行截取"最近"的条目**，此为最终结论，不再标"待验证"。
@@ -30,7 +30,7 @@ args: topic_or_ticker(可选，点名则跳过扫描)
 
 > N-10：metrics time_range <1d 返一个月前旧数据 bug；小时级用 interval 参数或只用实时快照（trend-scout 实测）。
 
-N-10 记载的是 `metrics()` 工具在 `time_range` 小于 1 天时会返回一个月前的旧数据，这是一个已确认的 bug；而步骤 1 用的是 `news()` 工具的 4h 窗口，是完全不同的调用——不能因为 N-10 提到"1 天以内"就假设 news 的 4h 窗口一定会撞上同一个 bug，也不能因此假设它一定没问题。两者是独立的事实，本行只标"待验"，实现时需单独验证 `news()` 的 4h/1h 窗口行为，验证结果如需回写 caveats SSOT，应作为新登记项加入，不要并入 N-10（N-10 的适用范围仅限 `metrics()`）。
+N-10 记载的是 `metrics()` 工具在 `time_range` 小于 1 天时会返回一个月前的旧数据，这是一个已确认的 bug；而 `news()` 的 4h 窗口是完全不同的调用、完全不同的失效方式——news 4h 已于 2026-07-22 单独实测定性为「候选池太小被 tradfi 过滤器清空」（`asset_type_filter_emptied`，见第 1.1 节），不是 N-10 的旧数据 bug。两者是独立的事实，如需回写 caveats SSOT，应作为独立登记项记载，不要并入 N-10（N-10 的适用范围仅限 `metrics()`）。
 
 步骤 1 的 asset_type 例外依据（N-1）：
 
@@ -38,13 +38,13 @@ N-10 记载的是 `metrics()` 工具在 `time_range` 小于 1 天时会返回一
 
 调用形态铁律（本序列全程通用）：
 
-> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-07-22 复现）**：`keywords/categories/sources` 等数组参数在当前环境会被序列化成字符串遭 schema 拒（连环 -32602）。所有调用规范以 **query 自然语言/空格拼串为主写法**（服务端自解析成 keywords，meta 可验证），数组形式仅作"标准客户端若可传数组"的备选注记。批量降级梯：① keywords 数组批量（≤10，B-31）→ ② query 串批量（crypto 实测可行，tradfi 多 ticker 可能被路由到 fundamentals，实现时验证）→ ③ 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-08-04 复核仍复现，N-8）**：`keywords/categories/sources` 等数组参数被 tool schema 拒（连环 -32602；schema 中这些入参无类型，**任何客户端均不可用**）。所有调用一律以 **query 自然语言/空格拼串为唯一形态**（服务端自解析成 keywords，`meta.filters_applied.keywords` 可验证）。批量上限 **≤5**（红线 4/N-23）：超出被**静默截断到 5 且无任何 warning**（旧记载的 `keyword_count_over_max` warning 已不存在），调用后必须拿请求列表与 `filters_applied.keywords`（及 `snapshot[].symbol`）做差集自查，缺的分批补。降级梯：① query 串批量（≤5）→ ② 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
 
 每步 query 主形态调用示例：
 
 ```
-1. news(query="", asset_type="tradfi", time_range="4h")
-   # 趋势模式：空 query 传 asset_type 是可用例外（红线 1 + N-1）；4h 窗口 2026-07-22 实测已确认不可行（0 篇，asset_type_filter_emptied），一律改用 time_range="24h" + 客户端按 published_ts 取最近
+1. news(query="", asset_type="tradfi", time_range="24h")
+   # 趋势模式：空 query 传 asset_type 是可用例外（红线 1 + N-1）；4h/1h 短窗口不可用（2026-07-22 实测 0 篇，asset_type_filter_emptied），固定用 24h + 客户端按 published_ts 取最近
 
 2. signal(query="consensus", asset_type="tradfi", time_range="24h")
    # 不带 categories 一次拿全 4 类，仍计 1 额度（N-4）；此处只用喊单热度佐证扫描菜单排序，不做温度计钻取
@@ -88,14 +88,14 @@ N-10 记载的是 `metrics()` 工具在 `time_range` 小于 1 天时会返回一
 | 步骤 | 调用 | 额度 |
 |---|---|---|
 | 3 | `news(query="<核心名词×2>", time_range="24h")` 补事件细节与推特层原文 | 0（实测） |
-| 4 | 受影响标的 ≤10 一批 `metrics(keywords=[…], asset_type="tradfi")` 实时快照（含盘前盘后价） | 1 |
-| 5 | （可选，重大事件）`signal(keywords=[TICKER], query="详细仓位", …)` 或研报钻取加一层深度 | 1-2 |
+| 4 | 受影响标的 ≤5 一批 `metrics(query="<T1> <T2> … 行情", asset_type="tradfi")` 实时快照（含盘前盘后价） | 1 |
+| 5 | （可选，重大事件）`signal(query="<TICKER> 详细仓位", asset_type="tradfi")` 或研报钻取加一层深度 | 1-2 |
 
 若触发时带 args `topic_or_ticker` 或从菜单选中编号，第 3 步的"核心名词×2"直接取自选中话题/标的名，跳过第 1 节的步骤 1-2。
 
 调用形态铁律同第 1 节（本序列同样全程适用，批量标的走 query 串或数组降级梯）：
 
-> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-07-22 复现）**：`keywords/categories/sources` 等数组参数在当前环境会被序列化成字符串遭 schema 拒（连环 -32602）。所有调用规范以 **query 自然语言/空格拼串为主写法**（服务端自解析成 keywords，meta 可验证），数组形式仅作"标准客户端若可传数组"的备选注记。批量降级梯：① keywords 数组批量（≤10，B-31）→ ② query 串批量（crypto 实测可行，tradfi 多 ticker 可能被路由到 fundamentals，实现时验证）→ ③ 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-08-04 复核仍复现，N-8）**：`keywords/categories/sources` 等数组参数被 tool schema 拒（连环 -32602；schema 中这些入参无类型，**任何客户端均不可用**）。所有调用一律以 **query 自然语言/空格拼串为唯一形态**（服务端自解析成 keywords，`meta.filters_applied.keywords` 可验证）。批量上限 **≤5**（红线 4/N-23）：超出被**静默截断到 5 且无任何 warning**（旧记载的 `keyword_count_over_max` warning 已不存在），调用后必须拿请求列表与 `filters_applied.keywords`（及 `snapshot[].symbol`）做差集自查，缺的分批补。降级梯：① query 串批量（≤5）→ ② 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
 
 每步 query 主形态调用示例：
 
@@ -103,9 +103,9 @@ N-10 记载的是 `metrics()` 工具在 `time_range` 小于 1 天时会返回一
 3. news(query="<核心名词1> <核心名词2>", time_range="24h")
    # 搜索模式：不传 asset_type（红线 1）；quota=0（实测）；核心名词直接取自菜单条目或点名内容
 
-4. metrics(query="<TICKER1> <TICKER2> ...", asset_type="tradfi")
-   # 受影响标的批量快照；上限对齐 B-31（market 批量上限 10 keywords，超出被静默截断到 10，meta.warnings 会带 keyword_count_over_max，需检查该 warning 并分批重跑）
-   # 标准客户端可用数组形态：metrics(keywords=["<TICKER1>", "<TICKER2>", ...], asset_type="tradfi")
+4. metrics(query="<TICKER1> <TICKER2> ... 行情", asset_type="tradfi")
+   # 受影响标的批量快照；批量上限 5（红线 4/N-23）：超出被静默截断到 5 且无任何 warning，靠请求列表 vs meta.filters_applied.keywords（及 snapshot[].symbol）差集自查，缺的分批补跑
+   # 数组形态 keywords=[...] 任何客户端均不可用（tool schema 无类型导致，N-8）
    # 若热点发生在盘前/盘后时段，快照自带的 extendedHoursQuote 字段可直接引用并标注「盤前」/「盤後」
 
 5. signal(query="<TICKER> 详细仓位", asset_type="tradfi", time_range="7d")

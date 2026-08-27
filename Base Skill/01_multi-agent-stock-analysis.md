@@ -40,18 +40,19 @@ args: ticker
 > 🔗 **官方路由 primer**（意图→工具映射、命名约定、尽调编排）见 `references/followin-routing-primer.md`。本 Skill 的调用序列已对齐官方「美股尽调」五项编排。
 
 🔒 所有美股调用必须带 `asset_type="tradfi"`（除 BTC/ETH 等 crypto symbol）
+🔒 **N-8（2026-08-04 实测仍复现）**：`keywords` / `categories` / `sources` 数组入参被 schema 拒，一律走 query 串（ticker/series_id 并入 query）；调用后核对 `meta.filters_applied.keywords` 差集
 
 | 用途 | Followin 调用 |
 |---|---|
-| 基本面真聚合（profile / 三表 / 估值 / 同行 / 评级 / shares_float / beat-miss / consensus / eps_trend / latest_quarter / next_earnings）| `metrics(keywords=[T], categories=["fundamentals"], asset_type="tradfi", query="全面分析")` 一次返 14 block |
-| 行情快照（price / change / volume / dayHigh/Low / yearHigh/Low / marketCap）| `metrics(keywords=[T], categories=["market"], asset_type="tradfi")` |
-| 历史 OHLCV（用于多周期涨跌 + 技术指标自算）| `metrics(keywords=[T], categories=["market"], asset_type="tradfi", query="历史走势 30 day chart", time_range="1y")` |
-| 技术指标（RSI / EMA / SMA）| `metrics(keywords=[T], categories=["market"], asset_type="tradfi", query="RSI 14")` 或 `query="EMA 50"` |
-| **信号面 fanout**（内部人 Form 4 + senate + house，**外加 13F institutional + KOL 喊单**——省略 `categories` 一次拿三类，仍只计 1 额度，N-4）| `signal(keywords=[T], asset_type="tradfi", limit=20)` |
-| **机构研报**（目标价 / rating_action / thesis / key_caveat / latest_catalyst）| `metrics(keywords=[T], categories=["fundamentals"], asset_type="tradfi", query="<TICKER> research reports", verbosity="detail", time_range="7d")` ⚠️ warning 误报见 N-21 |
-| 媒体覆盖 | `news(query="<companyName> <ticker>", sources=["media"], time_range="1m", limit=10)` |
-| 推特风向 | `news(query="<companyName> <ticker>", sources=["twitter"], time_range="1w", limit=10)` |
-| 宏观背景（VIX / 10Y）| `metrics(keywords=["^VIX"], categories=["market"], asset_type="tradfi")` + `metrics(keywords=["DGS10"], categories=["macro"], limit=5)` 两路分开（⚠️ 不要把 market ticker 和 FRED series 混批，B-31）|
+| 基本面真聚合（profile / 三表 / 估值 / 评级 / shares_float / beat-miss / consensus / eps_trend / latest_quarter / next_earnings）| `metrics(query="<T> 全面分析", asset_type="tradfi")` 一次返 14 block（缺 stock_peers，输出"同行"标"数据不可用"）|
+| 行情快照（price / change / volume / dayHigh/Low / yearHigh/Low / marketCap）| `metrics(query="<T> 行情", asset_type="tradfi")`（批量 ≤5 个，超出静默截断且无任何 warning——红线 4）|
+| 历史 OHLCV（用于多周期涨跌 + 技术指标自算）| `metrics(query="<T> 历史走势", asset_type="tradfi", time_range="1y")` |
+| 技术指标（RSI / EMA / SMA）| `metrics(query="<T> 相对强弱 指标", asset_type="tradfi")` 或 `query="<T> 均线 指标"` |
+| **信号面 fanout**（内部人 Form 4 + senate + house，**外加 13F institutional + KOL 喊单**——省略 `categories` 一次拿三类，仍只计 1 额度，N-4）| `signal(query="<T>", asset_type="tradfi", limit=20)` |
+| **机构研报**（目标价 / rating_action / thesis / key_caveat / latest_catalyst）| `metrics(query="<TICKER> research reports", asset_type="tradfi", verbosity="detail", time_range="7d")` ⚠️ warning 误报见 N-21 |
+| 媒体覆盖 | `news(query="<companyName> <ticker>", time_range="1m", limit=10)` 读 `articles` 桶（sources 数组被拒无字符串替代 N-8；news 实返 2N 条 = articles + social 两桶 N-25）|
+| 推特风向 | `news(query="<companyName> <ticker>", time_range="1w", limit=10)` 读 `social` 桶 |
+| 宏观背景（VIX / 10Y）| `metrics(query="^VIX 行情", asset_type="tradfi")` + `metrics(query="DGS10", limit=5)` 两路分开（⚠️ 不要把 market ticker 和 FRED series 混批，红线 4/B-31；FRED query 只放纯 series_id，禁中文/混合语言）|
 
 ## 执行步骤
 
@@ -61,46 +62,54 @@ args: ticker
 
 **Batch A：fundamentals 真聚合 + 行情（4 路并行）**
 ```
-1. metrics(keywords=[T], categories=["fundamentals"], asset_type="tradfi", query="全面分析")
-   → ✅ 一次返 14 个 block（⚠️ 必须显式 query="全面分析"，不带 query 走 default 只返 5 block）：
+1. metrics(query="<T> 全面分析", asset_type="tradfi")
+   → ✅ 一次返 14 个 block（⚠️ query 必须含"全面分析"意图词才走 comprehensive，
+      否则 default 只返 5 block；N-8：keywords/categories 数组被拒，ticker 并入 query 串）：
       income / balance / cashflow / financial_growth / valuation / profile / sec_filings
       / grades / shares_float + beat_miss / consensus / eps_trend / latest_quarter
       / next_earnings（❌ 缺 stock_peers，Dev 待修）
-2. metrics(keywords=[T], categories=["market"], asset_type="tradfi")
+2. metrics(query="<T> 行情", asset_type="tradfi")
    → 当前 price + change + dayHigh/Low + yearHigh/Low + marketCap
-3. metrics(keywords=[T], categories=["market"], asset_type="tradfi", query="历史走势 30 day chart", time_range="1y")
+   → ⚠️ change 是美元变动量不是百分比（N-47），百分比自算 change/previousClose×100
+3. metrics(query="<T> 历史走势", asset_type="tradfi", time_range="1y")
    → 1y daily OHLCV，用于多周期涨跌（自算 1D/5D/1M/3M/6M/YTD/1Y）
-4. metrics(keywords=[T], categories=["market"], asset_type="tradfi", query="RSI 14", period=14)
-   → RSI(14) 时间序列；EMA/SMA 同理用 query="EMA 50" 或 "SMA 200"
+4. metrics(query="<T> 相对强弱 指标", asset_type="tradfi", period=14)
+   → ⚠️ 实测（2026-08-04, N-69）该调用**一次 fanout 返回全部 9 个指标**（adx/rsi/dema/wma/williams/ema/tema/sma/standarddeviation），按 `indicator` 字段筛即可，**不必为 RSI/EMA/SMA 分开调用**（省额度）。禁写英文指标名（"EMA 50"/"SMA 200" 会被劫持成同名 ticker）。
 ```
 
 **Batch B：信号 + 研报 + 新闻（4 路并行）**
 ```
-5. signal(keywords=[T], asset_type="tradfi", limit=20)
+5. signal(query="<T>", asset_type="tradfi", limit=20)
    → ⚠️ 省略 categories 才 fanout：corporate Form 4 + senate + house
      + institutional(13F) + kol_call 三类一次拿全，仍只计 1 额度（N-4）
+   → keywords/categories 数组被 schema 拒，一律 query 串路由（N-8/N-59f）
    → 13F 环比字段季内不可引用，只取绝对值与持仓结构（N-7）
    → kol_call 统计多空前按 source_url 去重（N-5）
-6. metrics(keywords=[T], categories=["fundamentals"], asset_type="tradfi",
-           query="<TICKER> research reports", verbosity="detail", time_range="7d")
+6. metrics(query="<TICKER> research reports", asset_type="tradfi",
+           verbosity="detail", time_range="7d")
    → subject_reports（专题）+ mention_reports（行业报告提及）两层
    → ⚠️ meta.warnings 会误报 default_fanout_fallback，以 payload 为准不要重试（N-21）
    → ⚠️ subject=0 只有 mention 时，不能当成"有机构专题覆盖"（N-19）
-7. news(query="<companyName> <ticker>", sources=["media"], time_range="1m", limit=10)
+7. news(query="<companyName> <ticker>", time_range="1m", limit=10)
    → 不带 asset_type（实测加 tradfi 返 0）
-8. news(query="<companyName> <ticker>", sources=["twitter"], time_range="1w", limit=10)
-   → 推特风向，供 Sentiment 分析师使用
+   → sources 数组被 schema 拒且无字符串替代（N-8）；媒体覆盖读 articles 桶
+     （news 实返 2N 条 = articles + social 两桶，N-25）
+8. news(query="<companyName> <ticker>", time_range="1w", limit=10)
+   → 推特风向读 social 桶，供 Sentiment 分析师使用
 ```
 
 **Batch C：研报原文 + 宏观（3 路并行）**
 ```
-9.  news(query="<companyName> <ticker>", sources=["research"], time_range="2w", limit=10)
+9.  news(query="<companyName> <ticker>", time_range="2w", limit=10)
     → 官方尽调编排的 news(["research"]) 一环：研报来源的原始文章
+    → sources=["research"] 数组被 schema 拒且无字符串替代（N-8/N-59）：研报类内容客户端近似识别
+      ——articles 桶 source_quality=="research"（⚠️ Motley Fool 会混入）+ social 桶 kol_info.categories 含 "research"
     → 与 ⑥ 互补——⑥ 给结构化字段（目标价/rating_action），本路给原文论述；quota=0
-10. metrics(keywords=["^VIX"], categories=["market"], asset_type="tradfi")
+10. metrics(query="^VIX 行情", asset_type="tradfi")
     → VIX 恐慌指数
-11. metrics(keywords=["DGS10"], categories=["macro"], limit=5)
-    → 10Y 利率（⚠️ FRED series 单独 fire，不与 market ticker 混批，B-31）
+11. metrics(query="DGS10", limit=5)
+    → 10Y 利率（⚠️ FRED series 每个单独 fire，query 只放纯 series_id 禁中文/混合语言；
+      不与 market ticker 混批，红线 4/B-31）
 ```
 
 **总计 11 路调用**（3 批，每批 ≤4 遵守 SSE 并发红线）。相对旧版 8 路：
@@ -132,6 +141,11 @@ SMA(200) = 简单 200 日均线
 
 > 19 个 Agent 的 prompt（哲学 + 关注数据 + 评分框架）**完全保留 v1**，执行前先 Read 引用附件 `~/.claude/references/01_agent-prompts.md`（仓库内对应 `references/01_agent-prompts.md`）。每个 Agent 从同一数据池中按需取数。
 
+> ⚠️ **数据硬闸（⑭⑮⑲ 强制执行）**：
+> - ⑭ Valuation：`valuation_block.dcf` 偏离现价 >5 倍即判失效，不进任何输出（SSOT 实测 INTC dcf 2.95 vs 现价 86.57——亏损期 DCF 直接崩且无失效标注）
+> - ⑮ Fundamentals / ⑲ Growth：`beat_miss.epsActual` 与 `latest_quarter.eps` **只要不相等即口径错位**（非 GAAP vs GAAP；⚠️ 2026-08-05 由「反号」放宽——实测 NVDA 同号差 28% 照样错位）。反号时引用超预期必须标"非 GAAP"；同号不等时**严禁跨序列组合**（N-29）
+> - ⑮ Fundamentals / ⑲ Growth：`revenueActual` 为 null 时 `revenue_surprise_pct` 会显示 -100——那是缺失不是暴跌，**revenueActual 非 null 才可读 surprise_pct**（N-33）
+
 ### Step 4: ⑳ 风控经理（Risk Manager）
 
 ```
@@ -162,7 +176,8 @@ SMA(200) = 简单 200 日均线
 ## 🎯 [TICKER] 多 Agent 综合分析 — [CompanyName]
 
 ### 基本信息
-行业: [sector] / [industry] | 市值: $[mktCap] | 当前价: $[price] ([change]%) | Beta: [beta]
+行业: [sector] / [industry] | 市值: $[mktCap] | 当前价: $[price] ([change/previousClose×100]%，自算) | Beta: [beta]
+⚠️ N-47：snapshot 的 change 是美元变动量不是百分比——别拿 change 去和新闻里的 % 交叉核实（会得到假的"核实通过"）
 
 ### 📊 19 位分析师投票分布
 | Agent | 信号 | 置信度 | 核心理由 |
@@ -170,7 +185,7 @@ SMA(200) = 简单 200 日均线
 | ① Buffett | 🟢 Bullish | 85 | 毛利率 75% / ROE 104% / 安全边际 +14% |
 | ② Graham | 🟡 Neutral | 60 | PE 43.56 偏高，但 PEG 0.66 合理 |
 | ... | ... | ... | ... |
-| ⑲ Growth | 🟢 Bullish | 90 | 4Q EPS 翻倍 + 营收 +54% YoY |
+| ⑲ Growth | 🟢 Bullish | 90 | 4Q EPS 翻倍 + 营收 +54% QoQ（最新季 YoY 不在 4 季窗口，需外源——N-54）|
 
 **汇总**: 🟢 Bullish: X / 🟡 Neutral: X / 🔴 Bearish: X
 
@@ -200,9 +215,9 @@ SMA(200) = 简单 200 日均线
 
 - 🔒 **`asset_type="tradfi"` 必须**（news 除外）
 - ⚠️ **SSE 高并发限制**：单批 ≤ 4 路并行，2-3 批跑完
-- ✅ **comprehensive 真聚合**：**必须显式 `query="全面分析"`** 才走 comprehensive intent（不带 query 走 default 只返 5 block）；带 query 时返 14 block（仅缺 stock_peers）
+- ✅ **comprehensive 真聚合**：**必须显式 `query="<T> 全面分析"`**（N-8：ticker 并入 query 串）才走 comprehensive intent（query 不含意图词走 default 只返 5 block）；带意图词时返 14 block（缺 stock_peers，输出"同行"标"数据不可用"）
 - ✅ **insider 已含 corporate Form 4 + senate + house 三路 fanout**，Group C Sentiment 可用政客买入信号
-- ✅ **历史 OHLCV** 用 `query="历史走势 30 day chart"` + `time_range="1y"`；**技术指标** 用 `query="RSI 14"` 或 `query="EMA 50"` 各自单调（不要靠 fanout，撞错路径无 fallback）
+- ✅ **历史 OHLCV** 用 `query="<T> 历史走势"` + `time_range="1y"`；**技术指标** 用 `query="<T> 相对强弱 指标"` 或 `query="<T> 均线 指标"` 各自单调（不要靠 fanout，撞错路径无 fallback）
 - 🆕 **signal 必须省略 `categories`（N-4）**：省略即 fanout 到 insider_trading + institutional(13F) + kol_call 三类，**合计仍只计 1 额度**。按类分 3 次调 = 3 倍额度且数据完全相同
 - 🆕 **13F 环比字段季内不可引用（N-7，2026-07-24 复核仍有效）**：`investorsHolding` / `ownershipPercentChange` / `putCallRatioChange` 在申报季中期是残缺假信号（实测 NVDA 6234→1441→1882 持续回补）。Group C 只能引用绝对持仓与结构，**任何环比一律不用**
 - 🆕 **KOL 喊单先按 `source_url` 去重（N-5）**：多标的推文按 symbol 裂成多条，不去重会把一条低信号推文计成三个独立喊单，直接污染 Sentiment 分析师输入

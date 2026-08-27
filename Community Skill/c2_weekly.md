@@ -1,5 +1,5 @@
 ---
-name: 美股社群skills（繁體中文）
+name: Community Weekly (c2 — 週報)
 description: 面向美股社群的精簡週報。使用可驗證的 Followin MCP 市場、新聞與事件資料，輸出可直接發布的繁體中文內容；資料不足的段落自動略過。
 trigger: 週報、周报、美股社群週報、本週看點、下周有什么、weekly
 not_trigger: 早報、盤前、熱點快訊、研報榜、溫度計、單一標的速查
@@ -7,7 +7,9 @@ mcp: mcp__followin__metrics, mcp__followin__news, mcp__followin__signal
 args: 可選：關注標的（最多 5 檔）、社群時區（預設台北）
 ---
 
-# 美股社群skills（繁體中文）
+> ⚠️ 本模組有繁／簡兩版（`c2_weekly.md` 繁體 / `c2_weekly.zh-CN.md` 簡體），觸發詞完全相同會互搶，**安裝時二選一**，勿同時安裝。
+
+# Community Weekly (c2 — 週報)
 
 供社群營運者使用。以一篇 600–800 字（最多 900 字）的白話週報，幫新手看懂市場怎麼走、哪些事改變預期、下週留意什麼。核心價值是可信、有用、可追溯，不是堆砌消息。
 
@@ -18,6 +20,18 @@ args: 可選：關注標的（最多 5 檔）、社群時區（預設台北）
 - 單一媒體、匿名消息或未證實傳聞只能標示為「市場傳聞／尚待確認」，不可寫成事實。
 - 空值、過期、矛盾或不可靠的資料直接略過；禁止為了湊齊段落寫「暫無資料」。
 - 不提供買賣、目標價、倉位或操作建議。
+
+## 調用序列（額度標稱 ≈2–4＋關注池÷5）
+
+| 步驟 | 調用 | 額度 |
+|---|---|---|
+| 1 | `metrics(query="SPY QQQ DIA VIX 行情", asset_type="tradfi")` 市場底色四標的日線收盤（若 `time_range=7d` 回傳小時線，改 30 日區間日線重跑一次 +1） | 1–2 |
+| 2 | `news(query="<事件關鍵詞>", time_range="7d")` 本週主線事件，必要時換關鍵詞補查 ≤3 次（搜尋模式不傳 asset_type，紅線 1） | 0（實測） |
+| 3 | 關注標的逐批（≤5 檔）`metrics(query="<T1> <T2> … next earnings date", asset_type="tradfi")` 查下次財報日期 | ⌈N/5⌉ |
+| 4 | `metrics(query="economic calendar upcoming releases")` 下週經濟日曆（非個股查詢不傳 asset_type；query 嚴禁帶「本週」，紅線 10） | 1 |
+| 5 | （可選）`signal(query="consensus", asset_type="tradfi", time_range="7d")` 選擇性訊號 | 0–1 |
+
+> 調用形態（N-8／紅線 4）：`keywords=[...]` 等數組入參已被 tool schema 拒，任何客戶端均不可用，一律走 query 空格拼串；批量上限 **5 個**，超出被**靜默截斷且無任何 warning**，調用後必須拿請求列表與 `meta.filters_applied.keywords` 做差集自查，缺的分批補。
 
 ## 執行流程
 

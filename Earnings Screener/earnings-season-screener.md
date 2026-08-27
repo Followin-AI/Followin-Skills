@@ -207,7 +207,7 @@ metrics(asset_type="tradfi", query="<T1> <T2> <T3> <T4> <T5> next earnings date"
 
 **GAAP 扭曲判定（先判后加总）**，命中任一即 **EPS 项得分 ÷2** 并标注：
 - EPS surprise **≥100%**（注意是闭区间——实测 INTC 恰好 100.0%，开区间会漏）
-- **`beat_miss.epsActual` 与 `latest_quarter.eps` 反号**（N-29。实测 INTC：`epsActual=0.42` 非 GAAP vs `latest_quarter.eps=−2.16`、`netIncome=−$110.3 亿` GAAP，同处一个 payload 且**无任何字段标明口径**。这种错位比单纯数值大更值得警惕——只看 beat_miss 会把巨亏季读成"完美超预期"）
+- **`beat_miss.epsActual` 与 `latest_quarter.eps` 不相等**（N-29，⚠️ 2026-08-05 由「反号」放宽为「不相等」。实测 INTC：`epsActual=0.42` 非 GAAP vs `latest_quarter.eps=−2.16`、`netIncome=−$110.3 亿` GAAP，同处一个 payload 且**无任何字段标明口径**。这种错位比单纯数值大更值得警惕——只看 beat_miss 会把巨亏季读成"完美超预期"）
   > 🔒 **比对前必须先确认两者同季**（N-33）：`beat_miss.date` 与 `latest_quarter.date` 的季度对齐关系**不固定**——实测 F 的 latest_quarter 落后两季（Q1 vs 07-28）、STX 落后一季、V 反而**领先**一季。**不同季则本项判定作废**（标注"口径无法核对"），不要跨季比反号，否则一盈一亏的相邻两季会产生假阳性告警。
 - EPS 与营收严重背离且无经营性解释
 
@@ -289,7 +289,7 @@ gap = beat_miss.date − latest_quarter.date
 > 判别方法：降级返回里若**一条都不含目标公司名或 ticker**，即判为召回失败，记数据缺口，**不要重试**。
 
 **（可选）精算财报后涨跌**：默认打分用当日涨跌。要算"财报日至今"真实反应，对 Top N 各加一次
-`metrics(asset_type="tradfi", query="<TICKER> 历史走势 30 day chart", time_range="3m")`（+N 额度）。
+`metrics(asset_type="tradfi", query="<TICKER> 历史走势", time_range="3m")`（+N 额度）。
 
 ---
 
@@ -457,10 +457,10 @@ metrics(asset_type="tradfi", query="<T1> <T2> <T3> <T4> <T5> next earnings date"
 | **N-22** | earnings_calendar limit 50 封顶 + 只覆盖首日 + symbol 升序截断 → **不可做发现腿** |
 | **N-24** | `next earnings date` = 轻量模式（5 KB vs 8.7 KB）；transcript **仅**在 query 含 `earnings call transcript` 时才拉 |
 | **N-25** | `news(limit=N)` 实返 **2N** 条；social 桶美股 ticker 密度更高 |
-| **N-26** | news 陈述业绩事实句式（13/20）优于情绪涨跌句式（3/20）——**仅适用 Step 2 无实体捞取** |
+| **N-26** | news 陈述业绩事实句式优于情绪涨跌句式（相对排序稳定；**绝对命中率波动大不可当基准**，07-23 与 07-27 两轮实测同 query 差近一半）——**仅适用 Step 2 无实体捞取** |
 | **N-27** | `verbosity` 参数对 metrics **无效**，不用传 |
 | **N-28** | 🆕 transcript 的 `_meta.freshness` 恒为 `"q-1"` 属误导，核对新鲜度看 `transcript[0].date`/`period` |
-| **N-29** | 同 payload 内 GAAP 与非 GAAP EPS 并存且无口径字段 → 引用 `beat_miss.epsActual` 必比对 `latest_quarter.eps`，反号即口径错位（**须先确认同季，见 N-33**）|
+| **N-29** | 同 payload 内 GAAP 与非 GAAP EPS 并存且无口径字段 → 引用 `beat_miss.epsActual` 必比对 `latest_quarter.eps`，两个 EPS 不相等即口径错位（不限反号；实测 NVDA 同号差 28% 亦属错位）（**须先确认同季，见 N-33**）|
 | **N-33** | 🆕 `revenueActual: null` 被当 0 算出 `revenue_surprise_pct: -100`，**骗过全部三道差集** → 加第 4 道检查；另 beat_miss 与 latest_quarter **季度对齐不固定**，反号比对须先验同季 |
 | **N-34** | 逐字稿滞后**确定可算**：`transcript.period` ≡ `latest_quarter.period`，用 `gap = beat_miss.date − latest_quarter.date` **≥90 天**（一个财季）则**跳过调用**。零成本预判；"距财报天数"假设已证伪；**60 天阈值亦已证伪**（会误杀 gap 45~70 的中概 ADR）|
 | **N-36** | 🆕 有"影子代码"的 ticker 双重展开吃名额：`CL`→`CL`+`CL=F`（商品重名）、`BABA`→`BABA`+`9988.HK`（中概双重上市）→ 该批按 **4 个**装 |
