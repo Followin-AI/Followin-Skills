@@ -18,7 +18,7 @@
 | **[`Community Skill/`](./Community%20Skill/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
 | **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 个独立 Skill | 财报季发现器——不属于任何 bundle，可单独取用（含[目录 README](./Earnings%20Screener/)：方法论映射 + 被否决方案） |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 个独立 Skill | 美股盘前自选追踪——按自选股、持仓和时区创建周期报告或即时盘前分析 |
-| **[`crypto-watchlist-tracker/`](./crypto-watchlist-tracker/)** | 1 个独立 Skill | 币圈自选每日跟踪——每天 09:00/21:00 更新事件、行情技术面、KOL 与交易员仓位 |
+| **[`Crypto Watchlist Tracker/`](./Crypto%20Watchlist%20Tracker/)** | 1 个独立 Skill | 币圈自选每日跟踪——每天 09:00/21:00 更新事件、行情技术面、KOL 与交易员仓位 |
 | **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
 
 全部为纯 Markdown，无构建步骤，除 MCP 服务器外无任何运行时依赖。
@@ -173,10 +173,10 @@ cp "Premarket Tracker/premarket-watchlist-automation.md" ~/.claude/commands/
 带自动化能力的客户端会创建或更新两个周期任务；其他客户端立即运行一次同结构报告。每期都会与上一份成功报告比较，只突出真正新增或改变方向的信息；没有基线时明确标注“初始快照”。安装：
 
 ```bash
-cp -R crypto-watchlist-tracker ~/.codex/skills/
+cp -R "Crypto Watchlist Tracker/crypto-watchlist-tracker" ~/.codex/skills/
 ```
 
-完整说明见 [`crypto-watchlist-tracker/README.md`](./crypto-watchlist-tracker/)。
+完整说明见 [`Crypto Watchlist Tracker/README.md`](./Crypto%20Watchlist%20Tracker/)。
 
 ---
 
@@ -208,7 +208,7 @@ cp -R crypto-watchlist-tracker ~/.codex/skills/
 | `宏观早报` / `Morning brief` | 06 宏观早报 | 宏观/美股维度的每日简报 |
 | `财报季扫描` / `earnings screener` | [财报季扫描](./Earnings%20Screener/earnings-season-screener.md)（独立）| **无 ticker 的发现器**；点名单股走 Base Skill 02 |
 | `每天盘前跟踪我的自选` / `premarket watchlist` | [盘前自选追踪](./Premarket%20Tracker/premarket-watchlist-automation.md)（独立） | 自选股 + 持仓 + 周期任务或即时盘前报告 |
-| `每天早晚跟踪我的自选币` / `crypto watchlist report` | [币圈自选每日跟踪](./crypto-watchlist-tracker/)（独立） | 自选币 + 项目事件 + 行情技术面 + KOL/交易员仓位 + 09:00/21:00 周期更新 |
+| `每天早晚跟踪我的自选币` / `crypto watchlist report` | [币圈自选每日跟踪](./Crypto%20Watchlist%20Tracker/)（独立） | 自选币 + 项目事件 + 行情技术面 + KOL/交易员仓位 + 09:00/21:00 周期更新 |
 | `CPI 影响` / `CPI impact` | *（无专门 Skill）* | 指标解读是模型自带能力——直接调 `metrics`+`news`；FRED 字典见 caveats 附表 A |
 
 每个 Skill 的 frontmatter 都带显式的 `trigger` 与 `not_trigger` 列表 —— 这是相邻 Skill 不互相抢词的关键。
