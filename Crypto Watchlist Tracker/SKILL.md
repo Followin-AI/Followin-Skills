@@ -157,4 +157,4 @@ Read [references/report-format.md](references/report-format.md) before writing t
 - If an array parameter is rejected by an older host serializer, fall back to canonical symbols in the query, keep batches at five or fewer, and verify `meta.filters_applied.keywords` before using the result.
 - Never expose an API key, authorization header, or secret in reports, logs, commits, or GitHub content.
 
-The repository-wide MCP caveat register remains the single source of truth: [references/followin-mcp-caveats.md](../../references/followin-mcp-caveats.md).
+The repository-wide MCP caveat register remains the single source of truth: [references/followin-mcp-caveats.md](../references/followin-mcp-caveats.md).

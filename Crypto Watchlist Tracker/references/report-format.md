@@ -1,4 +1,4 @@
-# 早报与晚报格式｜Morning and evening brief format
+# 早报与晚报输出格式｜Morning and evening brief format
 
 默认产出是适合手机阅读的简洁早报/晚报，不是完整研究报告。输出语言跟随用户。The default deliverable is a compact daily brief, not a full research report.
 

@@ -177,7 +177,7 @@ cp "Premarket Tracker/premarket-watchlist-automation.md" ~/.claude/commands/
 带自动化能力的客户端会创建或更新两个周期任务；其他客户端立即运行一次同结构报告。每期都会与上一份成功报告比较，只突出真正新增或改变方向的信息；没有基线时明确标注“初始快照”。安装：
 
 ```bash
-cp -R "Crypto Watchlist Tracker/crypto-watchlist-tracker" ~/.codex/skills/
+cp -R "Crypto Watchlist Tracker" ~/.codex/skills/crypto-watchlist-tracker
 ```
 
 完整说明见 [`Crypto Watchlist Tracker/README.md`](./Crypto%20Watchlist%20Tracker/)。

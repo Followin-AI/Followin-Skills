@@ -1,4 +1,4 @@
-# Scheduling the twice-daily tracker
+# 每日两次跟踪的定时设置｜Scheduling the twice-daily tracker
 
 Read this reference only when the user asks to create, update, inspect, pause, or remove recurring watchlist monitoring.
 

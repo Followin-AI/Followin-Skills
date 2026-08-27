@@ -184,7 +184,7 @@ Give the skill a crypto watchlist and timezone. At 09:00 and 21:00 it refreshes 
 Automation-capable clients create or update two recurring tasks; other clients run one report immediately. Each successful run compares against the previous report and surfaces only meaningful changes. Install:
 
 ```bash
-cp -R "Crypto Watchlist Tracker/crypto-watchlist-tracker" ~/.codex/skills/
+cp -R "Crypto Watchlist Tracker" ~/.codex/skills/crypto-watchlist-tracker
 ```
 
 See [`Crypto Watchlist Tracker/README.md`](./Crypto%20Watchlist%20Tracker/) for usage.

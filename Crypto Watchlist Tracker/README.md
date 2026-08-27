@@ -43,7 +43,7 @@
 将整个 Skill 目录复制到个人 Skill 目录：
 
 ```bash
-cp -R "Crypto Watchlist Tracker/crypto-watchlist-tracker" ~/.codex/skills/
+cp -R "Crypto Watchlist Tracker" ~/.codex/skills/crypto-watchlist-tracker
 ```
 
 Claude Code 等使用项目级 Skill 目录的客户端，也可以复制到对应的 `.claude/skills/crypto-watchlist-tracker/`。
