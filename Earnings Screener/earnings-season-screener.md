@@ -233,7 +233,7 @@ metrics(asset_type="tradfi", query="<TICKER> earnings call transcript")
 
 ⚠️ 单份逐字稿约 50 KB。**`top` 就是为这个存在的，不要为"扫全"放大它。**
 ✅ 安全边界（N-24）：**只有 query 含 `earnings call transcript` 才会拉逐字稿**，Step 3 的批量调用绝不会误带。
-⚠️ **核对逐字稿季度看 `transcript[0].date` / `period` / `year`，`_meta.freshness` 是硬编码标签**（N-28）：该字段**恒为 `"q-1"`**，实测 IQV / CDNS 明明返回当季 Q2，freshness 照样写 `q-1`。**它不是动态信号，是常量**——拿它判新鲜度会把 **100% 的当季逐字稿误判成滞后**。
+⚠️ **核对逐字稿季度看 `transcript[0].date` / `period` / `year`，`_meta.freshness` 是硬编码标签**（N-28）：该字段是**按 source 恒定的常量，不按记录计算**。⚠️ **取值已换代（2026-08-14）**：transcript 从 `"q-1"` 变为 `"stable"`——实测 AAPL / BABA / IONQ 三份均为当季，freshness 一律写 `stable`；此前 IQV / CDNS 同样返当季却写 `q-1`。**它不是动态信号**——拿任何版本的取值判新鲜度都会误判。⛔ **不要写死 freshness 取值做匹配**，它已换代过一次。
 
 #### 🔑 调用前先预判：滞后是**确定可算**的，别白烧额度（N-34）
 
@@ -459,7 +459,7 @@ metrics(asset_type="tradfi", query="<T1> <T2> <T3> <T4> <T5> next earnings date"
 | **N-25** | `news(limit=N)` 实返 **2N** 条；social 桶美股 ticker 密度更高 |
 | **N-26** | news 陈述业绩事实句式优于情绪涨跌句式（相对排序稳定；**绝对命中率波动大不可当基准**，07-23 与 07-27 两轮实测同 query 差近一半）——**仅适用 Step 2 无实体捞取** |
 | **N-27** | `verbosity` 参数对 metrics **无效**，不用传 |
-| **N-28** | 🆕 transcript 的 `_meta.freshness` 恒为 `"q-1"` 属误导，核对新鲜度看 `transcript[0].date`/`period` |
+| **N-28** | transcript 的 `_meta.freshness` 是按 source 恒定的常量（**取值 2026-08-14 由 `"q-1"` 换代为 `"stable"`**），任何取值都不可用于判新鲜度；核对看 `transcript[0].date`/`period` |
 | **N-29** | 同 payload 内 GAAP 与非 GAAP EPS 并存且无口径字段 → 引用 `beat_miss.epsActual` 必比对 `latest_quarter.eps`，两个 EPS 不相等即口径错位（不限反号；实测 NVDA 同号差 28% 亦属错位）（**须先确认同季，见 N-33**）|
 | **N-33** | 🆕 `revenueActual: null` 被当 0 算出 `revenue_surprise_pct: -100`，**骗过全部三道差集** → 加第 4 道检查；另 beat_miss 与 latest_quarter **季度对齐不固定**，反号比对须先验同季 |
 | **N-34** | 逐字稿滞后**确定可算**：`transcript.period` ≡ `latest_quarter.period`，用 `gap = beat_miss.date − latest_quarter.date` **≥90 天**（一个财季）则**跳过调用**。零成本预判；"距财报天数"假设已证伪；**60 天阈值亦已证伪**（会误杀 gap 45~70 的中概 ADR）|
