@@ -26,7 +26,7 @@ Entries are dated; the 1.x version numbers below the fold belonged to the retire
 7. **news 可传 `asset_type` / `sources` / `sort_by`**：各处"news 不传 asset_type"撤销；trend-scout 的 TG 广拉与 CT firehose 可直接用 `sources`。
 8. **Base Skill 01 + `references/01_agent-prompts.md`**：实测年度增长率可得（`financial_growth`），01 新增第 15 路并订正"数据可得性对照"；agent-prompts 换掉两处旧工具名、加数据可得性说明，评分框架与阈值未动。
 
-**门禁**：`tools/sweep-check.sh` 已于 10-02 换规则——不再拦数组写法，改拦 `query="…"` 里出现 `*USD` 商品代码或英文指标名（EMA / SMA / RSI / MACD / day chart）的写法（N-106 / N-69），新增 `--worktree` 自检参数。
+**门禁**：`tools/sweep-check.sh` 已于 10-02 换规则——不再拦数组写法，改拦 `query="…"` 里出现 `*USD` 商品代码或英文指标名（EMA / SMA / RSI / MACD / day chart）的写法（N-106 / N-69），新增 `--worktree` 自检参数。**10-03 补两条**：带参数却没有 `categories` 的 `signal(...)`（N-113 / N-118）、已不存在的字段与失效 series（`beat_miss` / `latest_quarter` / `WTREGEN`，N-109 / N-108）；`metrics` 的 query 里另拦 ADX / beat / miss（N-14）。
 
 **未做**：`twitter` / `subscription` 工具的调用未重测；Community 各 skill 的 T-样例贴文（逐字收录的已核可样例）未改。
 

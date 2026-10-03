@@ -395,7 +395,7 @@
 
 **同批确认仍成立的旧条目**：N-32（经济日历必须传 `country="US"`，`dd7bc285…` vs `8f5d8206…`）；N-48（非交易时段快照为上一常规收盘）；N-69①③（query 串里的英文意图词被当 ticker：`"DXUSD EMA 50"`→Emera、`"NVDA RSI 14"` 多返 RSI 这只股票、`"… 30 day chart"`→DAY；`424f92f0…` / `a60249a5…` / `1a2c998c…`）；N-70（news 无 cluster id）；红线 11（news 无匹配返回兜底内容）。
 
-**对 `tools/sweep-check.sh` 的影响**：原门禁拦"肯定式数组参数"，与 N-105 / N-106 现状相反。**已于 2026-10-02 换规则**：改拦 `query="…"` 引号内出现 `*USD` 商品代码或英文指标名（EMA / SMA / RSI / MACD / day chart）的写法；数组写法不再拦。
+**对 `tools/sweep-check.sh` 的影响**：原门禁拦"肯定式数组参数"，与 N-105 / N-106 现状相反。**已于 2026-10-02 换规则**：改拦 `query="…"` 引号内出现 `*USD` 商品代码或英文指标名（EMA / SMA / RSI / MACD / day chart）的写法；数组写法不再拦。**10-03 补两条**：带参数却没有 `categories` 的 `signal(...)`（N-113 / N-118）、已不存在的字段与失效 series（`beat_miss` / `latest_quarter` / `WTREGEN`，N-109 / N-108）；`metrics` 的 query 里另拦 ADX / beat / miss（N-14）。
 
 ### 2026-10-01 其余 bundle sweep 实测（N-117~N-127）
 
