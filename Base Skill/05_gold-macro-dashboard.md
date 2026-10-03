@@ -17,18 +17,19 @@ tools: WebSearch, WebFetch
 
 ---
 
-> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文的调用写法于 **2026-10-01 逐条实测**；与登记表冲突时，以日期更新的一方为准。
+> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文的调用写法于 **2026-10-03 实跑验证**；与登记表冲突时，以日期更新的一方为准。
 
-## 调用约定（2026-10-01 实测）
+## 调用约定（2026-10-03 实测）
 
 `metrics` 的入参分工是：**`keywords` 数组放标的 / series_id，`query` 放意图词**。
 
 - **不要把标的塞进 query 串**：实测 `query="GCUSD SIUSD DXUSD USDJPY 行情"` 只解析出 USDJPY，**黄金、白银、美元指数三个 `*USD` 代码被静默丢弃且不报错**。数组写法四个都能取到。
-- **每次调用最多 5 个 keywords**。丢项会写进 `meta.warnings`——每次调用后读一遍，有缺口就补调。
+- **每次调用最多 5 个 keywords**。丢项会写进 `meta.warnings`——每次调用后读一遍，并以"请求清单与返回 `symbol` 的差集"为准判断缺口。
+- **经济日历只写 `query="economic calendar"`，必须带 `country="US"` 和 `sort_by="hot"`**：不带 `sort_by` 时按时间排，50 行只覆盖一两天，CPI / PCE 会被国债拍卖、EIA 周报挤出去；query 里写指标名会被解析成别的关键词，传 `keywords` 会被静默忽略。
 - FRED 指标带 `categories=["macro"]`；行情带 `asset_type="tradfi"`。
 - 黄金必须用 `GCUSD`（`GOLD` 会取到 Gold.com 这只美股）。
 - 如果客户端不接受数组入参（报 `-32602`），FRED 指标可退回 `query="<series_id>"` 单个直查；`*USD` 商品代码没有可用的 query 串写法，只能标"数据不可用"。
-- 黄金看盘常在亚洲时段跑：`^VIX` 这类美股时段的行情返回的是上一个常规收盘（`_quote_session:"regular_inactive"`），标"最近收盘"。
+- 黄金看盘常在亚洲时段跑：美股时段的行情返回的是上一个常规收盘。有 `_quote_session` 字段就按它判；没有这个字段（`^VIX`、外汇、商品通常没有）就看 `as_of`，不在美东 9:30–16:00 内标"最近收盘"。周末的外汇报价开高低收相同属于陈旧报价，标"周末报价"。
 
 ## 数据源
 
@@ -38,8 +39,8 @@ tools: WebSearch, WebFetch
 | 行情快照 | `metrics(keywords=["GCUSD","SIUSD","DXUSD","USDJPY","^VIX"], query="行情", asset_type="tradfi")` |
 | 50 日均线 | `metrics(keywords=["DXUSD","USDJPY"], query="均线 指标", period=50, limit=1, asset_type="tradfi")`——取 `indicator=="ema"` |
 | 金、银近一月日线 | `metrics(keywords=["GCUSD","SIUSD"], query="历史走势", time_range="1m", limit=25, asset_type="tradfi")` |
-| 经济日历 | `metrics(query="economic calendar", country="US", …)`——**必须传 `country="US"`**；query 里不要写"本周" |
-| 央行购金、GLD 持仓、上海金溢价、FedWatch | Web 检索（World Gold Council；State Street；SGE 对 LBMA；CME）|
+| 经济日历 | `metrics(query="economic calendar", country="US", sort_by="hot", …)`——query 里不要写"本周"，也不要写指标名 |
+| 央行购金、GLD 持仓、上海金溢价、FedWatch | Web 检索（World Gold Council；State Street；上海金溢价见 ⑩ 说明；CME）。实测 CME FedWatch 页面会超时、State Street 页面由脚本渲染取不到持仓数——取不到就按缺失处理，不估算 |
 
 ---
 
@@ -75,7 +76,7 @@ tools: WebSearch, WebFetch
 |---|------|------|------|----|----|---|----|----|
 | ① | 10 年实际利率 4 周变化 | 15% | `DFII10` 最新 − 约 20 个交易日前 | 下行 > 20bp | 下行 5~20bp | ±5bp 以内 | 上行 5~20bp | 上行 > 20bp |
 | ② | 10 年盈亏平衡通胀率 4 周变化 | 10% | `T10YIE` 同上 | 上行 > 15bp | 上行 5~15bp | ±5bp 以内 | 下行 5~15bp | 下行 > 15bp |
-| ③ | 美联储政策方向 | 10% | `FEDFUNDS` 近 13 个月 + Web FedWatch | 近 3 个月降过息**且**下次会议降息概率较一周前上升 | 二者占其一 | 按兵不动、概率变化 ±5 个百分点以内 | 降息概率下降 > 5 个百分点，或表态偏鹰 | 近 3 个月加过息 |
+| ③ | 美联储政策方向 | 10% | 日历 `Fed Interest Rate Decision` 行（`actual` 对 `previous` 判断近 3 个月加 / 降 / 未调）+ Web FedWatch 偏鸽变化（见下方说明）| 近 3 个月降过息，且偏鸽变化 ≥ 0 | 未调息且偏鸽变化 > +5；或降过息但偏鸽变化 < 0 | 未调息，偏鸽变化在 ±5 以内 | 未调息且偏鸽变化 < −5；或加过息但偏鸽变化 > +10 | 近 3 个月加过息，且偏鸽变化 ≤ +10 |
 
 ### 第二层：美元 + 避险（30%）
 
@@ -92,7 +93,7 @@ tools: WebSearch, WebFetch
 |---|------|------|------|----|----|---|----|----|
 | ⑧ | 央行净购金（最新季度）| 12% | Web：World Gold Council | > 250 吨 | 150 ~ 250 吨 | 50 ~ 150 吨 | 0 ~ 50 吨 | 净卖出 |
 | ⑨ | GLD 持仓近 30 日变化 | 8% | Web：State Street | > +2% | +0.5% ~ +2% | ±0.5% 以内 | −0.5% ~ −2% | < −2% |
-| ⑩ | 上海金溢价（美元/盎司）| 5% | Web：SGE 收盘价对 LBMA | > +30 | +10 ~ +30 | −5 ~ +10 | −20 ~ −5 | < −20 |
+| ⑩ | 上海金溢价（美元/盎司）| 5% | SGE Au9999 收盘价（元/克）× 31.1035 ÷ USDCNY − LBMA PM 价（美元/盎司）；可直接用 thevaultreport.com/tools/shanghai-premium（2026-10-03 实测可访问）| > +30 | +10 ~ +30 | −5 ~ +10 | −20 ~ −5 | < −20 |
 
 ### 第四层：经济脉冲 + 金银比（10%）
 
@@ -101,8 +102,13 @@ tools: WebSearch, WebFetch
 | ⑪ | 通胀脉冲（核心 CPI、核心 PCE 环比，对比预期）| 5% | 经济日历行的 `actual` 对 `estimate`；查不到再 Web | 两项都高于预期 | 一项高于、一项符合 | 都符合，或一高一低 | 一项低于、一项符合 | 两项都低于预期 |
 | ⑫ | 金银比 4 周变化 | 5% | `GCUSD ÷ SIUSD`，近一月日线的首尾对比 | 下行 > 5% | 下行 2% ~ 5% | ±2% 以内 | 上行 2% ~ 5% | 上行 > 5% |
 
+> **③ 的说明**：偏鸽变化 = 下次会议降息概率的一周变化 − 加息概率的一周变化（百分点），加息、降息周期都适用。用日历的议息结果判断加 / 降息，不要用 `FEDFUNDS` 月均值推（月中调息会被拆进两个月）。FedWatch 取不到时偏鸽变化按 0 计，并注明。多个来源给出的一周前概率不一致时各算一遍；得分不同取更接近 0 的档，并在明细里写明各来源的数字和日期，优先采信注明"据 CME FedWatch"的主流媒体。35 天日历只覆盖最近一次议息会议；若该次为未调息，用 Web 确认再前一次 FOMC 的结果后再判"近 3 个月"。
+> **⑧ 的保鲜期**：WGC 季报发布超过 60 天，得分乘以 0.5（季报一季才出一次，过期数据不应满权重托底）。
+> **⑩ 的说明**：结果离档位边界 ±3 美元以内时注明"临界"。
 > ⑫ 的逻辑：金银比下行说明白银跟涨甚至领涨，贵金属行情在扩散；上行说明只有黄金独撑。
-> **保鲜期**：⑪ 的数据发布超过 3 周，得分乘以 0.5。
+> **⑪ 的取数**：只认日历里两行——`Core Inflation Rate MoM`（这就是核心 CPI 环比，名字里没有 "CPI"）和 `Core PCE Price Index MoM`。不要用 `CPI (…)`、`CPI s.a`、`Inflation Rate (…)`，它们是总体 CPI 的指数点位，拿来对比会把方向判反。"符合"指实际与预期在公布精度上相等。
+> **⑪ 的保鲜期**：按两项中**较早**的那次发布算，超过 3 周得分乘以 0.5。
+> **"4 周变化"的基准**（①②⑦⑫）：取 `observation_date` ≤ 最新日期 − 28 天的最近一行。档位区间一律左闭右开（例如 VIX 正好 20 落在 20 ~ 25）。
 
 ---
 
@@ -110,7 +116,7 @@ tools: WebSearch, WebFetch
 
 ```
 层得分 = Σ(该层指标得分 × 权重) ÷ 该层权重合计        （范围 −2 ~ +2，保留一位小数）
-层方向 = 层得分 > +0.5 为 ↑；< −0.5 为 ↓；其余为 →
+层方向 = 层得分 > +0.5 为 ↑；< −0.5 为 ↓；其余为 →          （按未取整的层得分判断，显示时再保留一位）
 ```
 
 矛盾度只看前三层：
@@ -118,19 +124,20 @@ tools: WebSearch, WebFetch
 | 矛盾度 | 条件 | 含义 |
 |---|---|---|
 | 低 | 三层里没有同时出现 ↑ 和 ↓ | 信号可靠 |
-| 中 | 美元/避险层与黄金原生层方向相反，实际利率层为 → 或与其中一层同向 | 信号需观察 |
-| 高 | 实际利率层与另外两层的方向都相反 | 基准层被两层同时否定，观望 |
+| 高 | 实际利率层与另外两层的方向都相反（两层都是反方向，不含 →）| 基准层被两层同时否定，观望 |
+| 中 | 其余所有情况 | 信号需观察 |
+
+**层内分歧**（不改分，只在卡片上标注）：同一层里同时有 +2 和 −2 的指标，就在矛盾度后面加一句"层内分歧：[指标 A] vs [指标 B]"。
 
 ---
 
 ## 分析流程
 
-### 第一步：取数（两批，每批 ≤4 路并行）
+### 第一步：取数（三批，每批 ≤4 路并行）
 
 **Batch 1**
 ```
 metrics(keywords=["DFII10","T10YIE","BAMLH0A0HYM2"], categories=["macro"], limit=22)   # ①②⑦（日频，22 条≈4 周）
-metrics(keywords=["FEDFUNDS","CPILFESL","PCEPILFE"],  categories=["macro"], limit=13)   # ③⑪
 metrics(keywords=["GCUSD","SIUSD","DXUSD","USDJPY","^VIX"], query="行情", asset_type="tradfi")   # ④⑤⑥ 现价
 metrics(keywords=["DXUSD","USDJPY"], query="均线 指标", period=50, limit=1, asset_type="tradfi")  # ④⑤ 的 EMA50
 ```
@@ -138,14 +145,18 @@ metrics(keywords=["DXUSD","USDJPY"], query="均线 指标", period=50, limit=1, 
 **Batch 2**
 ```
 metrics(keywords=["GCUSD","SIUSD"], query="历史走势", time_range="1m", limit=25, asset_type="tradfi")   # ⑫
-metrics(query="economic calendar", country="US", time_range="14d", limit=50)      # 已发布数据的 actual / estimate（⑪）
-metrics(query="economic calendar", country="US", date_from="<今天>", date_to="<今天+14天>", limit=50)   # 下次关键事件
+metrics(query="economic calendar", country="US", time_range="35d", sort_by="hot", limit=50)   # ③ 议息结果、⑪ 核心 CPI / PCE 的 actual / estimate
+metrics(query="economic calendar", country="US", date_from="<今天>", date_to="<今天+14天>", sort_by="hot", limit=30)   # 下次关键事件
 ```
-日历只保留 `impact=="High"` 且事件名含 CPI / PCE / Nonfarm / FOMC 的行；`has_more:true` 时用 `next_cursor` 翻页。
+35 天窗口带 `sort_by="hot"` 能一次拿到最近一期的核心 CPI、核心 PCE、非农和议息结果（2026-10-03 实测）。
+**日历返回 `status:"partial"` 加"候选上限已满"的降级警告是常态**，不要因此补调：目标事件行都拿到就继续；缺哪行，用 `meta.pagination.next_cursor` 以相同参数翻一页；仍缺再 Web。
+
+**下次关键事件**：前瞻窗口里第一条本 Skill 用到的事件（核心 CPI / 核心 PCE / 非农 / `Fed Interest Rate Decision`）；窗口里没有就取第一条 `impact=="High"` 的事件。下次 FOMC 议息日若在窗口外，用 Web 确认后另列。
+向后的窗口不要超过 14 天：服务端候选上限只覆盖约两周，窗口再长也排不到更远的事件；下次 FOMC 议息日在 14 天外时，另用 Web 确认日期。
 
 **Batch 3（Web）**
 ```
-CME FedWatch 降息概率（含一周前的值）       # ③
+CME FedWatch 下次会议降息 / 加息概率（含一周前的值）   # ③
 World Gold Council 央行购金（最新季度）      # ⑧
 State Street GLD 持仓近 30 日变化           # ⑨
 SGE 上海金收盘价对 LBMA 的溢价               # ⑩
@@ -155,7 +166,7 @@ SGE 上海金收盘价对 LBMA 的溢价               # ⑩
 
 ### 第二步至第五步
 
-逐指标对照阈值表打分（记录原始数值、数据日期、落在哪一档）→ 套公式算综合分 → 算层方向和矛盾度 → 一段话综合判读。
+逐指标对照阈值表打分（记录原始数值、数据日期、落在哪一档）→ 套公式算综合分（缺失指标按 0 分计、权重不转移）→ 算层方向和矛盾度 → 一段话综合判读。
 
 ---
 
@@ -234,7 +245,7 @@ SGE 上海金收盘价对 LBMA 的溢价               # ⑩
 
 | 场景 | 处理 |
 |------|------|
-| 某指标取不到数（`results` 为空、`meta.warnings` 报丢项、Web 检索失败）| 该指标标"数据不可用"，它的权重按比例分给**同层其余指标**；整层都缺则按比例分给其余层 |
+| 某指标取不到数（`results` 为空、差集有缺口、Web 检索失败）| 该指标标"数据不可用"，**按 0 分计、权重不转移**（相当于向中性收缩），并在卡片上标注缺失项。不要把它的权重分给同层其余指标——实测黄金看盘 GLD 缺失后，权重转给一份两个月前的央行购金数据，把总分抬高了 3 分 |
 | Followin MCP 整体不可用 | 说明连不上数据源，不输出评分 |
 | 缺失指标 ≥ 3 个 | 评分照出，但在卡片和明细里都标"数据覆盖不足，可靠性降低"。第三层三个指标全靠 Web 检索，最容易缺 |
 
