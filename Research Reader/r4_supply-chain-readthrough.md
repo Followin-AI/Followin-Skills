@@ -60,7 +60,7 @@ mention 一篇都挤不进来——而产业链信息全在 mention 里。
 ### 步骤 1 · 拉报告
 
 ```
-metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradfi")
+metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", asset_type="tradfi")
 ```
 
 > 🔴 **取数前先认块（N-86，2026-08-12 实测）**：解析层会静默扩展出额外候选 ticker，**每个候选都是一个平级结果块，顺序不保证主匹配在前**（实测 `ASML.AS` 的 `[0]` 是空块、数据在 `[1]`）。

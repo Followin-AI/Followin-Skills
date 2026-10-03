@@ -22,7 +22,7 @@ args: topic_or_ticker(可选，点名则跳过扫描)
 | 步骤 | 调用 | 额度 |
 |---|---|---|
 | 1 | `news(空 query, asset_type="tradfi", time_range="24h")` 趋势榜（hot 排序，实测 sort_by_effective="hot"）＋客户端按 `published_ts` 取最近 | 0（2026-07-22 回归实测确认：4h 窗口不可用，返回 0 篇，`meta.warnings` 报 `asset_type_filter_emptied`——该窗口候选池太小，仅有的几条话题全被 tradfi 过滤器剔除；故固定走 24h + 按 published_ts 客户端取最近，本行不再标"待验证"） |
-| 2 | `signal(query="consensus", asset_type="tradfi", time_range="24h")` 喊单热度佐证 | 1 |
+| 2 | `signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")` 喊单热度佐证 | 1 |
 
 步骤 1 的 4h 窗口 2026-07-22 回归实测已确认不可行——`news(query="", asset_type="tradfi", time_range="4h")` 返回 0 篇，`meta.warnings` 明确报"followin_trending: all N trending topics dropped by asset_type filter"（4h 窗口候选池太小，仅有的几条话题全被 tradfi 过滤器滤掉，upstream tag gap 待 Dev 排查）；1h 窗口大概率同样受限，未逐一复测但按同一机制推断。可行的是 24h 窗口（`sort_by_effective="hot"`），**已确认降级为 24h 窗口 + 客户端按每条的 `published_ts` 字段自行截取"最近"的条目**，此为最终结论，不再标"待验证"。
 
@@ -34,20 +34,20 @@ N-10 记载的是 `metrics()` 工具在 `time_range` 小于 1 天时会返回一
 
 步骤 1 的 asset_type 例外依据（N-1）：
 
-> N-1：news 趋势模式（空 query）传 asset_type="tradfi" 可用且 0 额度；"news 不传 asset_type" 红线仅适用搜索模式；实体搜索亦 0 额度（实测）。
+> N-1：news 趋势模式（空 query）传 asset_type="tradfi" 可用且 0 额度；实体搜索亦 0 额度（实测）。2026-10-01 复测：搜索模式传 asset_type="tradfi" 也正常返回，旧"news 搜索不传 asset_type"红线已撤销（N-112）。
 
 调用形态铁律（本序列全程通用）：
 
-> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-08-04 复核仍复现，N-8）**：`keywords/categories/sources` 等数组参数被 tool schema 拒（连环 -32602；schema 中这些入参无类型，**任何客户端均不可用**）。所有调用一律以 **query 自然语言/空格拼串为唯一形态**（服务端自解析成 keywords，`meta.filters_applied.keywords` 可验证）。批量上限 **≤5**（红线 4/N-23）：超出被**静默截断到 5 且无任何 warning**（旧记载的 `keyword_count_over_max` warning 已不存在），调用后必须拿请求列表与 `filters_applied.keywords`（及 `snapshot[].symbol`）做差集自查，缺的分批补。降级梯：① query 串批量（≤5）→ ② 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+> **调用形态（2026-10-01 实测，取代 2026-07-20 的"数组被拒、只能 query 串"铁律）**：入参分工是 **`keywords` 数组放标的、`query` 放意图词、`categories` 指定类别**。`signal` 必须显式传 `categories`。每次调用最多 5 个 keywords，超出或解析不了的项写在 `meta.warnings`（`keyword_count_over_max` / `kw_not_canonical`），**调用后读一遍**，缺的分批补。单批并行 ≤4 路（SSE 红线）。客户端不接受数组入参（报 `-32602`）时，美股代码可退回 query 空格拼串（实测仍能解析），商品代码（`*USD`）没有可用的 query 串写法。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
 
 每步 query 主形态调用示例：
 
 ```
 1. news(query="", asset_type="tradfi", time_range="24h")
-   # 趋势模式：空 query 传 asset_type 是可用例外（红线 1 + N-1）；4h/1h 短窗口不可用（2026-07-22 实测 0 篇，asset_type_filter_emptied），固定用 24h + 客户端按 published_ts 取最近
+   # 趋势模式，quota=0；4h/1h 短窗口不可用（2026-07-22 实测 0 篇，asset_type_filter_emptied），固定用 24h + 客户端按 published_ts 取最近
 
-2. signal(query="consensus", asset_type="tradfi", time_range="24h")
-   # 不带 categories 一次拿全 4 类，仍计 1 额度（N-4）；此处只用喊单热度佐证扫描菜单排序，不做温度计钻取
+2. signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")
+   # 喊单聚合（总帖数 / 多空比 / top_calls），1 额度；此处只用喊单热度佐证扫描菜单排序，不做温度计钻取
 ```
 
 ### 1.2 输出格式：热点扫描菜单（T-3，逐字收录）
@@ -87,30 +87,31 @@ N-10 记载的是 `metrics()` 工具在 `time_range` 小于 1 天时会返回一
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
-| 3 | `news(query="<核心名词×2>", time_range="24h")` 补事件细节与推特层原文 | 0（实测） |
-| 4 | 受影响标的 ≤5 一批 `metrics(query="<T1> <T2> … 行情", asset_type="tradfi")` 实时快照（含盘前盘后价） | 1 |
-| 5 | （可选，重大事件）`signal(query="<TICKER> 详细仓位", asset_type="tradfi")` 或研报钻取加一层深度 | 1-2 |
+| 3 | `news(query="<核心名词×2>", asset_type="tradfi", time_range="24h")` 补事件细节与推特层原文 | 0（实测） |
+| 4 | 受影响标的 ≤5 一批 `metrics(keywords=["<T1>","<T2>",…], query="行情", asset_type="tradfi")` 实时快照（含盘前盘后价） | 1 |
+| 5 | （可选，重大事件）`signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional","trader_position"], asset_type="tradfi")` 或研报钻取加一层深度 | 1-2 |
 
 若触发时带 args `topic_or_ticker` 或从菜单选中编号，第 3 步的"核心名词×2"直接取自选中话题/标的名，跳过第 1 节的步骤 1-2。
 
-调用形态铁律同第 1 节（本序列同样全程适用，批量标的走 query 串或数组降级梯）：
+调用形态同第 1 节（本序列同样全程适用）：
 
-> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-08-04 复核仍复现，N-8）**：`keywords/categories/sources` 等数组参数被 tool schema 拒（连环 -32602；schema 中这些入参无类型，**任何客户端均不可用**）。所有调用一律以 **query 自然语言/空格拼串为唯一形态**（服务端自解析成 keywords，`meta.filters_applied.keywords` 可验证）。批量上限 **≤5**（红线 4/N-23）：超出被**静默截断到 5 且无任何 warning**（旧记载的 `keyword_count_over_max` warning 已不存在），调用后必须拿请求列表与 `filters_applied.keywords`（及 `snapshot[].symbol`）做差集自查，缺的分批补。降级梯：① query 串批量（≤5）→ ② 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+> **调用形态（2026-10-01 实测，取代 2026-07-20 的"数组被拒、只能 query 串"铁律）**：入参分工是 **`keywords` 数组放标的、`query` 放意图词、`categories` 指定类别**。`signal` 必须显式传 `categories`。每次调用最多 5 个 keywords，超出或解析不了的项写在 `meta.warnings`（`keyword_count_over_max` / `kw_not_canonical`），**调用后读一遍**，缺的分批补。单批并行 ≤4 路（SSE 红线）。客户端不接受数组入参（报 `-32602`）时，美股代码可退回 query 空格拼串（实测仍能解析），商品代码（`*USD`）没有可用的 query 串写法。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
 
 每步 query 主形态调用示例：
 
 ```
-3. news(query="<核心名词1> <核心名词2>", time_range="24h")
-   # 搜索模式：不传 asset_type（红线 1）；quota=0（实测）；核心名词直接取自菜单条目或点名内容
+3. news(query="<核心名词1> <核心名词2>", asset_type="tradfi", time_range="24h")
+   # 搜索模式，quota=0（实测）；核心名词直接取自菜单条目或点名内容；要权威报道加 sources=["media"], sort_by="relevance"
 
-4. metrics(query="<TICKER1> <TICKER2> ... 行情", asset_type="tradfi")
-   # 受影响标的批量快照；批量上限 5（红线 4/N-23）：超出被静默截断到 5 且无任何 warning，靠请求列表 vs meta.filters_applied.keywords（及 snapshot[].symbol）差集自查，缺的分批补跑
-   # 数组形态 keywords=[...] 任何客户端均不可用（tool schema 无类型导致，N-8）
+4. metrics(keywords=["<TICKER1>","<TICKER2>",…], query="行情", asset_type="tradfi")
+   # 受影响标的批量快照；每批 ≤5，超出的写在 meta.warnings（keyword_count_over_max），分批补跑
+   # 快照没有涨跌幅字段，自算 change ÷ previousClose × 100；非交易时段返回的是上一常规收盘（_quote_session:"regular_inactive"），标「最近收盤」
    # 若热点发生在盘前/盘后时段，快照自带的 extendedHoursQuote 字段可直接引用并标注「盤前」/「盤後」
+   # 原油 / 黄金等商品只能走数组：keywords=["CLUSD","BZUSD","GCUSD"]（写进 query 串整批返空）
 
-5. signal(query="<TICKER> 详细仓位", asset_type="tradfi", time_range="7d")
-   # 可选，重大事件才加：喊单/实盘/内部人四维钻取深度（做法同 c4 步骤 2）
-   # 或改走研报深度：metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")（做法同 c3 步骤 2）
+5. signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional","trader_position"], asset_type="tradfi")
+   # 可选，重大事件才加：喊单/实盘/内部人四维钻取深度（做法同 c4 步骤 2）；不带 time_range，kol_call 行按 symbol 自行筛
+   # 或改走研报深度：metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", time_range="7d", asset_type="tradfi")（做法同 c3 步骤 2）
 ```
 
 ### 2.2 产出模板：速报体（300-500 字）
@@ -154,25 +155,25 @@ N-10 记载的是 `metrics()` 工具在 `time_range` 小于 1 天时会返回一
 
 ## 3. 财报速读子型（财报季日常）
 
-> **财报速读子型（财报季日常）**：菜单或运营点名识别到财报事件（"XX 财报出来了"）→ 走专用成稿路径：`metrics(query="<TICKER> earnings beat miss analyst ratings", asset_type="tradfi")`（≈1-2 点，query 关键词路由实现时按 fanout warning 提示词验证）→ 速读贴固定四句结构：**營收/EPS 超或不及预期（具体数字 vs 预期）→ 指引怎么说 → 盘后股价反应 → 下一个观察点**。财报密集周这是 c5 的主要形态。
+> **财报速读子型（财报季日常）**：菜单或运营点名识别到财报事件（"XX 财报出来了"）→ 走专用成稿路径：`metrics(keywords=["<TICKER>"], query="财报 分析师评级", asset_type="tradfi")`（≈1 点）→ 速读贴固定四句结构：**營收/EPS 超或不及预期（具体数字 vs 预期）→ 指引怎么说 → 盘后股价反应 → 下一个观察点**。财报密集周这是 c5 的主要形态。
 
 识别规则：触发短语含"财报"关键词（如"XX 财报出来了"），或第 1 节扫描菜单里某条候选本身就是财报事件，或运营从 c6 标的速查"🔥 值得速报"衔接过来且该标的当日有财报——三种情形都路由到本节的专用速读路径，不走第 2 节的常规速报模板。
 
-调用（2026-07-23 GOOGL 财报夜实跑修订，原写法已废弃）：**禁止**使用 `query="<TICKER> earnings beat miss analyst ratings"`——实测该串里的 "beat" 被关键词抽取器当成 ticker，实际解析出 `keywords=["GOOGL","BEAT"]`，把仙股 HeartBeam（BEAT，$0.55）的行情混进快照（N-14）。正确写法是纯 ticker 加自然语言意图词，不要在 query 里放会撞 ticker 的英文单词：
+调用（2026-10-01 实测）：ticker 放 `keywords`，`query` 只放中文意图词。**不要**把 ticker 和英文意图词一起塞进 query 串——`query="<TICKER> earnings beat miss analyst ratings"` 实测仍把 "beat" 当成 ticker（`keywords=["NVDA","BEAT"]`，N-14 未修）。
 
 ```
-metrics(query="<TICKER> 财报 分析师评级", asset_type="tradfi")
-# 或最稳的形态：query 只放 ticker → metrics(query="<TICKER>", asset_type="tradfi")
-# 无论哪种，调用后必须核对 meta.filters_applied.keywords 是否只含目标 ticker（N-12/N-14）
+metrics(keywords=["<TICKER>"], query="财报 分析师评级", asset_type="tradfi")
+# 返回：fiscal_quarters[0]（earnings_surprise + financial_statement）/ consensus_price / next_earnings_estimate / analyst_grades / analyst_estimates / eps_trend
+# 要盘后快照另调：metrics(keywords=["<TICKER>"], query="行情", asset_type="tradfi")
 ```
 
-返回仍会带 `default_fanout_fallback` 提示（属正常，CORE fundamentals 集里已含 beat_miss / consensus_price / next_earnings_estimate / analyst_grades，够用），≈1-2 点。
+**字段名已换代（N-109）**：旧的 `beat_miss` / `latest_quarter` 两个 block 已不存在。超预期数据在 `fiscal_quarters[0].earnings_surprise`（`actual_eps` / `estimated_eps` / `eps_surprise_pct` / `actual_revenue` / `estimated_revenue` / `revenue_surprise_pct` / `report_date`），财报本身在 `fiscal_quarters[0].financial_statement`（`revenue` / `eps` / `netIncome` / `period_end`）。只返最新一季。≈1 点。
 
-**财报当晚的数据时差（2026-07-23 实跑发现，必读）**：财报公布当晚，`fundamentals.beat_miss` 仍停留在**上一季**（实测 GOOGL 7/22 盘后发 Q2，当晚 beat_miss 返回的仍是 4/29 的 Q1 数据），FMP 侧要延后才更新。因此四句结构里的"本季实际 vs 预期"**当晚必须从第 2 节步骤 3 的 `news()` 返回里取**（媒体与公司披露原文，0 额度），metrics 只用于取盘后快照、分析师目标价与评级；直接把 `beat_miss` 当成本季数字写进贴文会写错一整季。次日之后再跑同一标的，才可用 beat_miss 交叉复核。
+**财报当晚的数据时差（2026-07-23 实跑发现，2026-10-01 复测仍在，必读）**：财报公布当晚，`fiscal_quarters[0]` 可能还停在**上一季**，或者**只更新了一半**——实测 MU 9/30 盘后发财报，10/1 查到的 `fiscal_quarters[0]` 已有新一季的 `financial_statement`（营收 / EPS），但**整个 `earnings_surprise` 缺失**（没有预期值，算不出超预期幅度）。因此四句结构里的"本季实际 vs 预期"**当晚从第 2 节步骤 3 的 `news()` 返回里取**（媒体与公司披露原文，0 额度），或用市场级日历 `metrics(query="earnings calendar", asset_type="tradfi", country="US", date_from, date_to)` 里该公司那一行的 `epsActual` / `epsEstimated` / `revenueActual` / `revenueEstimated` 自算；写之前先核对 `earnings_surprise.report_date` 是不是本次财报日，不是就不能当本季数字用。
 
 速读贴固定四句结构，逐条展开：
 
-1. **营收/EPS**：本季实际营收与每股盈余，对比市场预期，写出具体数字（不能只写"超预期"三个字，必须是"实际 X vs 预期 Y"这种可回溯的数字对比，价格与财务数字只能引用本次调用返回值，呼应 S-7 铁律 2）；当晚数据源见上方"财报当晚的数据时差"——取 `news()` 返回的媒体/披露原文，不取 `beat_miss`。另：**EPS 若含一次性项目必须点破**（实测 GOOGL Q2 每股获利 9.11 美元 vs 预期 2.89 美元，但其中约 990 亿美元来自一次性项目，直接写"超预期 3 倍"会严重误导新手）——凡实际 EPS 与预期偏离幅度异常（>50%），先在 news 层确认是否有一次性损益，再决定怎么写。
+1. **营收/EPS**：本季实际营收与每股盈余，对比市场预期，写出具体数字（不能只写"超预期"三个字，必须是"实际 X vs 预期 Y"这种可回溯的数字对比，价格与财务数字只能引用本次调用返回值，呼应 S-7 铁律 2）；当晚数据源见上方"财报当晚的数据时差"——取 `news()` 返回的媒体/披露原文，不取未更新的 `earnings_surprise`。另：**EPS 若含一次性项目必须点破**（实测 GOOGL Q2 每股获利 9.11 美元 vs 预期 2.89 美元，但其中约 990 亿美元来自一次性项目，直接写"超预期 3 倍"会严重误导新手）——凡实际 EPS 与预期偏离幅度异常（>50%），先在 news 层确认是否有一次性损益，再决定怎么写。
 2. **指引**：管理层对下一季或全年营收/获利的预测怎么说——上调、维持还是下调。
 3. **盘后反应**：财报公布后股价的实际反应，必须是本次调用返回的快照数据，按财报公布的实际时段标注「盤中」或「盤後」。
 4. **下一个观察点**：一个可验证的前瞻点，比如下一季财报会不会延续这次的指引基调。

@@ -11,15 +11,15 @@ args: ticker(必填), window(可选，默认 30d，仅用于客户端过滤报�
 
 **研报库单独不产信号，只产候选。信号是候选被跨源印证或证伪的那一刻才铸成的。**
 
-> **版本**：v1.0 ｜ **实测验证于 2026-07-29**（NVDA 全链路实跑）
+> **版本**：v1.1 ｜ **实测验证于 2026-07-29**（NVDA 全链路实跑）｜ **调用形态与字段名 2026-10-01 按生产端复测更新**（逐调用复测，未重跑全链路）
 >
 > ⚠️ 本文所有 ⚠️ 与阈值都是实测结果或明确标注的拍脑袋值，不是推断。MCP 行为会变。
 > 通用红线见 [`references/followin-mcp-caveats.md`](../references/followin-mcp-caveats.md)，本文内联的是镜像，冲突以该文件为准。
 >
 > **隔一段时间再用，先花两分钟自查这 3 条**：
-> ① `metrics(query="NVDA research reports", verbosity="detail", asset_type="tradfi")` → 看 `meta.pagination` 在不在。**在 = 翻页能力健在（N-81 已修）**；不在 = 出现回退，记回 SSOT。`report_limit` 单页是 10 属正常，不再是缺陷
+> ① `metrics(keywords=["NVDA"], query="research reports", verbosity="detail", asset_type="tradfi")` → 看 `meta.pagination` 在不在。**在 = 翻页能力健在（N-81 已修）**；不在 = 出现回退，记回 SSOT。`report_limit` 单页是 10 属正常，不再是缺陷
 > ② 同上调用传 `time_range="7d"` 与 `time_range="30d"`，返回**应不同**且 meta 带 `time_scope`/`date_from`（time_range 腿 2026-08-03 已修，N-38 部分销案）；逐个相同 = 出现回退，记回 SSOT
-> ③ `signal(query="NVDA", asset_type="tradfi")` → kol_call 里有没有 `symbol=="NVDA"` 的行；没有 = N-40 仍在
+> ③ `signal(keywords=["NVDA"], categories=["kol_call","insider_trading","institutional","trader_position"], asset_type="tradfi")` → kol_call 里有没有 `symbol=="NVDA"` 的行；没有 = N-40 仍在。**不传 categories 现在返回空（`no_match`）——2026-10-01 实测，N-4 已失效**
 
 ## 参数
 
@@ -48,15 +48,17 @@ MCP 侧还额外叠了一层削弱：**每票最多看得到 10 篇、去重后�
 
 ## 执行流水线（4 步 · 3 额度）
 
-🔒 全程美股：**除 `news()` 外所有调用必带 `asset_type="tradfi"`**（红线 1）
-🔒 **数组参数全域被拒（N-8）**：`keywords`/`categories`/`sources` 一律走 query 串
+🔒 全程美股：**所有调用必带 `asset_type="tradfi"`**，`news()` 也带（2026-10-01 实测正常返回，旧例外已撤销）
+📌 **入参分工（2026-10-01 实测，N-105）**：标的放 `keywords` 数组、意图词放 `query`、信号类别放 `categories`、新闻来源放 `sources`。客户端不接受数组入参（报 `-32602`）时，metrics 可退回 `query="<TICKER> …"` 拼串
 🔒 **SSE 并发 ≤4**（红线 2）：本流水线 4 路可一批发，但步骤 1 的返回 ~70KB，建议 1 单发、2-4 并发
 
 ### 步骤 1 · 候选层：拉研报（1 额度）
 
 ```
-metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradfi")
+metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detail", asset_type="tradfi")
 ```
+
+> 📌 **调用形态（2026-10-01 实测）**：标的放 `keywords` 数组、意图词放 `query`。query 里的"行情"是为了在同一次调用里多拿 `market.snapshot`——研报调用已不再自动附带快照。客户端不接受数组入参（报 `-32602`）时可退回 `query="<TICKER> research reports"`（实测返回一致，但没有快照）。
 
 > 🔴 **取数前先认块（N-86，2026-08-12 实测）**：解析层会静默扩展出额外候选 ticker，**每个候选都是一个平级结果块，顺序不保证主匹配在前**（实测 `ASML.AS` 的 `[0]` 是空块、数据在 `[1]`）。
 > ① ⛔ **禁止用 `research_reports[0]` 取数**　② 逐块比对 `query_ticker` == 本次标的，**只认相等的块**　③ ⛔ **禁止用 `meta.total` 判条数**（它数的是块）
@@ -94,17 +96,19 @@ metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradf
 
 > ⚠️ **`rating_current` 也不归一**：实测同时出现 `"Buy"` / `"BUY"` / `"Attractive"` / `"Overweight; Top Pick"`。映射成多/中/空三档再计数。
 >
-> ✅ **顺带白拿**：本步返回**自带 `market.snapshot` 实时行情**（含 price / marketCap / yearHigh / priceAvg50 / priceAvg200）。上行空间就地算，**不要再花额度查现价**。
+> ✅ **顺带拿**：query 带"行情"时，本步返回里有 `market.snapshot`（price / previousClose / change / marketCap / yearHigh / yearLow；**没有涨跌幅字段，也没有 50 / 200 日均价**，日内涨跌自算 `change ÷ previousClose × 100`）。上行空间就地算，**不要再花额度查现价**。非交易时段返回的是上一常规收盘（`_quote_session:"regular_inactive"`）。
 >
 > ✅ **顺带白拿**：`detail.catalysts[]` 里 `security` 字段**可以不等于查询 ticker**（N-41）——查 NVDA 会顺带拿到竞品 AMD 的事件日。这些交给 [r3](./r3_catalyst-timeline.md) 消费，本 Skill 只取与本标的相关的。
 
 ### 步骤 2 · 维度 1 + 维度 4 + 价格腿：一次拿全（1 额度）
 
 ```
-metrics(query="<TICKER> analyst ratings price target", asset_type="tradfi")
+metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_type="tradfi", limit=20)
 ```
 
-**这一个调用同时返回**（2026-07-29 实测）：`consensus_price` + `analyst_grades`（20 行）+ `beat_miss` + `eps_trend` + `latest_quarter` + `next_earnings_estimate` + `valuation_block` + `market.snapshot`。
+**这一个调用同时返回**（2026-10-01 实测）：`consensus_price` + `analyst_grades` + `analyst_estimates` + `eps_trend` + `fiscal_quarters[0]`（内含 `earnings_surprise` 与 `financial_statement`，只有最新一季）+ `next_earnings_estimate` + `market.snapshot`。
+
+> ⚠️ **字段已换代（N-109）**：旧的 `beat_miss` / `latest_quarter` 两个 block 不存在了。对应关系：`beat_miss.epsActual` → `fiscal_quarters[0].earnings_surprise.actual_eps`；`beat_miss.date` → `earnings_surprise.report_date`；`latest_quarter.eps` → `fiscal_quarters[0].financial_statement.eps`；`latest_quarter.date` → `financial_statement.period_end`。本调用不再返回 `valuation_block`（要 DCF 得把"DCF"写进 query，本 Skill 不用）。`analyst_grades` 的行数受 `limit` 控制，估家数时传 `limit=20`。
 
 > ⚠️ **query 里不要加会撞 ticker 的英文词**（N-14）：`beat` / `miss` / `hold` / `buy` / `now` / `all` 都会被当成 ticker 抽取（实测 `BEAT` 撞上仙股 HeartBeam $0.55）。调用后核对 `meta.filters_applied.keywords` 只有目标 ticker。
 
@@ -132,19 +136,21 @@ metrics(query="<TICKER> analyst ratings price target", asset_type="tradfi")
 
 **维度 4 · 基本面锚**——研报的假设比现实激进多少？
 
-用 `beat_miss` + `eps_trend`，但**必须先过三道数据完整性闸，且顺序是 2 → 3 → 1**：
+用 `fiscal_quarters[0].earnings_surprise` + `eps_trend`，但**必须先过三道数据完整性闸，且顺序是 2 → 3 → 1**：
 
-**闸 2 · null 伪装成极端真值（N-33）**：`revenueActual` 为 null 时服务端**把 null 当 0 做减法**，输出 `revenue_surprise_pct: -100`。**见到 −100 一律先当缺失查证**（真实世界营收归零几乎不可能）。
+**闸 0 · 超预期块在不在**（2026-10-01 新增）：财报刚发的头几天，`fiscal_quarters[0]` 可能只有 `financial_statement` 而**整个 `earnings_surprise` 缺失**（实测 MU 9/30 盘后发财报，10/1 查到新一季的报表数字，但没有预期值）。缺失即标"超预期数据未更新"，下面三道闸全部跳过，不要拿上一季的数顶替。
+
+**闸 2 · null 伪装成极端真值（N-33）**：`actual_revenue` 为 null 时服务端**把 null 当 0 做减法**，输出 `revenue_surprise_pct: -100`。**见到 −100 一律先当缺失查证**（真实世界营收归零几乎不可能）。
 
 **闸 3 · 同季确认** ⚠️ **判据已于 2026-07-29 实测修正，别按直觉比日期**：
 
-> `beat_miss.date` 是**财报公布日**，`latest_quarter.date` 是**财季结束日**——**这两个日期天然就不相等**。直接比日期会把每一个正常样本都判成"不同季"，从而**作废掉本该生效的闸 1**。
+> `earnings_surprise.report_date` 是**财报公布日**，`financial_statement.period_end` 是**财季结束日**——**这两个日期天然就不相等**。直接比日期会把每一个正常样本都判成"不同季"，从而**作废掉本该生效的闸 1**。
 >
-> **正确判据 = 复用 N-34 的 gap**：`gap = beat_miss.date − latest_quarter.date`，**gap < 90 天 = 同季**（90 天 = 一个完整财季，N-34 已用 42 样本验过这个分界）。
+> **正确判据 = 复用 N-34 的 gap**：`gap = earnings_surprise.report_date − financial_statement.period_end`，**gap < 90 天 = 同季**（90 天 = 一个完整财季，N-34 已用 42 样本验过这个分界）。
 > 实测 INTC：公布日 2026-07-23、财季结束 2026-06-27 → **gap = 26 天 < 90 → 同季**，闸 1 生效。若按朴素比日期则判为不同季，闸 1 被误作废。
 > gap ≥ 90 天才标"口径无法核对"并作废闸 1——跨季比对会让一盈一亏的相邻两季产生假阳性。
 
-**闸 1 · GAAP 口径错位（N-29）**：`beat_miss.epsActual`（等价 `earnings_surprise.actual_eps`）与 `latest_quarter.eps`（等价 `financial_statement.eps` / `eps_trend`）**只要不相等即判定口径错位**——服务端始终不标 basis。
+**闸 1 · GAAP 口径错位（N-29）**：`earnings_surprise.actual_eps` 与 `financial_statement.eps`（与 `eps_trend` 同源）**只要不相等即判定口径错位**（2026-10-01 复测 NVDA 仍是 2.22 vs 2.47）——服务端始终不标 basis。
 
 > ⚠️ **2026-08-05 判据放宽**：原文写「**反号**即判定」，那是照 INTC 定的（`+0.42` vs `−2.16`，一正一负很扎眼）。**实测 NVDA 是同号不同值**——`actual_eps 1.87` vs `financial_statement.eps 2.40`，同一个季度、都为正、差 **28%**，按旧判据**这道闸不会触发**。
 > **同号错位比反号更危险**：反号一眼看得出不对劲，同号会被当成同一个数直接混用。
@@ -164,17 +170,18 @@ metrics(query="<TICKER> analyst ratings price target", asset_type="tradfi")
 ### 步骤 3 · 维度 3：谁在反着做（1 额度）
 
 ```
-signal(query="<TICKER>", asset_type="tradfi")
+signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional","trader_position"], asset_type="tradfi")
 ```
 
-> ✅ **不传 `categories` 会 fanout 全 4 类且只计 1 额度**（N-4，省额度利器）。但**不要假定四类恒在**——按实际返回的 key 判断（`trader_position` 常因该标的当时无持仓行而缺席）。
+> ⚠️ **必须显式传 `categories`**（2026-10-01 实测，N-113）：只传 ticker 不传 categories 现在返回空（`status:"degraded"` + `no_match`），旧的"不传即 fanout 四类"（N-4）已失效。显式列出四类一次调用**仍只计 1 额度**。**不要假定四类恒在**——按实际返回的 key 判断（`trader_position` 在多数美股上没有数据，实测 MU / SNDK 均缺席）。
+> ⚠️ **不要带 `time_range`**：13F 是季度数据，带窗口会被整类拒绝；喊单上游只覆盖最近 24 小时，传 7d 也只有 24h 的帖子。
 
 **三类各自的读法与陷阱**：
 
 | 类别 | 读什么 | ⚠️ 陷阱 |
 |---|---|---|
-| `kol_call` | 方向 + `kol_info.tier`/`signal_level`（A 级 / L1-L2 才进人眼）| **N-40 死穴：目标 ticker 自己的行可能整个不在返回里。** 实测查 NVDA 返 8 行，**无一行 `symbol=="NVDA"`**，而原帖 `"BUY: - $NVDA …"` 明明把它列在首位。**必须回读 `content`，不能只信 `symbol` 字段**；再按 `source_url` 去重（N-5：一帖按提及裂多行）|
-| `insider_trading` | 只认 `formType=="4"` 的 `P-Purchase`（买）与 `S-Sale`（卖）| `G-Gift` / `F-InKind` / `M-Exempt` **不是主动交易**（赠与、缴税代扣），剔除。`formType=="3"` 是首次申报，非交易。<br>**国会交易与公司内部人混在同一个 key 下**，按 `provenance` 分开（`congress` / `corporate_insider`）。<br>⚠️ `time_range` 被无视（N-6），客户端按 `transactionDate` 强制过滤。<br>⚠️ **同一份 PTR 披露会裂成多行**：实测 Cleo Fields 一份 PDF 出 3 行（`assetDescription` 为 `"NVIDIA Corporation"` / `"(1)"` / `"(2)"`，link 与日期完全相同）。**按 (姓名, 日期) 去重算人数，按行算笔数**，否则 1 位议员会被报成 3 位 |
+| `kol_call` | 方向 + `kol_info.tier`/`signal_level`（A 级 / L1-L2 才进人眼）| **N-40 死穴：目标 ticker 自己的行可能整个不在返回里。** 实测查 NVDA 返 8 行，**无一行 `symbol=="NVDA"`**，而原帖 `"BUY: - $NVDA …"` 明明把它列在首位（2026-10-01 复测：查 MU 的返回里混着 NBIS / NOW / CTKB 的行，keywords 不会把喊单过滤干净）。**必须回读 `content`，不能只信 `symbol` 字段**；再按 `source_url` 去重（N-5：一帖按提及裂多行）|
+| `insider_trading` | 只认 `formType=="4"` 的 `P-Purchase`（买）与 `S-Sale`（卖）| `G-Gift` / `F-InKind` / `M-Exempt` **不是主动交易**（赠与、缴税代扣），剔除。`formType=="3"` 是首次申报，非交易。<br>**国会交易与公司内部人混在同一个 key 下**，按 `provenance` 分开（`congress` / `corporate_insider`）。<br>⚠️ 不传 `time_range`，客户端按 `transactionDate` 强制过滤（N-6）。<br>⚠️ **同一份 PTR 披露会裂成多行**：实测 Cleo Fields 一份 PDF 出 3 行（`assetDescription` 为 `"NVIDIA Corporation"` / `"(1)"` / `"(2)"`，link 与日期完全相同）。**按 (姓名, 日期) 去重算人数，按行算笔数**，否则 1 位议员会被报成 3 位 |
 | `institutional` | 绝对持仓 | ⛔ **申报季内禁引任何环比**（N-7）。实测 NVDA `investorsHolding` 2497 vs 上期 6234、`ownershipPercentChange −63.77%`、`putCallRatioChange +178%`——**全是回补未完成造成的残缺假信号**，不是真的机构跑了 |
 
 **判定**：基本面/研报看多 × A 级 KOL 或内部人反向 → **分裂**，这是读数卡里最该顶出来的一行。
@@ -182,14 +189,14 @@ signal(query="<TICKER>", asset_type="tradfi")
 ### 步骤 4 · 维度 2：背离是什么性质（0 额度）
 
 ```
-news(query="<公司名> <TICKER>")
+news(query="<公司名> <TICKER>", asset_type="tradfi", sources=["media"], sort_by="relevance", time_range="7d")
 ```
 
-> ⚠️ **news 不传 `asset_type`**（红线 1 唯一例外：加了返 0 结果）。实体搜索 **0 额度**（N-1）。
+> ✅ **news 可以传 `asset_type` / `sources` / `sort_by`**（2026-10-01 实测，N-112）：旧的"加了 asset_type 返 0 结果"不再复现。找"有没有击中论点的事实"用 `sources=["media"], sort_by="relevance"`（默认按时间排，最新的未必最相关）。实体搜索 **0 额度**（N-1）。
 > ⚠️ **query 三原则**（红线 5）：2-3 个核心名词、不中英混搭、不写"影响/解读/分析"等元词。
 > ⚠️ **无匹配时不返空，返语义兜底的不相关内容**（红线 11）。更狠的是 **N-35 召回黑洞**：实测 `"Bloom Energy BE"` 与 `"Bloom Energy"` 返回**逐字相同的 12 条**兜底内容，0 条目标公司内容。**判别：返回里一条都不含目标公司名或 ticker 即判召回失败，记缺口不重试**（同 query 重试与换措辞均无效）。
 
-价格用步骤 1 白拿的 `market.snapshot`，**不额外调用**。
+价格用步骤 1 / 步骤 2 一并返回的 `market.snapshot`，**不额外调用**。
 
 **背离性质三分**（这一步是整张卡的关键，读法完全相反）：
 
@@ -199,7 +206,7 @@ news(query="<公司名> <TICKER>")
 | **逻辑被否** | news 里有直接击中研报核心论点的事实（订单取消、指引下修、竞品夺单）| 候选作废，别再锚研报 TP |
 | **尚不可判** | news 召回失败，或有报道但与论点无关 | **诚实写"不可判"**，不要为了叙事完整硬圆 |
 
-> 判"同板块同向"需要 peers 快照。如需要：`metrics(query="<T1> <T2> <T3> 行情", asset_type="tradfi")`，**每批 ≤5 只**（N-23a：传 8 只静默截断到 5），含 `CL`/`GC`/`BABA` 等影子代码时**按 4 只装**（N-36）。这会额外花 1 额度，非必需步骤。
+> 判"同板块同向"需要 peers 快照。如需要：`metrics(keywords=["<T1>","<T2>","<T3>"], query="行情", asset_type="tradfi")`，**每批 ≤5 只**（超出的写在 `meta.warnings` 的 `keyword_count_over_max`），含 `CL`/`GC`/`BABA` 等影子代码时**按 4 只装**（N-36）。这会额外花 1 额度，非必需步骤。
 
 ---
 

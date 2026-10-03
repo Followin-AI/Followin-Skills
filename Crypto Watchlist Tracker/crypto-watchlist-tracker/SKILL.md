@@ -58,7 +58,7 @@ If automation is unavailable, run one report immediately and say that no recurri
 
 ## Followin data workflow
 
-Followin is the primary evidence layer. Explicitly use `asset_type="crypto"` for `metrics` and `signal`. For entity-search `news` calls, omit `asset_type` to preserve recall. Batch no more than five symbols per structured call and compare returned symbols with the requested batch.
+Followin is the primary evidence layer. Explicitly use `asset_type="crypto"` for `metrics` and `signal`. `news` entity searches also accept `asset_type="crypto"` (re-tested against production on 2026-10-01; the earlier zero-result behaviour no longer reproduces), so pass it to keep same-name equities out. Batch no more than five symbols per structured call and compare returned symbols with the requested batch.
 
 ### 1. Market and technical state
 
@@ -67,6 +67,8 @@ For each batch of up to five watchlist assets:
 1. Call `metrics` for the live market snapshot: price, 24-hour change, 24-hour volume, and source timestamp.
 2. Call `metrics` for at least 30 days of price/technical context. Inspect trend, momentum, heat, and volatility indicators such as RSI, moving averages, MACD, ATR, and Bollinger Bands when available.
 3. Use the latest dated value for each indicator. Never combine values from different dates without saying so.
+
+Put the symbols in `keywords` and only the intent in `query` (for example `keywords=["BTC","SOL"], query="技术指标"`, `asset_type="crypto"`). The technical response carries about 30 daily observations per indicator per asset — roughly 45 KB per asset as tested on 2026-10-01 — so request two or three assets per technical call, or process the result with a script instead of reading it into context.
 
 If a requested snapshot field such as 24-hour change or source timestamp is absent, mark that field unavailable. Do not substitute a daily-close calculation unless the returned candle timestamps define an exact 24-hour interval.
 

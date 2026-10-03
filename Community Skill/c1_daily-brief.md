@@ -23,47 +23,53 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 - **開盤前瞻**＝只跑步骤 1、7：美股尚未开盘，精简输出三点——今晚开盘關注 / 盘前异动快照（引用快照自带的 `extendedHoursQuote` 字段，标注「盤前」）/ 今晚数据几点，约 300 字 2-3 点。与晨报同一 skill、共用触发词组（"早報"/"開盤前瞻"，含简体形式），路由到同一份调用序列，只是只跑其中两步。
 - **刷新**＝步骤 1、3、4 增量：`time_range` 收窄到 4h，只出「新增」内容，已在当日早报出现过的条目不重复，产出 200-400 字增量补丁贴（"午间更新：新增 XX 两件事"）。**无当日晨报 baseline 时拒绝刷新，先提示运营"请先跑晨报"**。小时级增量一律只用当次调用返回的即时快照做判断，不要另外去拉小时级历史——`metrics()` 的 `time_range < 1d` 有已知 bug，会返回一个月前的旧数据而非当日窗口（镜像 N-10：metrics time_range <1d 返一个月前旧数据 bug；小时级用 interval 参数或只用实时快照）。
 
-## 2. 调用序列（实测额度 ≈7/天）
+## 2. 调用序列（实测额度 ≈9/天）
 
 调用序列：
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
-| 1 | `news(空 query, asset_type="tradfi", time_range="24h")` 热点趋势榜 | 0（实测） |
-| 2 | （按需）对头条事件 `news(query="<核心名词×2>", time_range="24h")` 补细节，≤3 次 | 0（实测） |
-| 3 | `metrics(query="most active stocks", asset_type="tradfi")` 异动榜——**弃用 biggest gainers/losers**（trend-scout v1.8.0 实测：上游缺 marketCap 且全是仙股）；**2026-07-22 回归实测更正**：该 board 行本身也不带 marketCap 字段（10/10 行仅有 price/change/name/symbol），需对候选 ticker 另发一次批量 `metrics(query="<TICKER1> <TICKER2> ...", asset_type="tradfi")` 补 snapshot 取 marketCap 后再套用 ≥$1B 过滤（**≤5 个一批**，红线 4/N-23：超出被静默截断到 5 且无任何 warning；query 串批量还会静默丢部分 ticker，调用后必须核对 `meta.filters_applied.keywords` 与请求列表的差集是否为空，缺的单独补查） | 2 |
-| 4 | `signal(query="consensus", asset_type="tradfi", time_range="24h")` 无 categories 一次拿全：喊单榜+多空比+内部人大额动向 | 1 |
-| 5 | ⚠️ **原市场级财报日历已废弃（N-22）** → 改为对关注池逐批查 `metrics(query="<T1>…<T5> next earnings date", asset_type="tradfi")`，取 `next_earnings_estimate.date` = 今日的；做法与铁律见 c2 第 2 节 | 关注池数 ÷5 |
-| 6 | `metrics(query="economic calendar upcoming releases")` 当日宏观数据发布（2026-07-22 回归实测确认可用：query 路径能路由，返回调用当下自然日的日历，满足"当日"需求；date_from/date_to 不影响窗口宽度，传或不传都只回传锚定日当天，见 c2 关于多日窗口限制的记载） | 1 |
-| 7 | 大盘指数 ^GSPC ^IXIC ^DJI ^VIX（trend-scout 实测可用）+ 过滤后重点股快照，按批量降级梯执行（§2 调用形态铁律） | 1-4 |
+| 1 | `news(query="", asset_type="tradfi", time_range="24h")` 热点趋势榜 | 0（实测） |
+| 2 | （按需）对头条事件 `news(query="<核心名词×2>", asset_type="tradfi", time_range="24h")` 补细节，≤3 次 | 0（实测） |
+| 3 | `metrics(query="most active stocks", asset_type="tradfi")` 异动榜（要涨跌幅榜可另调 `query="biggest gainers"` / `"biggest losers"`，2026-10-01 实测数据已恢复正常，但仍以仙股为主）。三张榜的行都只有 symbol / name / price / change / changesPercentage 五个字段，**不带 marketCap 和 exchange**，需对候选 ticker 另发一次 `metrics(keywords=[≤5 个 ticker], query="行情", asset_type="tradfi")` 补快照取 marketCap 后再套用 ≥$1B 过滤（**≤5 个一批**，超出会在 `meta.warnings` 里报 `keyword_count_over_max`） | 2 |
+| 4 | `signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")` 喊单榜 + 多空比；内部人大额动向**另调** `signal(categories=["insider_trading"], asset_type="tradfi", limit=50)`（不带 time_range，客户端按 transactionDate 过滤）——2026-10-01 实测：不传 categories 只返喊单一类；两类合在一次调用里再带 `time_range="24h"`，内部人整类静默消失 | 2 |
+| 5 | 当日财报两条腿：① 关注池逐批 `metrics(keywords=[≤5 个 ticker], query="next earnings date", asset_type="tradfi")`，取 `next_earnings_estimate.date` = 今日的；② 市场级日历 `metrics(query="earnings calendar", asset_type="tradfi", country="US", date_from=<今日>, date_to=<今日>)` 补关注池外的名字（2026-10-01 实测已恢复可用，但带 `status:"partial"`，覆盖不保证全）。做法与铁律见 c2 第 2 节 | 关注池数 ÷5 ＋ 1 |
+| 6 | `metrics(query="economic calendar upcoming releases", country="US")` 当日宏观数据发布（**`country="US"` 必传**——2026-10-01 实测不传返回的是韩国 / 印度 / 博茨瓦纳的事件）| 1 |
+| 7 | 大盘指数 `metrics(keywords=["^GSPC","^IXIC","^DJI","^VIX"], query="行情", asset_type="tradfi")` + 过滤后重点股快照（同样走 keywords 数组，≤5 个一批） | 1-4 |
 
 调用形态铁律（本序列全程通用）：
 
-> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-08-04 复核仍复现，N-8）**：`keywords/categories/sources` 等数组参数被 tool schema 拒（连环 -32602；schema 中这些入参无类型，**任何客户端均不可用**）。所有调用一律以 **query 自然语言/空格拼串为唯一形态**（服务端自解析成 keywords，`meta.filters_applied.keywords` 可验证）。批量上限 **≤5**（红线 4/N-23）：超出被**静默截断到 5 且无任何 warning**（旧记载的 `keyword_count_over_max` warning 已不存在），调用后必须拿请求列表与 `filters_applied.keywords`（及 `snapshot[].symbol`）做差集自查，缺的分批补。降级梯：① query 串批量（≤5）→ ② 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+> **调用形态（2026-10-01 实测，取代 2026-07-20 的"数组被拒、只能 query 串"铁律）**：`metrics` / `signal` 的入参分工是 **`keywords` 数组放标的、`query` 放意图词、`categories` 指定类别**。纯美股代码写进 query 串目前仍能被解析，但指数会多解析出一个重复项（`"^GSPC ^IXIC ^DJI ^VIX"` → 多一个 `VIX`，返回 `status:"partial"`），`*USD` 商品代码写进 query 串会**整批返空且不报错**——所以标的一律走数组。每次调用最多 5 个 keywords，超出或解析不了的项写在 `meta.warnings`（`keyword_count_over_max` / `kw_not_canonical`），**调用后读一遍 `meta.warnings`**，有缺口分批补。单批并行 ≤4 路（SSE 红线）。客户端不接受数组入参（报 `-32602`）时，美股代码与指数可退回 query 串，商品代码没有可用的 query 串写法。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
 
 每步 query 主形态调用示例：
 
 ```
 1. news(query="", asset_type="tradfi", time_range="24h")
-   # 趋势模式：空 query 传 asset_type 是可用例外（红线 1 + N-1），quota=0
+   # 趋势模式，quota=0
 
-2. news(query="<核心名词1> <核心名词2>", time_range="24h")
-   # 搜索模式：不要传 asset_type（红线 1，加了会返 0 篇且不报错），≤3 次，按需
+2. news(query="<核心名词1> <核心名词2>", asset_type="tradfi", time_range="24h")
+   # 搜索模式；2026-10-01 实测传 asset_type="tradfi" 正常返回（旧"加了返 0 篇"已不复现）。
+   # 要权威报道可加 sources=["media"], sort_by="relevance"。≤3 次，按需
 
 3. metrics(query="most active stocks", asset_type="tradfi")
-   # 异动榜；返回行不带 marketCap（2026-07-22 回归实测更正原 N-9 记载），先用候选 ticker 批量 metrics(query="<TICKER…>", asset_type="tradfi") 补一次 snapshot 取 marketCap，再套三重过滤见第 4 节
+   # 异动榜；返回行不带 marketCap / exchange，先用候选 ticker 批量
+   # metrics(keywords=[≤5 个], query="行情", asset_type="tradfi") 补快照取 marketCap，再套过滤见第 4 节
 
-4. signal(query="consensus", asset_type="tradfi", time_range="24h")
-   # 不带 categories 一次拿全 4 类（喊单/多空比/内部人/实盘），仍计 1 额度
+4. signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")
+   # 喊单聚合（总帖数 / 多空比 / top_calls），1 额度
+   signal(categories=["insider_trading"], asset_type="tradfi", limit=50)
+   # 内部人全市场最新申报，1 额度；不带 time_range，客户端按 transactionDate 过滤
 
-5. 对关注池逐批（≤5 只）：metrics(query="<T1>…<T5> next earnings date", asset_type="tradfi")
-   # 取 next_earnings_estimate.date = 今日的；市场级日历已废弃见 N-22
+5. 对关注池逐批（≤5 只）：metrics(keywords=["<T1>",…,"<T5>"], query="next earnings date", asset_type="tradfi")
+   # 取 next_earnings_estimate.date = 今日的
+   metrics(query="earnings calendar", asset_type="tradfi", country="US", date_from="<今日>", date_to="<今日>")
+   # 市场级日历补漏；status 恒为 partial，不能当"当日全貌"
 
-6. metrics(query="economic calendar upcoming releases")
-   # 宏观日历，非个股查询不传 asset_type；query 严禁带"本周"（红线 10，会返历史而非前瞻）；2026-07-22 实测确认：不带 date_from/date_to 时默认即返回当天日历（当日已发布+待发布混排），满足 c1"当日"需求即可，date_from/date_to 传了也不会扩大窗口（见 c2 关于多日窗口限制的记载）
+6. metrics(query="economic calendar upcoming releases", country="US")
+   # 宏观日历；country="US" 必传；query 严禁带"本周"（红线 10，会返历史而非前瞻）
 
-7. metrics(query="^GSPC ^IXIC ^DJI ^VIX", asset_type="tradfi")
-   # 大盘四指数一次批量；过滤后重点股快照另按批量降级梯逐批补（单批 ≤4 路，SSE 红线）
+7. metrics(keywords=["^GSPC","^IXIC","^DJI","^VIX"], query="行情", asset_type="tradfi")
+   # 大盘四指数一次批量；快照没有涨跌幅字段，自算 change ÷ previousClose × 100
 ```
 
 ## 3. 产出模板
@@ -105,16 +111,14 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 
 ## 4. 防坑镜像（逐条，来源编号见括号）
 
-- **异动榜三重过滤**：异动榜客户端过滤：marketCap ≥$1B + 剔杠杆 ETF（name 含 2X/3X/Long/Short/Bull/Bear/Daily/Leveraged）+ 仙股 <$5（红线 9 与 trend-scout 双重依据）。（N-9：gainers/losers 榜上游缺 marketCap 且全是仙股，禁用；改用 `most active stocks`——但 2026-07-22 回归实测发现该 board 本身也不带 marketCap（原 N-9"回传行自带 marketCap"记载有误，此处更正），须另发一次批量 snapshot 补 marketCap 才能套用 ≥$1B 过滤，红线 9 的过滤清单继续沿用）
+- **异动榜过滤**：客户端过滤 = marketCap ≥$1B + 剔杠杆 ETF（name 匹配 `ETF|ETN|UltraPro|Ultra|Leveraged|\dX|Bull|Bear|Daily`）；价格 <$5 的仙股闸只在市值拿不到时兜底（实测会误杀 GRAB 这类低价大市值票）。三张榜（most active / gainers / losers）的行都**不带 marketCap 和 exchange**（2026-10-01 实测只有 symbol / name / price / change / changesPercentage），须另发一次批量快照补 marketCap 才能套 ≥$1B 过滤。涨跌幅榜 2026-10-01 实测数据已恢复正常（旧"禁用"撤销，N-111），但榜首仍多为仙股，过滤照做。
 - **代币化+加密噪音白名单剔除**：趋势榜内容含代币化股票与加密混排（实测 SKHYx、LAB 代币），按"美股正股白名单"原则剔除。（来源：c1 本次实测命中 SKHYx、LAB）
-- **news 搜索不传 asset_type、趋势可传**：news 搜索模式不传 asset_type（红线 1）；趋势模式（空 query）可传，见新 caveat N-1。（N-1：news 趋势模式［空 query］传 asset_type="tradfi" 可用且 0 额度；"news 不传 asset_type" 红线仅适用搜索模式；实体搜索［query="NVDA Nvidia"］实测也 0 额度）
-- **内部人 transactionDate=昨日，只认 S-Sale/P-Purchase**：步骤 4 的内部人行按 N-6 客户端过滤 transactionDate=昨日，且只认 S-Sale/P-Purchase（F-InKind/M-Exempt 剔除）。（N-6：insider/congress 行无视 time_range，7d 窗口可能返回 2020 年记录；客户端按 transactionDate 过滤为强制要求，Dev 待修。F-InKind/M-Exempt 是缴税代扣/豁免行使，非主动交易，对外只认 S-Sale 当卖出、P-Purchase 当买入）
-- **❌ 市场级财报日历已废弃，不要再用（N-22，2026-07-27 实测推翻 N-17 的补救方案）**：
-  旧版补救三步里，**第 ① 步「`limit` 至少 100」是无效的**——接口不尊重 `limit`，传 20 返 20，传 100/300 均返 50，`total` 恒为 50。真实机制是 `ORDER BY date ASC, symbol ASC LIMIT 50`：请求多天只返回第 1 天（当天 >50 行时）或第 1 天 + 第 2 天零头；字母序又让美股大票（GOOGL/MSFT/NVDA/TSLA）在密集日必然出局。**连"按天拆开调用"都救不了**——实测 07-29（MSFT/META 发财报当天）单日调用仍砍在 `0KAB.L`，没进美股字母区。
-  → **改用关注池 + `next_earnings_estimate` 核实**，做法见 c2 第 2 节。
-  🔒 **对外发布铁律**：贴文写「今天我们盯的这几家发财报」，**严禁写「今日财报一览」**。旧版那句"宁可承认名单可能不全"已经不够——现在的问题不是"不全"，是**系统性只返回某一天的字母前段**，把它当"当天全貌"的任何变体都是错的。
-- **指数快照会出现重复行（N-18，2026-07-23 实测）**：query 串 `"^GSPC ^IXIC ^DJI ^VIX"` 被解析成 5 个 keywords（多出一个裸 `VIX`），返回里 ^VIX 出现两条完全相同的行。写贴文前必须按 `symbol` 去重，否则"大盤一眼"会把同一个指数写两次。
-- **原油只能用 `USO`（N-30，2026-07-27 复核结案）**：原四种写法实测三死一活——`CLUSD` 返 0 结果（非 402）、`BZUSD` 在 query 串里被**静默丢弃**（不报错也不返数据，最阴险）、`OIL` alias 返回 iPath 原油 ETN（市值 5300 万的错标的），**只剩 `USO` 可用**。⚠️ USO 是 WTI 近月期货 ETF，属**代理指标非现货价**，贴文引用必须写清楚（例：「追蹤原油的 USO 基金」而不是「原油價格」）。指数类 `^GSPC ^IXIC ^DJI ^VIX` 照常可用。
+- **news 的 asset_type**：趋势模式（空 query）与搜索模式都可传 `asset_type="tradfi"`，均 0 额度（2026-10-01 实测搜索模式传了正常返回，旧"加了返 0 篇"不再复现，N-112）。需要权威报道时加 `sources=["media"], sort_by="relevance"`。⚠️ 宽主题词搜索传 tradfi 时可能带 `asset_type_no_matching_keyword` 提示，属正常。
+- **内部人 transactionDate=昨日，只认 S-Sale/P-Purchase**：步骤 4 的内部人行客户端过滤 transactionDate=昨日，且只认 `formType=="4"` 的 S-Sale / P-Purchase（F-InKind / M-Exempt 是缴税代扣 / 豁免行使，剔除；2026-10-01 实测榜首常是 `formType:"3"`、`transactionType` 为空的新任董事初始申报，同样剔除）。**不要给内部人调用带 time_range**：实测带 `7d` 返回 `status:"partial"`，与喊单合并调用再带 `24h` 时内部人整类静默消失。
+- **市场级财报日历已恢复，但只能当补漏腿（N-114，2026-10-01 实测）**：`metrics(query="earnings calendar", asset_type="tradfi", country="US", date_from, date_to)` 现在返回无后缀美股代码（实测 10-01~10-08 返回 AYI / MKC / NKE / STZ / LEVI 等）并支持 cursor 翻页，7 月"只返回字母前段"的问题（N-22）不再复现。但响应恒带 `status:"partial"`（部分标的缺国别档案，country 过滤无法完全执行），**覆盖不保证全**——主腿仍是关注池 + `next_earnings_estimate` 核实，做法见 c2 第 2 节。
+  🔒 **对外发布铁律**：贴文写「今天我们盯的这几家发财报」，**严禁写「今日财报一览」**——日历是 partial 的，把它当"当天全貌"的任何变体都是错的。
+- **指数走 keywords 数组，别写进 query 串（N-18，2026-10-01 复测）**：query 串 `"^GSPC ^IXIC ^DJI ^VIX"` 仍被解析成 5 个 keywords（多出一个裸 `VIX`）、^VIX 出现两条相同的行、`status:"partial"`；`keywords=["^GSPC","^IXIC","^DJI","^VIX"]` 数组写法返回干净的 4 行。若客户端只能发 query 串，写贴文前按 `symbol` 去重。
+- **原油走 `CLUSD` / `BZUSD`，必须用 keywords 数组（N-106，2026-10-01 实测）**：`metrics(keywords=["CLUSD","BZUSD"], query="行情", asset_type="tradfi")` 直接返回 WTI 与布油期货价，不必再用 USO 代理。⚠️ **商品代码写进 query 串整批返空且不报错**（实测 `query="GCUSD CLUSD BZUSD ESUSD 行情"` → 0 结果、`status:"ok"`），黄金 `GCUSD`、白银 `SIUSD`、美元指数 `DXUSD` 同理只能走数组。`OIL` / `GOLD` 别名仍会解析成同名美股，不要用。
 - **S-7 五铁律（全文镜像，五条均对本 skill 生效）**：
   - 铁律1 单源：地缘/政策/监管大消息 ≥2 独立信源才当事实，否则标「消息尚待確認」。
   - 铁律2 价格：当前价/涨跌幅只引本次 MCP 返回值；新闻与 KOL 转述的百分比是二手，必经快照核实。

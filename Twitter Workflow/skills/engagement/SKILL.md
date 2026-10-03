@@ -39,9 +39,9 @@ description: "Twitter 互动运营 — Outbound 抢热评换曝光 + Inbound 评
 | 评论者/KOL 影响力 | `twitter(action="user_info", user_name="X")`；批量用 `batch_user_info`，参数是 **`user_ids`（逗号分隔的数字 ID，不是用户名）** |
 | 推文最新互动数 | `twitter(action="tweets_by_ids", tweet_ids="id1,id2")` |
 | 关系与圈子 | `twitter(action="followers" / "followings" / "check_follow", user_name="X")` — 看对方最近在聊什么找切入点、看共同关注识别圈子 |
-| 评论要引的数据 | 价格 `metrics(query="BTC price")` · 宏观 `metrics(query="US CPI latest")` · 链上快讯 `news(query="…")` · KOL 持仓 `signal(query="kol call trader position")` |
+| 评论要引的数据 | 价格 `metrics(keywords=["BTC"], query="行情", asset_type="crypto")` · 宏观 `metrics(keywords=["CPIAUCSL"], categories=["macro"])` · 链上快讯 `news(query="…")` · KOL 喊单 `signal(categories=["kol_call"], query="consensus")` · 交易员持仓 `signal(categories=["trader_position"], keywords=["BTC"])` |
 
-🚨 **数组参数全域禁用**：`keywords` / `categories` / `sources` 这类数组**即使主进程直调也会被序列化成字符串遭 schema 拒**（`["market"] has type "string"` 连环 `-32602`），**没有安全通道**。一律走 `query` 自然语言 / 空格拼串，服务端自解析。
+📌 **入参分工（2026-10-01 实测）**：标的放 `keywords` 数组、意图词放 `query`、类别放 `categories`。`asset_type` 必须显式——实测 `query="BTC price"` 不带 asset_type 会同时返回比特币和 Grayscale Bitcoin Mini ETF（$36.95）两行。`signal` 必须传 `categories`——实测 `signal(query="kol call trader position")` 把 "KOL" 当成 ticker、返回空。客户端不接受数组入参（报 `-32602`）时才退回 query 空格拼串。
 🚨 **并发上限**：主进程一条 message 里 followin 调用 **≤4 个**（一次发 12 个会有半数 `-32001` 超时）。
 
 ⚠️ **`search` 和评论列表单次可返数万字符，必须走 Agent 子进程**，直接调会打爆上下文。

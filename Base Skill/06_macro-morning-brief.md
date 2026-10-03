@@ -9,114 +9,88 @@ args: watchlist
 
 # /morning-brief
 
-每日财经早报 — 三源聚合晨间简报（Followin MCP 版）
+每日财经早报 — 宏观、新闻、异动三源聚合（Followin MCP 版）
 
 ## 意图路由
 
 | 用户说的 | 走哪个 |
 |---|---|
 | 宏观日报 / 宏观早报 / 美股日报 / 美股早报 / morning brief / 今日市场 | ✅ 本 Skill |
-| 日报 / 加密日报 / 加密早报 | ❌ 不在本 Skill 范围——本仓库已无加密日报 Skill，如实告知用户并建议改问宏观/美股早报，或直接用 `news()` 趋势模式（空 query + `asset_type="crypto"`，0 额度）|
-
-不带"宏观/美股"修饰的纯"日报" → 默认指加密日报，属本 Skill 范围外。
+| 日报 / 加密日报 / 加密早报 | ❌ 不在本 Skill 范围——如实告知，并建议改问宏观/美股早报，或直接用 `news()` 趋势模式（空 query + `asset_type="crypto"`）|
 
 ## 参数
 
-- `watchlist`（可选）：逗号分隔 ticker，默认从用户 memory 读取
+- `watchlist`（可选）：空格或逗号分隔的 ticker。**没传就跳过 Watchlist 板块**，不要自己猜一份名单。
 
-> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
+> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文的调用写法于 **2026-10-01 逐条实测**；与登记表冲突时，以日期更新的一方为准。
 
-## 数据层 — Followin MCP 三工具映射
+## 调用约定（2026-10-01 实测）
 
-🔒 **本 Skill 全程美股，metrics 调用必须带 `asset_type="tradfi"`**（除 BTC/ETH 等 crypto symbol）
-🔒 **N-8（2026-08-04 实测仍复现）**：`keywords` / `categories` / `sources` 数组入参被 schema 拒，一律走 query 串（series_id/ticker 并入 query）；调用后核对 `meta.filters_applied.keywords` 差集
+`metrics` 的入参分工是：**`keywords` 数组放标的 / series_id，`query` 放意图词**。
 
-| 用途 | 调用 |
-|---|---|
-| 国债收益率（2Y / 10Y / 30Y）| `metrics(query="DGS2", limit=5)` + `metrics(query="DGS10", limit=5)` + `metrics(query="DGS30", limit=5)` 每 series 单独 fire（⚠️ N-8 数组被拒走 query 纯 series_id 串；红线 3 禁中文/混合语言 query——原 `query="treasury rates 美债收益率曲线"` 中英混搭违规；纯英文 "treasury rates" 有 N-14 撞 ticker 风险，优先 series_id 方案。批量会静默丢条目 B-31）|
-| VIX 实时 | `metrics(query="^VIX 行情", asset_type="tradfi")` |
-| 原油 + 美元 + watchlist | 🔄 `metrics(query="USO DXUSD AAPL TSLA ... 行情", asset_type="tradfi")` ⚠️ **`BZUSD` 已失效（静默丢弃，不报错）**，改用 USO；**一批最多 5 个 symbol**（超出静默截断且无任何 warning，N-23）；调用后核对 `meta.filters_applied.keywords` 差集 |
-| 经济日历 | `metrics(query="economic calendar", country="US")` ⚠️ **必须传 `country="US"`，否则返非美事件（N-32）**；不要写"本周经济数据"——实测（2026-06-12）"本周"被解析成 lookback 7 天，返回**上周已发布历史**而非前瞻日历 |
-| 异动榜 | 🔄 `metrics(query="most active stocks", asset_type="tradfi", limit=30)` ⚠️ **`biggest gainers/losers` 已弃用**（2026-07-27 实测返回 VYNE +2656%、SGLY +1429%，连"Fidelity 短期债券 ETF"都显示 +2009%，全是垃圾数据）。仍需二次调用补 marketCap |
-| 财经新闻 | `news(query="<2-3 关键词>", time_range="1d", limit=10)` ⚠️ 不要传 asset_type；`sources` 数组被 schema 拒且无字符串替代（N-8）——早报**只解析 `articles` 桶、忽略 `social` 桶**（news 实返 2N 条 = articles + social 两桶，N-25；推特风向属 c4/14 的情绪层，混入会让早报变成情绪聚合）|
-
-> **关键变化（vs v1）**：
-> - 9 个老调用 → 5-7 个 Followin 调用
-> - 删除 31 家媒体 users 列表
-> - 删除 schema 修复 caveat（^VIX 不能批量、BZUSD 必须 batch、profile 走 stable_request 等都消失）
-> - **`news()` 已支持 query 自然语言**，不需要"每个概念单独搜"
-> - 经济日历直接 metrics 拿，不用 stable_request
+- **不要把标的塞进 query 串**：query 串解析会静默丢掉 `DXUSD` / `CLUSD` / `BZUSD` 这类 `*USD` 商品代码（不报错、不返数据），还会让 `^VIX` 返回重复行。数组写法没有这些问题，原油现货价也因此能直接取到，不必再用 USO 这只 ETF 代理。
+- **每次调用最多 5 个 keywords**。超出或解析不了的项会写进 `meta.warnings`（`keyword_count_over_max` / `kw_not_canonical`）——每次调用后读一遍，有缺口就补调。
+- FRED 指标带 `categories=["macro"]`；美股行情带 `asset_type="tradfi"`。
+- `news()` 现在可以传 `asset_type="tradfi"` 和 `sources=["media"]`（旧记载"传了返回 0 条 / 数组被拒"已不成立）。
+- 如果客户端不接受数组入参（报 `-32602`）：FRED 指标退回 `query="<series_id>"` 单个直查；美股 ticker 退回 `query="<T1> <T2> 行情"`；`*USD` 商品代码没有可用的 query 串写法，标"数据不可用"。
+- **早报通常在盘前跑**：行情快照返回的是上一个常规收盘（`_quote_session:"regular_inactive"`）。只有交易时段才标"实时"，否则一律标"最近收盘"；盘前盘后的真实价格以新闻为准。
 
 ## 执行步骤
 
-### Step 1: 数据拉取（4 路并行，每批 ≤4 防 SSE 挂）
+### Step 1: 数据拉取（每批 ≤4 路并行）
 
-**Batch 1：国债 + VIX（4 个并行）**
+**Batch 1：宏观 + 榜单**
 ```
-1. metrics(query="DGS2", limit=5)     # FRED series 每个单独 fire（B-31）；query 纯 series_id，禁中文/混合语言（N-8/红线 3）
-2. metrics(query="DGS10", limit=5)
-3. metrics(query="DGS30", limit=5)
-4. metrics(query="^VIX 行情", asset_type="tradfi")   # market ticker 不与 FRED series 混批（红线 4）
+1. metrics(keywords=["DGS2","DGS10","DGS30"], categories=["macro"], limit=5)        # 国债收益率，5 条 = 近 5 个交易日
+2. metrics(keywords=["^VIX","DXUSD","CLUSD","BZUSD"], query="行情", asset_type="tradfi")   # VIX / 美元指数 / WTI / 布油
+3. metrics(query="economic calendar", country="US", date_from="<今天>", date_to="<今天+7天>", limit=50)
+4. metrics(query="most active stocks", asset_type="tradfi", limit=30)               # 成交最活跃 30 只
 ```
+- 经济日历**必须传 `country="US"`**，不传返回的是韩国、印度等地的事件。query 里不要写"本周"。噪音很多（国债拍卖、EIA 周报、官员讲话），只保留 `impact` 为 High 或 Medium 的行；`has_more:true` 时用 `meta.pagination` 里的 `next_cursor` 翻页。
 
-**Batch 2：商品/美元 + 日历 + 涨跌榜 + 新闻（4 个并行）**
+**Batch 2：涨跌榜 + 新闻**
 ```
-5. metrics(query="USO DXUSD "+watchlist+" 行情", asset_type="tradfi")   # 🔄 BZUSD 已失效；每批 ≤5 symbol（静默截断无 warning），调用后核对 meta.filters_applied.keywords 差集
-6. metrics(query="economic calendar", country="US")   # ⚠️ N-32：必须传 country="US" 否则返非美事件；别带"本周"，会变 lookback 历史
-7. metrics(query="most active stocks", asset_type="tradfi", limit=30)   # 🔄 biggest gainers/losers 已弃用（返垃圾数据）
-8. news(query="<根据宏观信号选 query>", time_range="1d", limit=8)
+5. metrics(query="biggest gainers", asset_type="tradfi", limit=30)
+6. metrics(query="biggest losers",  asset_type="tradfi", limit=30)
+7. news(query="<按下方规则选>", sources=["media"], asset_type="tradfi", time_range="1d", limit=8, sort_by="relevance")
+8. news(query="stock market",    sources=["media"], asset_type="tradfi", time_range="1d", limit=8, sort_by="relevance")
 ```
+第 7 路的 query 按 Batch 1 的结果选一个最突出的信号（都不满足就用 `"Federal Reserve"`）：
+- 10 年期收益率日变化 > 5bp → `"treasury yield"`
+- VIX > 25，或日变化 > 10% → `"VIX volatility"`
+- 原油日变化 > 3% → `"oil crude"`
+- 未来 48 小时内有 High 级日历事件 → 事件名，如 `"CPI inflation"` / `"Fed FOMC"`
 
-**Batch 3：第二路新闻（+ Step 2 的补市值调用放本批）**
-```
-9. news(query="stock market", time_range="1d", limit=8)    # 泛市场第二路，避免单一主题选题偏置
-   # ⚠️ sources 数组被 schema 拒且无字符串替代（N-8）——两路 news 都只解析 articles 桶、
-   #    忽略 social 桶（news 实返 2N 条两桶，N-25）：早报要权威报道，不混 twitter 情绪；
-   #    news 实体搜索 quota=0，拆两路不增额度
-```
+`news()` 的 query 写 2-3 个核心名词，纯英文；不写"影响 / 解读 / 分析"这类词。
 
-⚠️ **`news()` query 设计**（实测验证）：
-- 2-3 个核心名词，纯英文或纯中文
-- 不写"影响 / 解读 / 分析" 等元词
-- query 选择规则：
-  - DGS10 变化 > 5bps → query="treasury yield"
-  - VIX > 25 或日变化 > 10% → query="VIX volatility"
-  - 原油日变化 > 3% → query="oil crude"
-  - 有重要日历事件 → query="<事件名>"，例 "CPI inflation" / "Fed FOMC"
-  - 地缘热点 → query="tariff trade" / "Iran"
+**Batch 3：补市值 + watchlist**（见 Step 2）
 
-### Step 2: 涨跌榜过滤（同 Skill 03）
+### Step 2: 榜单过滤
 
-mover 榜不返 marketCap，必须二次调用：
-```
-metrics(query="<gainers/losers tickers 空格拼接> 行情", asset_type="tradfi")
-# N-8：keywords 数组被拒，ticker 并入 query 串；一批 ≤5 个（静默截断无 warning），超出分批，
-# 调用后核对 meta.filters_applied.keywords 差集
+三张榜（活跃 / 涨幅 / 跌幅）的行**只有** symbol / name / price / change / changesPercentage 五个字段，没有市值也没有交易所，而且混着大量仙股和杠杆 ETF。
 
-客户端过滤:
-- exchange in ["NYSE","NASDAQ","AMEX"]
-- name 正则命中 `ETF|ETN|UltraPro|Ultra|Leveraged|\dX|Bull|Bear|Daily` 任一即剔
-  （⚠️ 只判 "ETF" 单词会漏：TQQQ/SQQQ 的 name 都不含 "ETF" 字串）
-- marketCap > $500M（市值闸为主）
-- price > $5 仅在 marketCap 不可得时兜底——实测 GRAB $3.31 但市值 $131 亿，会被价格闸误杀
-```
+1. **先按名称剔杠杆与 ETF 产品**：`name` 命中 `ETF|ETN|UltraPro|Ultra|Leveraged|\dX|Bull|Bear|Daily` 任一即剔。只判 "ETF" 一个词会漏——TQQQ（ProShares UltraPro QQQ）的名称里没有 "ETF"。
+2. **挑候选**：涨幅榜、跌幅榜各取 `price ≥ 5` 的前 5 只；活跃榜取 `|changesPercentage| ≥ 3%` 的前 5 只。去重后通常 ≤15 只。这一步的价格闸只是为了少发几次补市值调用，漏掉的低价大盘股由活跃榜兜住。
+3. **补市值和交易所**，每批 ≤5 个：
+   ```
+   metrics(keywords=[<T1>…<T5>], query="行情", asset_type="tradfi")
+   ```
+   快照行带 `marketCap` 和 `exchange`。涨跌百分比用 `change ÷ previousClose × 100` 自己算——**快照的 `change` 是美元变动量，不是百分比**。
+4. **终筛**：`marketCap > 5 亿美元` 且 `exchange` 属于 NYSE / NASDAQ / AMEX。
+5. watchlist（如果传了）同样每批 ≤5 个取快照。
 
 ### Step 3: 分析与聚合
 
-1. **宏观环境**：
-   - 10Y-2Y 利差（正/负 = 正常/倒挂）
-   - VIX 水平（<15 低 / 15-25 正常 / 25-35 偏高 / >35 恐慌）
-   - 原油 + 美元趋势方向
-
-2. **新闻热点**：
-   - 两路 news（信号驱动 + 泛市场）合并后再多源去重（⚠️ 2026-08-04 实测 news 返回**无 cluster_id 字段**，可用字段仅 title/source_url/source_name/published_ts——按 `source_url` 去重 + 标题近似判重）
-   - 提取 top 3 热门话题（不要只从单一 query 的结果选题）
-   - Claude 推断每篇情绪聚合
-
-3. **Watchlist + 异动**：
-   - watchlist 涨跌 > 2% 标异动
-   - 大盘涨跌榜过滤后保留
-   - watchlist × 新闻 tags 交叉匹配
+1. **宏观环境**
+   - 10Y−2Y 利差（正 = 正常，负 = 倒挂）
+   - VIX 水平：<15 低 / 15-25 正常 / 25-35 偏高 / >35 恐慌
+   - 原油、美元的日变化方向
+2. **新闻热点**
+   - 两路 news 合并后按 `source_url` 去重，标题高度相似的也并成一条（返回里没有聚类 id 字段）
+   - 归纳出 3 个最热的话题，不要只从其中一路的结果里选
+   - 逐篇判断情绪，标"Claude 推断"
+3. **Watchlist 与异动**
+   - watchlist 涨跌超过 2% 的标出来，并在新闻标题和正文里找有没有提到它
 
 ### Step 4: 输出报告
 
@@ -124,25 +98,23 @@ metrics(query="<gainers/losers tickers 空格拼接> 行情", asset_type="tradfi
 ## 📊 财经早报 [日期]
 
 ### 宏观环境
-| 指标 | 值 | 数据日期 |
-|---|---|---|
-| 10Y 国债 | X.XX% | YYYY-MM-DD |
-| 2Y 国债 | X.XX% | YYYY-MM-DD |
-| 利差 | XXbps | 正常 / 倒挂 |
-| VIX | XX.X | 最近收盘 / 实时（按 _quote_session 判）|
-| WTI（USO 代理）| $XX.XX | 非现货价；最近收盘 / 实时（按 _quote_session 判）|
-| 美元指数 | XXX.X | 最近收盘 / 实时（按 _quote_session 判）|
+| 指标 | 值 | 日变化 | 数据时点 |
+|---|---|---|---|
+| 10Y 国债 | X.XX% | ±Xbp | YYYY-MM-DD |
+| 2Y 国债 | X.XX% | ±Xbp | YYYY-MM-DD |
+| 10Y−2Y 利差 | XXbp | 正常 / 倒挂 | |
+| VIX | XX.X | | 最近收盘 / 实时 |
+| WTI 原油 | $XX.XX | ±X.X% | |
+| 布伦特原油 | $XX.XX | ±X.X% | |
+| 美元指数 | XXX.X | ±X.X% | |
 
-> ⚠️ N-48 判据：早报跑在盘前时，metrics 返回的是**上一个 regular 收盘**（`_quote_session:"regular_inactive"` + `_quote_cache:"last_regular"`）——只有交易时段才标"实时"，否则一律标"最近收盘"；盘后/盘前的真实价以新闻为准。
-> ⚠️ N-30：布油 BZUSD 已失效；USO 是 WTI 近月期货 ETF 代理指标，引用须说明口径。
-
-### 📅 本周经济日历
+### 📅 未来 7 天经济日历（美国）
 | 日期 | 事件 | 预期 | 前值 | 重要性 |
 |---|---|---|---|---|
 
 ### 🔥 今日热点 (Top 3)
 1. [话题] — N 家媒体报道
-   情绪判断: [正面 / 负面 / 中性]
+   情绪（Claude 推断）: [正面 / 负面 / 中性]
    代表: "[标题]" — [来源]
 2. ...
 3. ...
@@ -150,38 +122,31 @@ metrics(query="<gainers/losers tickers 空格拼接> 行情", asset_type="tradfi
 ### 📈 Watchlist 异动
 | Ticker | 价格 | 涨跌% | 相关新闻 |
 |---|---|---|---|
+（没传 watchlist 时整节省略）
 
-### 🏆 市场涨跌榜（已过滤市值 <$500M + 杠杆 ETF）
-涨幅前 5: ...
-跌幅前 5: ...
+### 🏆 大市值异动（市值 > 5 亿美元，已剔除杠杆产品）
+涨幅居前: ...
+跌幅居前: ...
+成交活跃且波动 > 3%: ...
 
-> 如过滤后 <3 个，注"今日大市值股无极端异动"
+> 过滤后不足 3 只时写"今日大市值股无极端异动"，不要放宽门槛凑数。
 
 ### 情绪分布
 正面: XX 篇 | 中性: XX 篇 | 负面: XX 篇
-整体市场情绪: [偏乐观 / 中性 / 偏悲观]
+整体市场情绪（Claude 推断）: [偏乐观 / 中性 / 偏悲观]
 
 ### ⚠️ 值得关注
 - [交叉分析洞察]
 - [即将发布的重要数据提醒]
+
+### 数据缺口
+- [没取到的指标及原因；没有就写"无"]
 ```
 
-## 注意事项（v2 — Followin MCP）
+## 输出约束
 
-- 🔒 美股调用必须带 `asset_type="tradfi"`（除 BTC/ETH 等 crypto symbol）
-- ⚠️ **`news()` 不要传 asset_type**（实测加 tradfi 返 0 results）
-- 🔄 **mover 榜改用 `query="most active stocks"`**：`biggest gainers/losers` 已弃用（实测返 VYNE +2656%、"Fidelity 短期债券 ETF" +2009% 等垃圾数据）。异动榜同样**不返 marketCap**（不要传 `min_market_cap` — 上游 null 会被全屠），必须二次调用补
-- ⚠️ **杠杆 ETF 污染**：过滤正则用 `name` 命中 `ETF|ETN|UltraPro|Ultra|Leveraged|\dX|Bull|Bear|Daily` 任一即剔 —— ⚠️ **不要只判 "ETF" 单词**，实测 `ProShares UltraPro QQQ`(TQQQ) / `ProShares - UltraPro Short QQQ`(SQQQ) 的 name 都不含 "ETF" 字串
-- ⚠️ **经济日历必须传 `country="US"`**，否则返回 CN/JO/KR/MY 等非美事件（N-32）；国债 series_id 直查可用，但 **VIX / 美元等行情在盘前返回的是上一 regular 收盘（N-48）**，不要标"实时"（按 `_quote_session` 判）
-- ❌ **布油 `BZUSD` 已失效**（2026-07-27 实测：query 串里被静默丢弃，不报错也不返数据——原"100% 命中"的记载已过期）。原油改用 `USO`（WTI 近月期货 ETF 代理，非现货价，引用须说明口径）
-- ✅ **FRED 字典未命中走 fred_search_fallback** → 改用 `query="<series_id>"`（纯 series_id 串）兜底
-- ⚠️ **B-31/红线 4 边界**：FRED macro series **不要批量**（静默丢条目），DGS2/DGS10 等各自单独 fire，且不与 market ticker 混批；market 行情快照可批量但**上限 5 个**（走 query 串时超出被**静默截断且无任何 warning**——旧"10 个 + `keyword_count_over_max` warning"是 keywords 数组时代行为，已失效）；watchlist 长时分批并核对 `meta.filters_applied.keywords` 差集
-- 避免高并发：单批 ≤ 4 防 SSE 挂
-
-## 输出约束（保留 v1）
-
-- 数据来源透明（每个指标标 source）
-- 不喊单 / 不预测
-- 数字不编（用"约/接近"弱化）
-- 经济日历事件标重要性 ⭐
+- 每个数字都要有来源和数据时点；**取不到就写"数据不可用"，不要用"约 / 接近"带过，更不要凭印象填**
+- 行情在非交易时段标"最近收盘"
+- 不喊单，不预测
+- 经济日历按 `impact` 标重要性
 - 多源同事件合并去重
