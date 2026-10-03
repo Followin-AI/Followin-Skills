@@ -25,13 +25,13 @@ args: 可选：关注标的（最多 5 只）、社群时区（默认北京时�
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
-| 1 | `metrics(query="SPY QQQ DIA VIX 行情", asset_type="tradfi")` 市场底色四标的日线收盘（若 `time_range=7d` 返回小时线，改 30 日区间日线重跑一次 +1） | 1–2 |
-| 2 | `news(query="<事件关键词>", time_range="7d")` 本周主线事件，必要时换关键词补查 ≤3 次（搜索模式不传 asset_type，红线 1） | 0（实测） |
-| 3 | 关注标的逐批（≤5 只）`metrics(query="<T1> <T2> … next earnings date", asset_type="tradfi")` 查下次财报日期 | ⌈N/5⌉ |
-| 4 | `metrics(query="economic calendar upcoming releases")` 下周经济日历（非个股查询不传 asset_type；query 严禁带"本周"，红线 10） | 1 |
-| 5 | （可选）`signal(query="consensus", asset_type="tradfi", time_range="7d")` 选择性信号 | 0–1 |
+| 1 | `metrics(keywords=["SPY","QQQ","DIA","^VIX"], query="历史走势", time_range="30d", asset_type="tradfi")` 市场底色四标的日线收盘（2026-10-01 实测 `time_range="7d"` 返回的是小时线，直接用 30 日区间取日线；VIX 写 `^VIX`） | 1–2 |
+| 2 | `news(query="<事件关键词>", asset_type="tradfi", time_range="7d")` 本周主线事件，必要时换关键词补查 ≤3 次（要权威报道加 `sources=["media"], sort_by="relevance"`） | 0（实测） |
+| 3 | 关注标的逐批（≤5 只）`metrics(keywords=["<T1>",…,"<T5>"], query="next earnings date", asset_type="tradfi")` 查下次财报日期；可另调市场级日历 `metrics(query="earnings calendar", asset_type="tradfi", country="US", date_from, date_to)` 补漏（恒为 `status:"partial"`，不保证全） | ⌈N/5⌉＋0–1 |
+| 4 | `metrics(query="economic calendar upcoming releases", country="US")` 下周经济日历（**`country="US"` 必传**，不传返回韩国 / 印度等地事件；query 严禁带"本周"，红线 10） | 1 |
+| 5 | （可选）`signal(categories=["kol_call"], query="consensus", asset_type="tradfi")` 选择性信号（**喊单上游只覆盖最近 24 小时**，传 `time_range="7d"` 返回的仍是 24h 口径并标 `partial`） | 0–1 |
 
-> 调用形态（N-8／红线 4）：`keywords=[...]` 等数组入参已被 tool schema 拒，任何客户端均不可用，一律走 query 空格拼串；批量上限 **5 个**，超出被**静默截断且无任何 warning**，调用后必须拿请求列表与 `meta.filters_applied.keywords` 做差集自查，缺的分批补。
+> 调用形态（2026-10-01 实测）：标的放 `keywords` 数组、意图词放 `query`、信号类别放 `categories`。每次最多 **5 个** keywords，超出或解析不了的项写在 `meta.warnings`，调用后读一遍，缺的分批补。客户端不接受数组入参（报 `-32602`）时，美股代码可退回 query 空格拼串。
 
 ## 执行流程
 
@@ -45,7 +45,7 @@ args: 可选：关注标的（最多 5 只）、社群时区（默认北京时�
 
 用 `news` 搜索最近 7 天的重要美股事件，必要时再用公司、行业或关键词补查。选择 2–3 条同时具备“事件明确、与市场相关、能用白话说明”的主线。
 
-财报以 `metrics` 的 Beat/Miss、营收、EPS、指引等结构化字段为准，新闻只补背景。不得使用市场级财报日历当素材，也不得把未经价格验证的新闻涨跌幅写入正文。
+财报以 `metrics` 的结构化字段为准（`fiscal_quarters[0].earnings_surprise` 的实际 / 预期 EPS 与营收、`financial_statement` 的营收与净利），新闻只补背景。市场级财报日历只能补漏、不能当"本周财报全貌"，也不得把未经价格验证的新闻涨跌幅写入正文。
 
 ### 3. 下周已确认事项
 
@@ -57,7 +57,7 @@ args: 可选：关注标的（最多 5 只）、社群时区（默认北京时�
 
 `signal` 只作加分素材，不是必填。
 
-- KOL：若 `time_range=7d` 未被完整支持，只能写“近日”，不可写“近 7 天”；没有可追溯聚合计数就略过。
+- KOL：喊单上游只覆盖最近 24 小时（2026-10-01 实测），只能写“近一日”，不可写“近 7 天”；没有可追溯聚合计数就略过。
 - 交易员仓位：至少 2 位活跃交易员，且每一笔引用均有非空名义金额，才可写方向或合计；任一条件不符即略过。
 - 内部人：只采用 P（买入）与 S（卖出）等可辨识交易；其他类型不延伸解读。
 

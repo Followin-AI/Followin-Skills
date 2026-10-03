@@ -26,30 +26,33 @@ args: form(A=温度计 | B=讯号汇总，默认 A；说「汇总」「交易员
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
-| 1 | `signal(query="consensus", asset_type="tradfi", time_range="3d")` 无 categories 一次拿全四类（新 caveat N-4） | 1 |
-| 2 | 对喊单榜 Top 3-5 逐个 `signal(query="<TICKER> 详细仓位", asset_type="tradfi", time_range="7d")` 四维钻取（实测 ticker 经 query 正确解析进 keywords；query 禁放"KOL"等元词） | 各 1 |
-| 3 | （可选）`news(query="<TICKER> <公司名>", time_range="24h")` 补推特层原文 | 0（实测） |
+| 1 | `signal(categories=["kol_call"], query="consensus", asset_type="tradfi")` 喊单聚合榜（总帖数 / 多空比 / top_calls） | 1 |
+| 2 | 对喊单榜 Top 3-5 逐个 `signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional","trader_position"], asset_type="tradfi")` 四维钻取（**不带 time_range**；四类一次调用仍只计 1 额度） | 各 1 |
+| 3 | （可选）`news(query="<TICKER> <公司名>", sources=["twitter"], asset_type="tradfi", time_range="24h")` 补推特层原文 | 0（实测） |
 
-步骤 1 的"全四类"对应 signal 工具本身的四个类别：kol_call（喊单）、trader_position（实盘持仓）、insider_trading（内部人+国会议员交易）、institutional（13F 机构持仓）——不带 categories 参数即为默认 fanout，一次拿全四类仍只计 1 额度（N-4）。步骤 1 的 time_range="3d" 只用于总览段的喊单聚合榜快照，步骤 2 对选中标的深挖时用 7d 窗口。⚠️ N-13：consensus 聚合疑似对 time_range 不敏感（实测 3d 与 24h 四次调用返回的 total_posts/多空比/榜单完全一致）——窗口参数可能不生效，勿据窗口差异做语义设计；对外表述窗口用词一律保守（写「近幾日」，不写精确小时数/天数）。
+signal 工具有四个类别：kol_call（喊单）、trader_position（实盘持仓）、insider_trading（内部人+国会议员交易）、institutional（13F 机构持仓）。**2026-10-01 实测三点，旧 N-4"不带 categories 一次拿全四类"已失效**：① 不传 categories 的 `query="consensus"` 只返 kol_call 一类；只传 ticker 不传 categories 返回空（`no_match`）——所以步骤 2 必须显式列出四类，一次调用仍只计 1 额度。② **喊单上游只覆盖最近 24 小时**：传 `time_range="3d"` / `"7d"` 返回的仍是 24h 口径并标 `partial`（warning 原文：`KOL upstream covers only the latest 24 hours`），这也解释了旧 N-13"3d 与 24h 结果完全一致"。对外表述一律写「近一日」，不写「本週」「近 7 天」。③ **四维钻取不要带 time_range**：13F 是季度数据，带窗口会被整类拒绝（`parameter_unsupported`）；内部人按 transactionDate 过滤后窗口内没有就整类消失。内部人的时间窗口改在客户端按 `transactionDate` 过滤。
 
-frontmatter 的 mcp 声明含 `mcp__followin__metrics`，但上表三步核心序列本身不调用它——若运营想在温度计贴文里额外给某标的加一行即时价格/涨跌幅做视觉锚点，可选调用 `metrics(query="<TICKER>", asset_type="tradfi")` 补一次快照（不计入标称额度 ≈4-6/周，需另计 1 点）；没有这类展示需求时，三步核心序列完全不需要 metrics。
+步骤 2 返回的 kol_call 行**不会按 ticker 过滤干净**（实测查 MU 混入 NBIS / NOW / CTKB 的帖子）——写作前必须按 `symbol == <TICKER>` 自行筛行。trader_position 在多数美股上没有数据（实测 MU / SNDK 均不返回该类），返回里没有这一类就是没有，「真金白銀」格按第 3 节的降级规则处理。
+
+frontmatter 的 mcp 声明含 `mcp__followin__metrics`，但上表三步核心序列本身不调用它——若运营想在温度计贴文里额外给某标的加一行即时价格/涨跌幅做视觉锚点，可选调用 `metrics(keywords=["<TICKER>"], query="行情", asset_type="tradfi")` 补一次快照（快照没有涨跌幅字段，自算 `change ÷ previousClose × 100`）（不计入标称额度 ≈4-6/周，需另计 1 点）；没有这类展示需求时，三步核心序列完全不需要 metrics。
 
 调用形态铁律（本序列全程通用）：
 
-> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-08-04 复核仍复现，N-8）**：`keywords/categories/sources` 等数组参数被 tool schema 拒（连环 -32602；schema 中这些入参无类型，**任何客户端均不可用**）。所有调用一律以 **query 自然语言/空格拼串为唯一形态**（服务端自解析成 keywords，`meta.filters_applied.keywords` 可验证）。批量上限 **≤5**（红线 4/N-23）：超出被**静默截断到 5 且无任何 warning**（旧记载的 `keyword_count_over_max` warning 已不存在），调用后必须拿请求列表与 `filters_applied.keywords`（及 `snapshot[].symbol`）做差集自查，缺的分批补。降级梯：① query 串批量（≤5）→ ② 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+> **调用形态（2026-10-01 实测，取代 2026-07-20 的"数组被拒、只能 query 串"铁律）**：入参分工是 **`keywords` 数组放标的、`query` 放意图词、`categories` 指定类别**。`signal` 现在必须显式传 `categories`——只传 ticker 不再自动展开四类，返回空并带 `no_match`。每次调用最多 5 个 keywords，超出或解析不了的项写在 `meta.warnings`，**调用后读一遍**，缺的分批补。单批并行 ≤4 路（SSE 红线）。客户端不接受数组入参（报 `-32602`）时，可退回 `query="<TICKER> consensus"` 这类拼串（实测仍能解析），但四维钻取没有等价的 query 串写法。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
 
 每步 query 主形态调用示例：
 
 ```
-1. signal(query="consensus", asset_type="tradfi", time_range="3d")
-   # 无 categories 一次 fanout 全四类（kol_call/trader_position/insider_trading/institutional），仍只计 1 额度（N-4）
+1. signal(categories=["kol_call"], query="consensus", asset_type="tradfi")
+   # 喊单聚合榜，1 额度；口径是最近 24 小时
 
-2. signal(query="<TICKER> 详细仓位", asset_type="tradfi", time_range="7d")
-   # 对步骤 1 喊单榜 Top 3-5 逐个钻取，温度计三格的素材皆出自这一步；query 禁放"KOL"等元词——会被解析成 crypto 关键词，实测空返（防坑镜像见第 3 节）
+2. signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional","trader_position"], asset_type="tradfi")
+   # 对步骤 1 喊单榜 Top 3-5 逐个钻取，温度计三格的素材皆出自这一步；不带 time_range；
+   # kol_call 行按 symbol == <TICKER> 自行筛；要更完整的原帖可加 query="详细仓位"
    # Top 5 时按 SSE 红线单批 ≤4 路，拆成 4+1 两批并行
 
-3. news(query="<TICKER> <公司名>", time_range="24h")
-   # 可选，补推特层喊单帖原文；quota=0（实测）；搜索模式不传 asset_type（红线 1）
+3. news(query="<TICKER> <公司名>", sources=["twitter"], asset_type="tradfi", time_range="24h")
+   # 可选，补推特层喊单帖原文；quota=0（实测）
 ```
 
 ## 2. 产出模板：温度计三格
@@ -118,8 +121,8 @@ MU 溫度計
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
-| 1 | `signal(query="consensus", asset_type="tradfi", time_range="24h")` 拿聚合口径（总帖数/多空比/Top5 标的） | 1 |
-| 2 | `signal(query="详细仓位", asset_type="tradfi", time_range="24h", limit=20)` **不带 ticker** → 全市场原帖 | 1 |
+| 1 | `signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")` 拿聚合口径（总帖数/多空比/Top5 标的） | 1 |
+| 2 | `signal(categories=["kol_call"], query="详细仓位", asset_type="tradfi", time_range="24h", limit=20)` **不带 ticker** → 全市场原帖（实测会带 `status:"partial"`：候选条数先到上限，24h 窗口未必扫全） | 1 |
 
 **步骤 2 的输出会非常大（实测 2026-07-23：13.7 万字符），禁止直接读入上下文**（N-20）。正确做法是客户端脚本聚合后只保留结构化摘要：按 `source_url` 去重（N-5：一条帖子会按提及的每个标的裂成多行，实测 139 行 → 96 条独立帖）→ 按 `symbol` 分组统计多空 → 提取 `conviction`/`target_price`/`is_recommended`/`kol_info.tier` → 只把摘要交给写作层。
 
@@ -168,7 +171,7 @@ MU 溫度計
 - **喊单 ≠ 研报**：本形态出现的目标价一律标明是喊单者自己给的；与 c3 的券商目标价不能混排、不能合并计算区间。
 - **喊单 ≠ 实盘**：结尾第 ③ 条提醒为必带项。当期实盘数据薄时（实测 2026-07-23：谷歌特斯拉财报夜当晚，美股实盘零仓位）必须点明，这是对"跟单"最有效的降温。
 - **一面倒要说破**：某标的 N 多 0 空时，不能只写"市场看多"，要写"沒有任何一則看空——這種一面倒本身就值得留意"（S-5 多空平衡在本形态的执行方式）。
-- **窗口用词保守（N-13）**：consensus 聚合对 time_range 不敏感（实测 3d 与 24h 返回逐字相同），贴文里的时间表述一律写「近幾日」，不写"24 小時內"这类精确窗口。
+- **窗口用词（2026-10-01 实测更正 N-13）**：喊单上游只覆盖最近 24 小时，传 3d / 7d 返回的仍是 24h 口径（响应会标 `partial` 并写明原因）。贴文里推特情绪的时间表述写「近一日」；标题里的「本週」只指发布节奏，**正文不得把 24h 的喊单计数写成「本週 N 帖」**。
 - 分级、去重、13F 禁环比等其余规则同第 3 节，两形态通用。
 
 ## 3. 防坑镜像

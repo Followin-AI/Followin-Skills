@@ -60,20 +60,20 @@ http_headers = { "x-api-key" = "YOUR_API_KEY_HERE" }
 
 ## SSOT 红线内联
 
-- **数组参数全域被拒（N-8）**：`keywords`/`categories`/`sources` 一律走 `query` 自然语言串，服务端自解析。
+- **入参分工（2026-10-01 实测，N-105）**：标的放 `keywords` 数组，意图词放 `query`，信号类别放 `categories`，新闻来源放 `sources`。指数（`^GSPC` 等）与商品代码（`GCUSD` / `CLUSD` 等）**只能走数组**——商品代码写进 query 串整批返空且不报错。客户端不接受数组入参（报 `-32602`）时，美股代码可退回 query 空格拼串。
 - **批量 ≤5 个 symbol/次；SSE 并发 ≤4 路/批**（红线 2）。
-- **失败会静默**：把请求 symbol 列表与返回行、`meta.filters_applied` 做差集自查，差集非空即部分失败。
+- **调用后读 `meta.warnings`**：超出 5 个或解析不了的 symbol 会报 `keyword_count_over_max` / `kw_not_canonical`；个别代码仍会被静默丢弃（实测 `^DXY` 无任何提示，美元指数用 `DXUSD`），所以再把请求列表与返回行做一次差集，差集非空即部分失败。
 
 ## Followin 调用顺序
 
-所有美股结构化调用都传 `asset_type="tradfi"`；`news` 不传 `asset_type`。
+所有美股调用都传 `asset_type="tradfi"`（`news` 也可以传——2026-10-01 实测正常返回，旧"传了返 0 篇"已不复现）。
 
-1. **`metrics` 市场层**：指数或 ETF 市场背景、自选股当前价/最近收盘、涨跌、成交量、历史走势与技术指标。
-2. **`metrics` 基本面层**：近期财报、下一次财报日期、估值、分析师评级与结构化研报。
+1. **`metrics` 市场层**：`metrics(keywords=[≤5 个], query="行情", asset_type="tradfi")` 取指数或 ETF 市场背景、自选股当前价/最近收盘、涨跌、成交量；历史走势用 `query="历史走势"` + `time_range`，技术指标用 `query="均线 指标"`。
+2. **`metrics` 基本面层**：`metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_type="tradfi")` 一次拿快照、最新一季财报（`fiscal_quarters[0].earnings_surprise` / `financial_statement`）、下一次财报日期（`next_earnings_estimate.date`）与分析师评级；估值比率在不写 query 的默认返回里（`valuation_block.ratios_ttm`）。
 3. **`news(query="<主题词>", time_range="24h"~"7d", limit=N)`**：最近 24 小时到 7 天的重大新闻、公告与催化。返回是 articles + social 两桶（实际约 2N 条，N-25）。
 4. **`news(query="<标的/主题词>", time_range=…, limit=N)`**：市场级或标的级社媒热度看返回里的 **social 桶**；按原帖 URL 去重后再统计。
-5. **结构化研报改走 `metrics(query="<TICKER> research reports", asset_type="tradfi", date_from=…, date_to=…)`**（红线 12：query 必含研报意图词；news 侧的 `sources` 数组没有字符串替代形态）。目标价、评级和结构化 thesis 仍以 `metrics` 为准。
-6. **`signal`**：省略 `categories`，一次 fanout 获取可用的内部人、13F 与 KOL 喊单；只解读实际返回的类别。
+5. **结构化研报走 `metrics(keywords=["<TICKER>"], query="research reports", asset_type="tradfi", date_from=…, date_to=…)`**（红线 12：query 必含研报意图词）。目标价、评级和结构化 thesis 仍以 `metrics` 为准。
+6. **`signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional"], asset_type="tradfi")`**：**必须显式列出 `categories`**（2026-10-01 实测：省略后只传 ticker 返回空），三类一次调用仍只计 1 额度；不带 `time_range`（13F 带窗口会被拒，喊单上游只覆盖最近 24 小时）；喊单行按 `symbol` 自行筛，内部人按 `transactionDate` 自行过滤。只解读实际返回的类别。
 7. **`twitter`**：仅在用户点名账号、指定推文或需要原始线程时使用，不拿它替代一般社媒搜索。
 8. **`subscription`**：用户要求维护 KOL 喊单关注收件箱时使用。它是拉取式未读箱，不是服务端主动推送。
 

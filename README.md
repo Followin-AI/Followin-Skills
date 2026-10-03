@@ -92,9 +92,10 @@ Skills are written in Claude Code's slash-command format (YAML frontmatter + Mar
 
 **Conventions that matter:**
 
-- US stocks are `asset_type="tradfi"`, crypto is `asset_type="crypto"` — always explicit. The one exception is `news()`, which should not receive it at all.
-- **Structured broker research (研报) goes through `metrics`, not `news`.** `news(sources=["research"])` is for raw research-source *article* discovery; report cards, target prices, and thesis/catalyst fields come from `metrics` with an explicit research intent in the query (e.g. `query="<T> research reports"` — red line 12; array params like `categories=[...]` are rejected by the schema, N-8).
-- **Omitting `categories` on `signal()` fans out** to insider trading + 13F institutional + KOL calls for a single quota unit — cheaper than three filtered calls returning the same data.
+- US stocks are `asset_type="tradfi"`, crypto is `asset_type="crypto"` — always explicit, `news()` included (the old "never pass it to `news()`" exception was retired after the 2026-10-01 re-test).
+- **Entities go in the `keywords` array, intent goes in `query`** (e.g. `metrics(keywords=["GCUSD","CLUSD"], query="行情", asset_type="tradfi")`). Packing `*USD` commodity codes into the `query` string silently returns nothing — caveats N-105 / N-106.
+- **Structured broker research (研报) goes through `metrics`, not `news`.** `news(sources=["research"])` is for raw research-source *article* discovery; report cards, target prices, and thesis/catalyst fields come from `metrics` with an explicit research intent in the query (e.g. `metrics(keywords=["<T>"], query="research reports")` — red line 12).
+- **`signal()` needs explicit `categories`.** A bare ticker no longer fans out (it returns `no_match`); list the categories you want — `categories=["kol_call","insider_trading","institutional"]` in one call still costs a single quota unit (caveats N-113).
 
 Full call red-lines and the known-issues register live in [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md).
 
@@ -308,7 +309,7 @@ Similar-sounding requests go to different skills:
 | `Crypto watchlist report` / `每天早晚跟踪我的自选币` | [Crypto Watchlist Tracker](./Crypto%20Watchlist%20Tracker/) (standalone) | Crypto watchlist + project events + market/technical data + KOL/trader signals + 09:00/21:00 updates |
 | `Can I trust this target` / `研报解读` | [r1 Cross-Source Readout](./Research%20Reader/r1_cross-source-readout.md) | Report call + four-way collision; "what does the report say" routes to c3 |
 | `Is this report solid` / `基准是谁` | [r2 Caveat Audit](./Research%20Reader/r2_research-caveat-audit.md) | Audits the foundation, never restates the conclusion |
-| `What catalysts are next` / `接下来盯什么` | [r3 Catalyst Timeline](./Research%20Reader/r3_catalyst-timeline.md) | Report-named checkpoints; "when does X report earnings" does **not** route here (calendar is unusable — caveats N-22) |
+| `What catalysts are next` / `接下来盯什么` | [r3 Catalyst Timeline](./Research%20Reader/r3_catalyst-timeline.md) | Report-named checkpoints; "when does X report earnings" does **not** route here (use `next_earnings_estimate`; the earnings calendar is back but partial — caveats N-114) |
 | `Who is long SNDK` / `谁在做 SNDK` · `钱在挤哪` | [Live Position Diligence](./Trader%20Diligence/live-position-diligence.md) | Real-money perp positions + trader track record, with six gates (ghost-position filter first). **Not** a copy-trade ledger |
 | `Who is the sell-side covering` / `谁被研报提得最多` | [r0 Coverage Radar](./Research%20Reader/r0_coverage-radar.md) | **No-ticker discovery** for research; default 7d window + cumulative contrast, mandatory subject/mention probe, no direction |
 | `Gold macro` / `黄金宏观` | 05 Gold Dashboard | Asset-specific macro score (gold) |

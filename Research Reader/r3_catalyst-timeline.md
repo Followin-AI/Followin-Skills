@@ -1,6 +1,6 @@
 ---
 name: Research Catalyst Timeline (r3 — 研报催化剂时间线)
-description: 把卖方研报里点名的催化剂抽出来，按标准化时间键排成一条前瞻时间线。回答"接下来该盯什么、什么时候"。研报独有——公开财报日历给不了产品周期、竞品发布会、融资节点这类事件，何况上游财报日历本身已被实测判废。输出按精度分桶，粗粒度的照实标粗。
+description: 把卖方研报里点名的催化剂抽出来，按标准化时间键排成一条前瞻时间线。回答"接下来该盯什么、什么时候"。研报独有——公开财报日历给不了产品周期、竞品发布会、融资节点这类事件，上游财报日历也只列财报日（且覆盖不全）。输出按精度分桶，粗粒度的照实标粗。
 trigger: 催化剂、接下来看什么、有什么事件、前瞻日历、时间线、什么时候有变化、盯什么节点、catalyst、catalyst timeline
 not_trigger: 财报日期是哪天（→ Base 02 / 关注池核实）、研报讲了什么（→ Community c3）、跨源印证（→ r1）、口径审计（→ r2）、经济数据日历（→ Base 06）
 mcp: mcp__followin__metrics
@@ -13,7 +13,7 @@ args: ticker(必填，可多个，每个 1 额度), horizon(可选，默认 180d
 
 > **版本**：v1.0 ｜ **实测验证于 2026-07-29**（NVDA 10 篇 20 条催化剂全量统计）
 >
-> 📌 **这支 Skill 补的是一个真实的洞**：上游 `earnings_calendar` 已被实测判废（N-22——服务端等效 `ORDER BY date, symbol LIMIT 50` 且不尊重 `limit`，字母序让 GOOGL/MSFT/NVDA/TSLA 在密集日必然出局；2026-07-22 那天的 50 行里**无后缀美股 = 0 只**）。
+> 📌 **这支 Skill 补的是一个真实的洞**：上游财报日历（`metrics(query="earnings calendar", asset_type="tradfi", country="US", date_from, date_to)`）2026-10-01 实测已恢复返回美股代码（N-114，N-22 销案），但它**只有财报日**，且响应恒带 `status:"partial"`、覆盖不保证全——产品量产、竞品发布会、融资付款这类节点它一个都没有。
 > 研报催化剂是另一条独立的前瞻腿，且覆盖**产品周期 / 竞品发布会 / 融资节点 / 客户导入**这些日历根本没有的类别。
 
 ## 参数
@@ -49,7 +49,7 @@ args: ticker(必填，可多个，每个 1 额度), horizon(可选，默认 180d
 | 用户说的 | 走哪 |
 |---------|------|
 | 接下来盯什么、有什么催化剂 | ✅ 本 Skill |
-| XX 什么时候发财报 | ❌ 走 `fundamentals.next_earnings_estimate.date` 对关注池逐个核实（N-22：**绝不可用日历做全市场发现**）|
+| XX 什么时候发财报 | ❌ 走 `metrics(keywords=["<T>"], query="next earnings date", asset_type="tradfi")` 的 `next_earnings_estimate.date` 逐个核实；市场级财报日历可作补漏腿，但恒为 partial，不能当全市场清单（N-114）|
 | 研报讲了什么 | ❌ 转 `Community Skill/c3_research-hot` |
 | 这个目标价能信吗 | ❌ 转 [`r1_cross-source-readout`](./r1_cross-source-readout.md) |
 
@@ -60,7 +60,7 @@ args: ticker(必填，可多个，每个 1 额度), horizon(可选，默认 180d
 ### 步骤 1 · 拉报告
 
 ```
-metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradfi")
+metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", asset_type="tradfi")
 ```
 
 > 🔴 **取数前先认块（N-86，2026-08-12 实测）**：解析层会静默扩展出额外候选 ticker，**每个候选都是一个平级结果块，顺序不保证主匹配在前**（实测 `ASML.AS` 的 `[0]` 是空块、数据在 `[1]`）。

@@ -23,29 +23,30 @@ args: ticker(必填)
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
-| 1 | `metrics(query="<TICKER> price target analyst ratings", asset_type="tradfi")` 快照 + 分析师共识（中位/最高/最低目标价；家数由 `analyst_grades` 去重估算，N-16） | 1 |
-| 2 | `news(query="<TICKER> <公司名>", time_range="7d", limit=5)` 近期新闻要点 | 0（实测） |
-| 3 | （可选，热议标的才加）`signal(query="<TICKER> 详细仓位", …)` 内部人/喊单/实盘温度 | 1 |
+| 1 | `metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_type="tradfi")` 快照 + 分析师共识（中位/最高/最低目标价；家数由 `analyst_grades` 去重估算，N-16） | 1 |
+| 2 | `news(query="<TICKER> <公司名>", asset_type="tradfi", time_range="7d", limit=5)` 近期新闻要点 | 0（实测） |
+| 3 | （可选，热议标的才加）`signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional","trader_position"], asset_type="tradfi")` 内部人/喊单/实盘温度 | 1 |
 
 步骤 3 只在标的本身是"热议标的"时才加跑——比如触发本次速查正是因为群里在热议它（场景①），或步骤 1-2 的数据已经显示情绪面/新闻热度明显。单纯写贴文前的常规摸底（场景②）多数情况下两步（≈1 点）就够，不必每次都跑步骤 3。
 
-调用形态铁律（架构 §2 镜像，本序列全程通用，即 N-8 登记项的操作化版本）：
+调用形态（本序列全程通用）：
 
-> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-08-04 复核仍复现，N-8）**：`keywords/categories/sources` 等数组参数被 tool schema 拒（连环 -32602；schema 中这些入参无类型，**任何客户端均不可用**）。所有调用一律以 **query 自然语言/空格拼串为唯一形态**（服务端自解析成 keywords，`meta.filters_applied.keywords` 可验证）。批量上限 **≤5**（红线 4/N-23）：超出被**静默截断到 5 且无任何 warning**（旧记载的 `keyword_count_over_max` warning 已不存在），调用后必须拿请求列表与 `filters_applied.keywords`（及 `snapshot[].symbol`）做差集自查，缺的分批补。降级梯：① query 串批量（≤5）→ ② 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+> **调用形态（2026-10-01 实测，取代 2026-07-20 的"数组被拒、只能 query 串"铁律）**：入参分工是 **`keywords` 数组放标的、`query` 放中文意图词、`categories` 指定类别**。`signal` 必须显式传 `categories`（只传 ticker 返回空）。调用后读一遍 `meta.warnings`。客户端不接受数组入参（报 `-32602`）时，metrics 可退回 `query="<TICKER> 行情 分析师评级 目标价"` 拼串。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
 
 每步 query 主形态调用示例：
 
 ```
-1. metrics(query="<TICKER> price target analyst ratings", asset_type="tradfi")
-   # 快照+分析师共识一次拿全：中位/最高/最低目标价（⚠️ N-16：consensus_price 无家数字段——家数由同一返回里的 analyst_grades 按 gradingCompany 去重估算并注明是估算，口径同 Research Reader/r1）；行情位置段落的"现价对 52 周区间"同样取自这次快照，不必另外调用
+1. metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_type="tradfi")
+   # 快照+分析师共识一次拿全（2026-10-01 实测：query 里必须带"行情"才返回 market.snapshot——旧写法 "price target analyst ratings" 现在只返基本面、没有快照）：中位/最高/最低目标价（⚠️ N-16：consensus_price 无家数字段——家数由同一返回里的 analyst_grades 按 gradingCompany 去重估算并注明是估算，口径同 Research Reader/r1）；行情位置段落的"现价对 52 周区间"同样取自这次快照，不必另外调用
    # 若 ticker 非美股正股（代币化/OTC/仙股/加密），本步骤按第 3 节防坑规则直接短路，不必往下跑步骤 2-3
 
-2. news(query="<TICKER> <公司名>", time_range="7d", limit=5)
-   # 搜索模式：不传 asset_type（红线 1）；quota=0（实测）；limit=5 控制返回条数，近期叙事段落只需挑 1 条最具代表性的
+2. news(query="<TICKER> <公司名>", asset_type="tradfi", time_range="7d", limit=5)
+   # 搜索模式，quota=0（实测）；limit=5 控制返回条数，近期叙事段落只需挑 1 条最具代表性的
    # ⚠️ 红线 11/N-35：news 无匹配时不返空，而是返语义兜底的不相关内容——判"该标的无报道"必须按 LLM 逐条判相关后的计数；返回里一条都不含目标公司名/ticker = 召回失败记缺口，不是"无叙事"
 
-3. signal(query="<TICKER> 详细仓位", asset_type="tradfi", time_range="7d")
-   # 可选，仅热议标的才加：内部人/喊单/实盘四维钻取，做法同 c4 步骤 2、c5 步骤 5；query 禁放"KOL"等元词——会被解析成 crypto 关键词，实测空返（防坑镜像见第 3 节）
+3. signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional","trader_position"], asset_type="tradfi")
+   # 可选，仅热议标的才加：内部人/喊单/实盘四维钻取，做法同 c4 步骤 2、c5 步骤 5
+   # 不带 time_range（13F 带窗口会被整类拒绝；喊单上游本来就只覆盖最近 24 小时）；kol_call 行按 symbol == <TICKER> 自行筛（实测会混入别的标的）
 ```
 
 ## 2. 备忘模板：内部速查（≤300 字）

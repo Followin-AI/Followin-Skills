@@ -25,13 +25,13 @@ args: 可選：關注標的（最多 5 檔）、社群時區（預設台北）
 
 | 步驟 | 調用 | 額度 |
 |---|---|---|
-| 1 | `metrics(query="SPY QQQ DIA VIX 行情", asset_type="tradfi")` 市場底色四標的日線收盤（若 `time_range=7d` 回傳小時線，改 30 日區間日線重跑一次 +1） | 1–2 |
-| 2 | `news(query="<事件關鍵詞>", time_range="7d")` 本週主線事件，必要時換關鍵詞補查 ≤3 次（搜尋模式不傳 asset_type，紅線 1） | 0（實測） |
-| 3 | 關注標的逐批（≤5 檔）`metrics(query="<T1> <T2> … next earnings date", asset_type="tradfi")` 查下次財報日期 | ⌈N/5⌉ |
-| 4 | `metrics(query="economic calendar upcoming releases")` 下週經濟日曆（非個股查詢不傳 asset_type；query 嚴禁帶「本週」，紅線 10） | 1 |
-| 5 | （可選）`signal(query="consensus", asset_type="tradfi", time_range="7d")` 選擇性訊號 | 0–1 |
+| 1 | `metrics(keywords=["SPY","QQQ","DIA","^VIX"], query="历史走势", time_range="30d", asset_type="tradfi")` 市場底色四標的日線收盤（2026-10-01 實測 `time_range="7d"` 回傳的是小時線，直接用 30 日區間取日線；VIX 寫 `^VIX`） | 1–2 |
+| 2 | `news(query="<事件關鍵詞>", asset_type="tradfi", time_range="7d")` 本週主線事件，必要時換關鍵詞補查 ≤3 次（要權威報導加 `sources=["media"], sort_by="relevance"`） | 0（實測） |
+| 3 | 關注標的逐批（≤5 檔）`metrics(keywords=["<T1>",…,"<T5>"], query="next earnings date", asset_type="tradfi")` 查下次財報日期；可另調市場級日曆 `metrics(query="earnings calendar", asset_type="tradfi", country="US", date_from, date_to)` 補漏（恆為 `status:"partial"`，不保證全） | ⌈N/5⌉＋0–1 |
+| 4 | `metrics(query="economic calendar upcoming releases", country="US")` 下週經濟日曆（**`country="US"` 必傳**，不傳回傳韓國／印度等地事件；query 嚴禁帶「本週」，紅線 10） | 1 |
+| 5 | （可選）`signal(categories=["kol_call"], query="consensus", asset_type="tradfi")` 選擇性訊號（**喊單上游只涵蓋最近 24 小時**，傳 `time_range="7d"` 回傳的仍是 24h 口徑並標 `partial`） | 0–1 |
 
-> 調用形態（N-8／紅線 4）：`keywords=[...]` 等數組入參已被 tool schema 拒，任何客戶端均不可用，一律走 query 空格拼串；批量上限 **5 個**，超出被**靜默截斷且無任何 warning**，調用後必須拿請求列表與 `meta.filters_applied.keywords` 做差集自查，缺的分批補。
+> 調用形態（2026-10-01 實測）：標的放 `keywords` 數組、意圖詞放 `query`、訊號類別放 `categories`。每次最多 **5 個** keywords，超出或解析不了的項寫在 `meta.warnings`，調用後讀一遍，缺的分批補。客戶端不接受數組入參（報 `-32602`）時，美股代碼可退回 query 空格拼串。
 
 ## 執行流程
 
@@ -45,7 +45,7 @@ args: 可選：關注標的（最多 5 檔）、社群時區（預設台北）
 
 用 `news` 搜尋最近 7 天的重要美股事件，必要時再用公司、產業或關鍵字補查。選 2–3 條同時具備「事件明確、與市場相關、能白話說明」的主線。
 
-財報以 `metrics` 的 Beat/Miss、營收、EPS、指引等結構化欄位為準，新聞只補背景。不得使用市場級財報日曆當素材，也不得把未經價格驗證的新聞漲跌幅寫入正文。
+財報以 `metrics` 的結構化欄位為準（`fiscal_quarters[0].earnings_surprise` 的實際／預期 EPS 與營收、`financial_statement` 的營收與淨利），新聞只補背景。市場級財報日曆只能補漏、不能當「本週財報全貌」，也不得把未經價格驗證的新聞漲跌幅寫入正文。
 
 ### 3. 下週已確認事項
 
@@ -57,7 +57,7 @@ args: 可選：關注標的（最多 5 檔）、社群時區（預設台北）
 
 `signal` 只作加分素材，不是必填。
 
-- KOL：若 `time_range=7d` 未被完整支援，只能寫「近日」，不可寫「近 7 天」；沒有可追溯聚合計數就略過。
+- KOL：喊單上游只涵蓋最近 24 小時（2026-10-01 實測），只能寫「近一日」，不可寫「近 7 天」；沒有可追溯聚合計數就略過。
 - 交易員倉位：至少 2 位活躍交易員，且每一筆引用均有非空名目金額，才可寫方向或合計；任一條件不符即略過。
 - 內部人：只採 P（買入）與 S（賣出）等可辨識交易；其他類型不延伸解讀。
 

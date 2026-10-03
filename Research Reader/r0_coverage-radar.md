@@ -75,7 +75,7 @@ args: window(可选，默认 7d) / top(可选，默认 5) / probe(可选，默�
 ## 执行流水线（2 层 · 2 + N 额度）
 
 🔒 全程美股：调用必带 `asset_type="tradfi"`（红线 1）
-🔒 **数组参数全域被拒（N-8）**：`keywords`/`categories`/`sources` 一律走 query 串
+📌 **调用形态（2026-10-01 实测，N-105）**：标的放 `keywords` 数组、意图词放 `query`。实测 `keywords=["NVDA"], query="research reports"` 与旧的 `query="NVDA research reports"` 返回一致；客户端不接受数组入参（报 `-32602`）时退回旧写法。聚合榜没有标的，仍只用 query
 🔒 **SSE 并发 ≤4**（红线 2）
 
 ### 层 1 · 双口径拉榜（2 额度，可并发）
@@ -132,7 +132,7 @@ metrics(query="research reports most mentioned stocks", asset_type="tradfi",
 ### 层 2 · 主/配角预检（**v2.0 起强制**，每标的 1 额度）
 
 ```
-metrics(query="<TICKER> research reports", verbosity="detail", asset_type="tradfi", time_range="<同层1窗口>")
+metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", asset_type="tradfi", time_range="<同层1窗口>")
 ```
 
 > 🔴 **取数前先认块（N-86，2026-08-12 实测）**：解析层会静默扩展出额外候选 ticker，**每个候选都是一个平级结果块，顺序不保证主匹配在前**（实测 `ASML.AS` 的 `[0]` 是空块、数据在 `[1]`）。

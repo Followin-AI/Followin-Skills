@@ -4,6 +4,32 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-01 — Base Skill 01-06 + Earnings Screener 按生产端实测重写
+
+**起因**：对本地安装的 9 个 Skill 做 prompt 审计，约 60 次对照调用发现 7 月底~8 月初立下的多条规避已经反向（详见 `references/followin-mcp-caveats.md` N-105~N-116）。
+
+**主要改动**：
+1. **调用形态**：全部改为 `keywords` 数组放标的 + `query` 放中文意图词。原 query 串写法会静默丢掉 `DXUSD` / `GCUSD` / `SIUSD` / `CLUSD` / `BZUSD`（04 / 05 / 06 的美元指数、黄金、白银、原油实际都取不到）。
+2. **04 / 05 补齐评分规则**：原文 12 处"同 v1"指向的规则在仓库里不存在。现在每个指标都有 −2 ~ +2 的阈值表（标注为 v0 草案，未回测）、层得分公式、矛盾度定义、数据缺失处理。04 的财政部账户由失效的 `WTREGEN` 改为 `WDTGAL`；05 恢复信用利差、修掉 VIX 规则自相矛盾。
+3. **01 / 02 / Earnings Screener 字段换代**：`beat_miss` / `latest_quarter` → `fiscal_quarters[0].earnings_surprise` / `financial_statement`；"全面分析返 14 block"作废，改为三次定向调用。01 新增"数据可得性对照"和"数据覆盖闸"，输出约束里与模拟决策冲突的"不喊单"改为强制声明行。
+4. **Earnings Screener v1.6**：财报日历恢复可用，新增为发现腿；逐字稿正文被截断到 2000 字符，关键词深扫改为 Web 新闻稿 / 公开实录优先；判定表补上"业绩过线、关键词不过 / 欠测"两种情况。
+5. **03**：恢复涨跌榜；修掉"只给前 5 只补市值"；`scope` 参数有了定义；`signal` 显式传 `categories`。
+6. **06**：原油改回现货价（WTI + 布油）；榜单过滤不再依赖已不存在的 `exchange` 字段；去掉"数字用约 / 接近弱化"。
+
+**同日第二轮：其余 bundle sweep**（Community c1-c6 / Research Reader r0-r4 / Twitter Workflow / Premarket / Crypto Watchlist / Feed Manager / Trader Diligence / 顶层 README / routing primer / Earnings Screener README）。每种调用形态先对生产端重测（约 75 次调用）再改，新发现登记为 caveats **N-117~N-127**。要点：
+1. **`signal` 全部改为显式 `categories`**；多类合并调用不带 `time_range`（带了内部人 / 13F 会整类消失）。c1 的内部人改为单独一次调用（+1 额度）。
+2. **喊单只覆盖最近 24 小时**：c2 / c4 里"3d / 7d 窗口"的写法与对外用词改为"近一日"。
+3. **研报调用不再附带行情快照**：r1 / c3 / c6 的"现价白拿"改为在 query 里加"行情"（仍 1 额度）。
+4. **r1 字段换代**：`beat_miss` / `latest_quarter` → `fiscal_quarters[0]`，新增"闸 0：超预期块在不在"。
+5. **商品 / 指数走数组**：c1、trend-scout 的原油由 USO 代理改回 `CLUSD` / `BZUSD`；`^DXY` 改 `DXUSD`。
+6. **经济日历补 `country="US"`**（c1 / c2 / trend-scout）；财报日历由"已废弃"改为"可用的补漏腿"（c1 / c2 / r3 / README）。
+7. **news 可传 `asset_type` / `sources` / `sort_by`**：各处"news 不传 asset_type"撤销；trend-scout 的 TG 广拉与 CT firehose 可直接用 `sources`。
+8. **Base Skill 01 + `references/01_agent-prompts.md`**：实测年度增长率可得（`financial_growth`），01 新增第 15 路并订正"数据可得性对照"；agent-prompts 换掉两处旧工具名、加数据可得性说明，评分框架与阈值未动。
+
+**门禁**：`tools/sweep-check.sh` 已于 10-02 换规则——不再拦数组写法，改拦 `query="…"` 里出现 `*USD` 商品代码或英文指标名（EMA / SMA / RSI / MACD / day chart）的写法（N-106 / N-69），新增 `--worktree` 自检参数。
+
+**未做**：`twitter` / `subscription` 工具的调用未重测；Community 各 skill 的 T-样例贴文（逐字收录的已核可样例）未改。
+
 ## 2026-08-04 — 全仓统一 audit + sweep：6 个根因、~170 处修复、新增 sweep 门禁
 
 **起因**：对全仓 7 个 bundle 做统一 review（3 路并行深读 + 机械核对 + 关键指控逐条回原文抽查），发现 60+ 处 skill 正文与 SSOT 打架——归拢为 6 个根因，本次全部修复。

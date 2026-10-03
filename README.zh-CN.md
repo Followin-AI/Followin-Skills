@@ -92,9 +92,10 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 
 **几条关键约定**：
 
-- 美股传 `asset_type="tradfi"`，加密传 `asset_type="crypto"`，且必须显式传 —— 唯一例外是 `news()`，它不应该收到这个参数。
-- **结构化券商研报走 `metrics`，不走 `news`**。`news(sources=["research"])` 是研报来源的**原始文章**检索；报告卡、目标价、thesis/catalyst 这些结构化字段来自 `metrics` 且 query 必须带研报意图词（如 `query="<T> research reports"`——红线 12；`categories=[...]` 数组入参已被 schema 拒，N-8）。
-- **`signal()` 省略 `categories` 会 fanout** 到内部人交易 + 13F 机构持仓 + KOL 喊单，**三类合计只计 1 次额度** —— 比分三次带过滤条件调用更省，且数据完全相同。
+- 美股传 `asset_type="tradfi"`，加密传 `asset_type="crypto"`，且必须显式传，`news()` 也一样（旧的"`news()` 不传"例外已在 2026-10-01 复测后撤销）。
+- **标的放 `keywords` 数组，意图词放 `query`**（如 `metrics(keywords=["GCUSD","CLUSD"], query="行情", asset_type="tradfi")`）。把 `*USD` 商品代码写进 `query` 串会整批返空且不报错 —— 见 caveats N-105 / N-106。
+- **结构化券商研报走 `metrics`，不走 `news`**。`news(sources=["research"])` 是研报来源的**原始文章**检索；报告卡、目标价、thesis/catalyst 这些结构化字段来自 `metrics` 且 query 必须带研报意图词（如 `metrics(keywords=["<T>"], query="research reports")`——红线 12）。
+- **`signal()` 必须显式传 `categories`**。只传 ticker 不再自动展开（返回 `no_match`）；把要的类别列出来 —— `categories=["kol_call","insider_trading","institutional"]` 一次调用**仍只计 1 次额度**（caveats N-113）。
 
 完整调用红线与已知问题登记见 [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md)。
 
@@ -299,7 +300,7 @@ cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 | `每天早晚跟踪我的自选币` / `crypto watchlist report` | [币圈自选每日跟踪](./Crypto%20Watchlist%20Tracker/)（独立） | 自选币 + 项目事件 + 行情技术面 + KOL/交易员仓位 + 09:00/21:00 周期更新 |
 | `这个目标价能信吗` / `研报解读` | [r1 跨源印证](./Research%20Reader/r1_cross-source-readout.md) | 研报结论 + 四边对撞；只看研报讲了什么走 c3 |
 | `这份研报靠谱吗` / `基准是谁` | [r2 口径审计](./Research%20Reader/r2_research-caveat-audit.md) | 审地基不复述结论 |
-| `接下来盯什么` / `有什么催化剂` | [r3 催化剂时间线](./Research%20Reader/r3_catalyst-timeline.md) | 研报点名的节点；"XX 哪天发财报"不走这里（日历已判废，见 caveats N-22）|
+| `接下来盯什么` / `有什么催化剂` | [r3 催化剂时间线](./Research%20Reader/r3_catalyst-timeline.md) | 研报点名的节点；"XX 哪天发财报"不走这里（查 `next_earnings_estimate`；财报日历已恢复但覆盖不全，见 caveats N-114）|
 | `黄金宏观` / `Gold macro` | 05 黄金看盘 | 单一资产（黄金）的宏观评分 |
 | `谁被研报提得最多` / `这周卖方在看谁` | [r0 覆盖雷达](./Research%20Reader/r0_coverage-radar.md) | 研报侧**不点名标的**的发现腿（7 天真窗口）|
 | `产业链读穿` / `还有谁被改了目标价` | [r4 产业链读穿](./Research%20Reader/r4_supply-chain-readthrough.md) | 跨标的提及 + 链上连带调价 |

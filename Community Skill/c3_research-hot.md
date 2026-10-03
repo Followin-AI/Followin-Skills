@@ -28,7 +28,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 | 步骤 | 调用 | 额度 |
 |---|---|---|
 | 1 | `metrics(query="research reports most mentioned stocks", asset_type="tradfi", time_range="7d")` 聚合榜（**N-37 已修，可传窗口**）| 1 |
-| 2 | 对榜单 Top 3-5 逐个 `metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")`（实测可路由；数组入参任何客户端均不可用，N-8） | 各 1 |
+| 2 | 对榜单 Top 3-5 逐个 `metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detail", time_range="7d", asset_type="tradfi")` | 各 1 |
 
 ### 层 1：本週研報點名榜（`7d` 窗口）
 
@@ -57,7 +57,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
 ### 层 2：研究笔记（对 Top 3-5 或指定标的）
 
-调用：`metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")`（实测可路由；`keywords=["<TICKER>"]` 数组形态任何客户端均不可用——tool schema 无类型导致，N-8）。
+调用：`metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detail", time_range="7d", asset_type="tradfi")`（2026-10-01 实测可路由）。⚠️ **query 里的"行情"不能省**：研报调用已不再自动附带行情快照，实测 `query="research reports"` 只返研报卡，加上"行情"才在同一次调用（仍 1 额度）里多返 `market.snapshot`。
 
 对层 1 榜单 Top 3-5 逐个调用；若触发时带 args `ticker`，跳过层 1，只对该 ticker 调用一次。
 
@@ -67,7 +67,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
 调用形态铁律（本序列全程通用）：
 
-> **调用形态铁律（2026-07-20 起生效，trend-scout v1.11.1 实测 + 2026-08-04 复核仍复现，N-8）**：`keywords/categories/sources` 等数组参数被 tool schema 拒（连环 -32602；schema 中这些入参无类型，**任何客户端均不可用**）。所有调用一律以 **query 自然语言/空格拼串为唯一形态**（服务端自解析成 keywords，`meta.filters_applied.keywords` 可验证）。批量上限 **≤5**（红线 4/N-23）：超出被**静默截断到 5 且无任何 warning**（旧记载的 `keyword_count_over_max` warning 已不存在），调用后必须拿请求列表与 `filters_applied.keywords`（及 `snapshot[].symbol`）做差集自查，缺的分批补。降级梯：① query 串批量（≤5）→ ② 单 ticker 并行、每批 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
+> **调用形态（2026-10-01 实测，取代 2026-07-20 的"数组被拒、只能 query 串"铁律）**：标的放 `keywords` 数组，`query` 只放意图词（研报路径必须是 `"research reports"`）。实测 `keywords=["NVDA"], query="research reports"` 与旧的 `query="NVDA research reports"` 返回完全一致，旧写法仍可作为客户端不接受数组入参（报 `-32602`）时的回退。调用后读一遍 `meta.warnings`。单批并行 ≤4 路（SSE 红线）。另：Followin session 每 5-8 次调用可能短挂，重试 1 次即恢复，还不行让运营 `/mcp restart followin`。
 
 每步 query 主形态调用示例：
 
@@ -76,8 +76,8 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
    # 层 1 聚合榜；query 必须含研报意图词（红线 12，见第 3 节），不可只放标的名或话题词
    # ✅ time_range 已于 2026-08-03 修复；返回带 date_from/date_to/time_scope，文案引用返回值
 
-2. metrics(query="<TICKER> research reports", verbosity="detail", time_range="7d", asset_type="tradfi")
-   # 层 2 单标的钻取；数组形态 keywords=["<TICKER>"] 任何客户端均不可用（N-8），一律走本行 query 串形态
+2. metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detail", time_range="7d", asset_type="tradfi")
+   # 层 2 单标的钻取；每页最多 10 张研报卡，更多走 meta.pagination 的 next_cursor
    # Top 3-5 逐个调用，每批 ≤4 路并行（SSE 红线 2，Top 5 时拆成 4+1 两批）；带 args ticker 时只此一次，跳过步骤 1
 ```
 
@@ -89,7 +89,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 1. **标题**：📌 本週研報點名榜｜TICKER 公司名（日期区间用返回的 date_from→date_to）
 2. **一句話先懂**（≤40 字）：提及篇数+机构家数+目标价区间 vs 现价涨幅，一句话说完
 3. **最新動態**：近期催化新闻/事件；渲染时可拆成"最新動態"（事件本身）+「推特風向」（社群怎么说，2-4 条 🐦 bullet，对应 T-1 样例的实际排版）两个视觉段落——素材来源：news 层近期新闻，或本周若已跑过 c4 温度计可直接复用其推特层结论（零新增调用；c3 本身 frontmatter 只声明 `mcp__followin__metrics`，不重复造 c4 的 signal/news 调用）
-4. **機構怎麼看**：多机构目标价区间标准化（如"$288–350"）+ 参与家数 + 分歧幅度 + 对现价的上行/回撤幅度——**现价直接用层 2 detail 返回自带的实时行情快照就地计算，不再额外调用 metrics 查现价**（见第 3 节）
+4. **機構怎麼看**：多机构目标价区间标准化（如"$288–350"）+ 参与家数 + 分歧幅度 + 对现价的上行/回撤幅度——**现价直接用层 2 调用里（query 带"行情"）一并返回的 `market.snapshot` 就地计算，不再额外调用 metrics 查现价**（见第 3 节）
 5. **空方在擔心什麼**：研报 risks + bear scenario
 6. **接下來看什麼**：catalysts 时间线
 7. 今日名詞卡 + 免责声明
@@ -162,7 +162,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
   > detail 返回自带实时行情快照，上行空间就地计算，不再花额度。
 
-  层 2 的 `verbosity="detail"` 返回本身就带该标的的实时行情快照（现价），機構怎麼看段落的"对现价上行/回撤"直接用这个快照现价 + 报告里的目标价客户端算百分比即可——**不要为了拿现价另外再调一次 metrics 查价**，那是重复花额度。
+  层 2 调用的 query 写成 `"research reports 行情"` 时，返回里会多一个 `market.snapshot`（现价；2026-10-01 实测，仍 1 额度——不带"行情"就没有快照），機構怎麼看段落的"对现价上行/回撤"直接用这个快照现价 + 报告里的目标价客户端算百分比即可——**不要为了拿现价另外再调一次 metrics 查价**，那是重复花额度。
 
 - **非美股 ticker 保留但标市场（spec 逐字，见第 1 节）**：
 

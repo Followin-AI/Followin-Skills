@@ -1,6 +1,6 @@
 ---
 name: US Stock Earnings Report
-description: 单股财报三维分析（财务Beat/Miss + 媒体情绪 + 宏观背景）。必须指定具体股票代码或公司名才触发，如"帮我看AAPL财报"、"TSLA earnings"、"英伟达财报分析"。泛问"今天有哪些财报"不在本Skill范围——⚠️ 且**市场级财报日历已实测不可用（N-22）**，不要直查；要按名单核实财报日期请用 next_earnings_estimate 逐只查。
+description: 单股财报三维分析（财务Beat/Miss + 媒体情绪 + 宏观背景）。必须指定具体股票代码或公司名才触发，如"帮我看AAPL财报"、"TSLA earnings"、"英伟达财报分析"。泛问"今天有哪些财报"不在本Skill范围。
 trigger: 帮我看XX财报、XX财报分析、XX财报速查、XX earnings、XX earnings report、[股票代码]财报、[公司名]财报、[ticker] earnings、earnings report、earnings analysis、show me [ticker] earnings、look at [ticker] earnings
 not_trigger: 全面分析、多维度分析、值不值得买、深度分析（→01）、策略信号、KOL、喊单、热点、日报、背离扫描、divergence、strategy、KOL calls、trending、daily brief、divergence scan、morning brief
 mcp: mcp__followin__metrics, mcp__followin__news, mcp__followin__signal
@@ -15,280 +15,207 @@ args: ticker
 
 | 参数 | 必填 | 说明 |
 |------|------|------|
-| ticker | 是 | 股票代码，如 AAPL、TSLA、NVDA |
+| ticker | 是 | 美股代码，如 AAPL、TSLA、NVDA。用户给的是公司名就先换成代码；给的是加密代币就说明本 Skill 只做美股 |
 
 ## 意图路由
 
 | 用户说的 | 走哪个Skill |
 |---------|-----------|
 | XX财报、XX earnings、财报分析 | ✅ 本Skill |
-| CPI影响、非农解读 | ❌ 无专门 Skill——模型直接用 metrics(macro)+news 分析，series_id 字典见 caveats 附表 A |
-| 宏观日报、美股早报 | ❌ 转 morning-brief |
-| 背离扫描 | ❌ 转 divergence-scan |
+| 全面分析、值不值得买 | ❌ 转 01 multi-agent-stock-analysis |
+| 财报季扫描、谁业绩大增（不点名）| ❌ 转 earnings-season-screener |
+| 宏观日报、美股早报 | ❌ 转 06 morning-brief |
+| 背离扫描 | ❌ 转 03 divergence-scan |
 
-> 🔗 **通用调用红线 + 已知问题登记**：以 `~/.claude/references/followin-mcp-caveats.md` 为准（仓库内 `references/`）。本文内联 caveat 是其镜像，冲突时以该文件为准。
+> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文的调用写法和字段名于 **2026-10-01 逐条实测**；与登记表冲突时，以日期更新的一方为准。
 
-## 数据层 — Followin MCP 三工具映射
+## 调用约定（2026-10-01 实测）
 
-🔒 **本 Skill 全程美股，所有调用必须带 `asset_type="tradfi"`**（避免 ticker 错路由到 crypto 山寨币）
-🔒 **N-8（2026-08-04 实测仍复现）**：`keywords` / `categories` / `sources` 数组入参被 schema 拒，一律走 query 串（ticker/series_id 并入 query）；调用后核对 `meta.filters_applied.keywords` 差集
+`metrics` / `signal` 的入参分工是：**`keywords` 数组放标的，`query` 放意图词**。
 
-| 用途 | 调用 |
-|------|------|
-| **基本面真聚合**（含 profile / 三表 / 估值 / 评级 / shares_float / beat-miss / consensus / eps_trend / latest_quarter / next_earnings / financial_growth / sec_filings — 14 block，唯独缺 stock_peers）| `metrics(query="<T> 全面分析", asset_type="tradfi")` |
-| 行情快照（price / change / volume / dayHigh/Low / yearHigh/Low / marketCap）| `metrics(query="<T> 行情", asset_type="tradfi")`（批量 ≤5 个，超出静默截断且无任何 warning——红线 4）|
-| 多时间框架历史 OHLCV | `metrics(query="<T> 历史走势", asset_type="tradfi", time_range="1y")` |
-| 技术指标（按需）| `metrics(query="<T> 相对强弱 指标", asset_type="tradfi", period=14)` 或 `query="<T> 均线 指标"` |
-| 媒体覆盖 | `news(query="<companyName> <ticker>", time_range="2w", limit=10)` 读 `articles` 桶（sources 数组被拒无字符串替代 N-8；news 实返 2N 条 = articles + social 两桶 N-25；**不要带 asset_type**，实测会返 0）|
-| 推特风向（可选）| `news(query="<companyName> <ticker>", time_range="1w", limit=10)` 读 `social` 桶 |
-| **机构研报·结构化**（目标价 / rating_action / thesis / key_caveat / latest_catalyst）| `metrics(query="<TICKER> research reports", asset_type="tradfi", verbosity="detail", time_range="7d")` ⚠️ warning 误报见 N-21 |
-| **研报原始文章**（官方尽调编排的 `news(["research"])` 一环，quota=0）| `news(query="<companyName> <ticker>", time_range="2w", limit=10)`——`sources=["research"]` 被 schema 拒且无字符串替代（N-8/N-59），研报类客户端近似识别：articles 桶 `source_quality=="research"`（Motley Fool 会混入）+ social 桶 `kol_info.categories` 含 "research" |
-| **信号面 fanout**（内部人 Form 4 + 国会 + 13F + KOL 喊单，**一次 1 额度拿三类**）| `signal(query="<T>", asset_type="tradfi", limit=20)` — **省略 `categories` 才 fanout**（N-4 不变；N-59f：signal 的数组入参同样被拒，走 query 串）|
-| 宏观（按行业）| `metrics(query="DGS10", limit=5)` 等（见行业映射表；FRED query 只放纯 series_id，每 series 单独 fire）|
+- **意图词用中文**。实测把英文指标名写进 query 会被当成 ticker：`"NVDA RSI 14"` 多带回一只代码为 RSI 的股票，`"… 30 day chart"` 多解析出 DAY。标的放进 `keywords` 数组后不会被丢，但 query 里的英文词仍可能额外解析出别的标的。
+- 所有 `metrics` / `signal` 调用带 `asset_type="tradfi"`，否则同名加密代币会混进来。
+- 每次调用后读 `meta.warnings`；`results` 里没有请求的标的就是没取到，别当成"数据为零"。
+- `default_fanout_fallback` 这条 warning 是提示不是错误：它说明"没指定主题，返回核心基本面集合"，数据是齐的，不要重试。
+- 如果客户端不接受数组入参（报 `-32602`），把 ticker 并进 query 串：`query="<T> 分析师评级 同行 DCF"`。
+- **财报通常盘后发布**：`metrics` 在非交易时段返回的是上一个常规收盘（`_quote_session:"regular_inactive"`），**盘后那根跳涨或跳水不在返回里**。此时 `price` 标"常规收盘"，盘后涨跌取自新闻并标"据 [来源]·盘后"，两个数分开写。
 
-## EPS 数据源说明（保留 v1）
+## 返回结构（字段名以这里为准）
 
-⚠️ Followin fundamentals 聚合返回两种 EPS：
+**调用 A — 快照 + 核心基本面**：`metrics(keywords=["<T>"], asset_type="tradfi")`（不写 query）
 
-| 来源 | 字段 | 含义 | 用途 |
-|------|------|------|------|
-| `beat_miss` block | epsActual / epsEstimated | **Adjusted EPS** | Beat/Miss 判定 |
-| `latest_quarter` block | eps | **GAAP Diluted EPS** | 趋势分析 |
-| `income_statement` block | epsdiluted | **GAAP EPS 历史** | 4Q YoY/QoQ 对比 |
-| `eps_trend` block | eps（4 quarters）| **GAAP EPS 趋势** | 趋势表 |
+| 位置 | 内容 |
+|---|---|
+| `results.market.snapshot[]` | price / change / previousClose / dayHigh/Low / yearHigh/Low / marketCap / exchange。**`change` 是美元变动量**，百分比自己算 `change ÷ previousClose × 100` |
+| `fundamentals.concise[].fiscal_quarters[0].earnings_surprise` | **最新一季**的 `actual_eps` / `estimated_eps` / `eps_surprise_pct` / `actual_revenue` / `estimated_revenue` / `revenue_surprise_pct` / `report_date` |
+| `fundamentals.concise[].fiscal_quarters[0].financial_statement` | 同一季的 `revenue` / `eps` / `epsDiluted` / `netIncome` / `period_end` |
+| `…eps_trend[]` | 最近 4 季 EPS（财报口径）|
+| `…balance_sheet[]` / `cash_flow[]` | 最近 4 季 |
+| `…profile_block` | sector / industry / ceo / beta / ipoDate / description |
+| `…valuation_block.ratios_ttm` | PE / PS / PB / PEG / 毛利率 / 净利率 / D/E 等 |
+| `…consensus_price` | 目标价共识 / 最高 / 最低 / 中位 |
+| `…next_earnings_estimate` | 下次财报日期与预期 |
 
-**规则**：
-- Beat/Miss 判定：用 `beat_miss.epsActual` vs `beat_miss.epsEstimated`
-- 趋势表：两列并列 `Adj. EPS`（来源 beat_miss）+ `GAAP EPS`（来源 income_statement）
-- Adjusted 与 GAAP 差异 > 30% 在分析中标注
+**调用 B — 利润表 4 季**：`metrics(keywords=["<T>"], query="财报 利润表", categories=["fundamentals"], asset_type="tradfi", limit=4)` → `income_statement[]`（revenue / grossProfit / operatingIncome / netIncome / eps / epsDiluted）
 
-### ⚠️ 四条财报陷阱（硬闸，Beat/Miss 判定前必读）
+**调用 C — 分析师与同行**：`metrics(keywords=["<T>"], query="分析师评级 同行 DCF", asset_type="tradfi", limit=10)` → `analyst_grades[]`、`analyst_estimates[]`（未来各财年的 EPS / 营收预期）、`stock_peers[]`、`valuation_block.dcf` / `key_metrics_ttm`（ROE、EV/EBITDA 等）
 
-1. **N-15 财报当晚 beat_miss 仍是上一季**（实测 GOOGL 盘后发 Q2，当晚返回的仍是 Q1，FMP 侧延后更新）——财报当晚的"实际 vs 预期"一律取 `news()` 媒体/披露原文，metrics 只用于盘后快照与目标价；**次日后才可用 beat_miss 复核**。
-2. **N-29 两个 EPS 不相等即口径错位**（⚠️ 2026-08-05 由「反号」放宽：实测 NVDA `1.87` vs `2.40` 同号差 28% 照样错位，旧判据不触发）：`beat_miss.epsActual` 与 `latest_quarter.eps` **只要不相等即判定口径错位**（非 GAAP vs GAAP，实测 INTC 0.42 vs −2.16——只看 beat_miss 会把巨亏季读成"完美超预期"），强制标注"该超预期为非 GAAP 口径"。原"差异 >30% 标注"规则保留，但**反号才是硬判据**。
-3. **N-33 null 伪装成 -100%**：`revenueActual` 为 null 时服务端把 null 当 0 减，输出 `revenue_surprise_pct: -100`——那是缺失不是暴跌。**第 4 道检查 = `revenueActual` 非 null 才可读 surprise_pct**；见 -100 一律先当缺失查证。同季确认用 `gap = beat_miss.date − latest_quarter.date < 90 天`（公布日 vs 季末日天然不相等，**不能直接比日期相等**）；不同季则 N-29 反号判定作废并标"口径无法核对"。
-4. **N-54 最新季 YoY 不在 4 季窗口**：季度数组只返最近 4 季，最新季 YoY 的对比季（去年同期）拿不到——趋势表只做 QoQ，YoY 一律标"需外源"；**别把 3 季前那季当去年同期**。
+### 五条财报陷阱（判定 Beat/Miss 前必读）
+
+1. **只有最新一季有"实际对预期"**。`fiscal_quarters` 只返回一季，所以"是否连续超预期"无从判断——不要从 `eps_trend` 里推。
+2. **两个 EPS 口径不同**。`earnings_surprise.actual_eps` 是分析师口径（通常是调整后），`financial_statement.eps` 是财报口径（GAAP）。实测 NVDA 同一季分别是 2.22 和 2.47。两者不相等时：Beat/Miss 用前者判，并标注"调整后口径"；两者**符号相反**（一正一负）时必须点明"该超预期为调整后口径，本季 GAAP 为亏损"。不要把两个序列混在一张趋势里。
+3. **缺失会伪装成 -100%**。`actual_revenue` 为 null 时，`revenue_surprise_pct` 会显示 -100——那是缺数据不是营收归零。`actual_revenue` 非 null 才读 surprise。
+4. **财报当晚数据可能还是上一季**。先看 `earnings_surprise.report_date`：如果它不是刚发布的这次，说明数据还没更新，本季的"实际对预期"一律取自 `news()` 的媒体原文并标来源，第二天再用 metrics 复核。
+5. **4 季窗口算不出同比**。最新季的去年同期不在返回里，趋势表只做环比；同比需要外部来源，别把 3 季前那季当去年同期。
 
 ## 执行步骤
 
-### Step 1: fundamentals 真聚合（1 次拿全 14 个 block）
+### Step 1: 数据采集（每批 ≤4 路并行）
 
-⚠️ **必须显式带 `query="[T] 全面分析"`** 才走 `comprehensive` intent（N-8：keywords/categories 数组被拒，ticker 并入 query 串）。query 不含意图词走 default 只返 5 block。
-
+**Batch 1**
 ```
-metrics(query="[T] 全面分析", asset_type="tradfi")
-→ intent_label="comprehensive"，含 14 block：
-   1. beat_miss (Adj EPS Beat/Miss)
-   2. consensus_price (目标价共识)
-   3. eps_trend (4Q EPS)
-   4. latest_quarter (Q 最新)
-   5. next_earnings_estimate (下次财报预测)
-   6. income_statement (4Q × 30+ 字段)        ← 利润表
-   7. balance_sheet (4Q × 60+ 字段)            ← 资产负债表
-   8. cash_flow (4Q × 35+ 字段)                ← 现金流量表
-   9. financial_growth (FY × 4 年增速)
-   10. valuation_block (dcf + ev + key_metrics_ttm + ratios_ttm)
-   11. profile_block (CEO / sector / IPO / beta / website)
-   12. sec_filings (近 10 条 SEC 文件)
-   13. analyst_grades (20 条评级历史)
-   14. shares_float (流通股)
-   ❌ stock_peers (Followin MCP 当前不可得，已上报 dev 修复)
+1. metrics(keywords=["<T>"], asset_type="tradfi")                                             # 调用 A
+2. metrics(keywords=["<T>"], query="财报 利润表", categories=["fundamentals"],
+           asset_type="tradfi", limit=4)                                                      # 调用 B
+3. metrics(keywords=["<T>"], query="分析师评级 同行 DCF", asset_type="tradfi", limit=10)        # 调用 C
+4. metrics(keywords=["<T>"], query="历史走势", asset_type="tradfi", time_range="1y", limit=260) # 一年日线
 ```
+第 4 路**必须传 `limit=260`**——默认只返回 10 条，算不出多周期涨跌。
 
-**等价 trigger**：`query="[T] comprehensive analysis"` 也可（精确双词）。
-
-⚠️ **不要用的 trigger**：
-- 不带 query → `_intent_label: "default"`，只返 5 block
-- `query="comprehensive"` 单词 → default
-
-**可选追加**（按需展开单独 sub-intent，ticker 并入 query）：
-- `query="[T] 现金流量表"` → cashflow_detail + financial_growth
-- `query="[T] 公司简介 profile"` → profile_block
-- `query="[T] 评级变化 grades"` → analyst_grades 30 条
-- `query="[T] 流通股 shares float"` → shares_float
-
-**Batch B — market 行情 + 历史 + 技术指标**：
+**Batch 2**
 ```
-2. metrics(query="[T] 行情", asset_type="tradfi")
-   → 现价 snapshot: price / change / volume / dayHigh/Low / yearHigh/Low / marketCap
-   → ⚠️ change 是美元变动量不是百分比（N-47），百分比自算 change/previousClose×100
-
-3. metrics(query="[T] 历史走势", asset_type="tradfi", time_range="1y")
-   → 1y daily OHLCV，自算多周期涨跌（1D/5D/1M/3M/6M/YTD/1Y）
-
-4. metrics(query="[T] 相对强弱 指标", asset_type="tradfi", period=14)
-   → ⚠️ 实测（2026-08-04, N-69）该调用**一次 fanout 返回全部 9 个指标**（adx/rsi/dema/wma/williams/ema/tema/sma/standarddeviation），按 `indicator` 字段筛，**不必分开调用**。禁写英文指标名（"EMA 50"/"SMA 200" 会被劫持成同名 ticker）。
+5. news(query="<CompanyName> <TICKER>", sources=["media"], asset_type="tradfi",
+        time_range="2w", limit=10, sort_by="relevance")                      # 媒体报道
+6. news(query="<CompanyName> <TICKER>", sources=["twitter"], time_range="1w", limit=10)   # 推特风向（可选）
+7. signal(keywords=["<T>"], categories=["insider_trading","institutional","kol_call"],
+          asset_type="tradfi", limit=20)                                      # 内部人 + 13F + KOL，1 次额度
+8. metrics(keywords=["<T>"], query="research reports", categories=["fundamentals"],
+           asset_type="tradfi", time_range="7d", verbosity="detail")          # 机构研报
 ```
+- `news()` 的 query 用"公司名 + 代码"两个词（如 `"Apple AAPL"`），不写"earnings 影响 解读"这类词。
+- `news()` 查不到相关内容时不会返回空，而是返回一批不相关的热门内容。**返回里一条都不含目标公司名或代码，就是没查到**，记数据缺口，不要重试，也不要拿这些内容做情绪判断。
+- `signal()` **必须显式传 `categories`**——只传 ticker 现在返回空（旧记载"省略 categories 自动展开"已失效）。三类一起传仍只计 1 次额度。
+- 13F 的环比字段在申报季中期不完整，只引用持仓绝对值和结构。
+- KOL 喊单先按 `source_url` 去重，一条提到多个标的的推文会裂成多行。
+- 研报的 `subject_reports` 是专题报告，`mention_reports` 只是别的报告里提到它；`subject_reports` 为空时不能说"有机构专题覆盖"。
 
-### Step 2: 媒体覆盖
+**Batch 3：宏观背景（按行业）**
 
+从 `profile_block.sector` / `industry` 取行业，按下表调用。FRED 指标带 `categories=["macro"]`，不与行情标的放在同一次调用里。
+
+| `sector`（接口返回的原文）| `industry` 含 | 调用 |
+|---|---|---|
+| Technology / Communication Services | — | `metrics(keywords=["DGS10"], categories=["macro"], limit=5)` + `metrics(keywords=["^VIX"], query="行情", asset_type="tradfi")` |
+| Technology | Semiconductors | 上一行两条，另加 `metrics(keywords=["PCEPILFE"], categories=["macro"], limit=5)` |
+| Energy | — | `metrics(keywords=["CLUSD","BZUSD"], query="行情", asset_type="tradfi")` |
+| Financial Services | — | `metrics(keywords=["DGS10","DGS2"], categories=["macro"], limit=5)` |
+| Consumer Cyclical / Consumer Defensive | — | `metrics(keywords=["RSAFS","CPIAUCSL"], categories=["macro"], limit=5)` |
+| Real Estate | — | `metrics(keywords=["MORTGAGE30US"], categories=["macro"], limit=5)` |
+| Healthcare | — | `metrics(keywords=["CPIAUCSL"], categories=["macro"], limit=5)`（医疗 CPI `CPIMEDSL` 取不到）|
+| 其他 | — | 同第一行 |
+
+### Step 2: 三维分析
+
+#### 维度一：财报表现
+
+用 `earnings_surprise` 判定（先过上面的陷阱 3 和 4）：
 ```
-news(
-  query="[CompanyName] [TICKER]",   # 例: "Apple AAPL" / "Tesla TSLA" / "NVIDIA NVDA"
-  time_range="1w" 或 "2w",
-  limit=10
-  # news 无 sort_by（相关性走 search_depth，默认 standard）
-  # ⚠️ 不要传 asset_type="tradfi" — 实测会返 0 results（is_tradfi 字段几乎全 false 老 bug）
-)
-
-⚠️ query 三原则:
-1. 2-3 个核心名词
-2. 公司名 + ticker（提升精度，避免泛搜）
-3. 不写"earnings 影响 解读"等元词
+EPS：    Beat = eps_surprise_pct > +2%；Miss = < −2%；其余 In-line
+营收：   Beat = revenue_surprise_pct > +2%；Miss = < −2%；其余 In-line
 ```
-
-### Step 3: 宏观背景（按行业）
-
-从 fundamentals 拿 `profile_block.sector` 和 `industry`，按映射调宏观：
-
-> 🔒 v4 修复：行业宏观 **全部走 query 纯 series_id 串直查**（N-8：`keywords=[...]` 数组被 schema 拒；
-> query 禁中文/混合语言——"WTI 原油" 返 crypto OIL + ETN / "30 年抵押贷款" 错抓 DGS30 国债即中文语义陷阱的实测翻车记录）。
-> ⚠️ FRED series 每个单独 fire（批量静默丢条目 B-31），且**不与 market ticker（^VIX 等）混批**（红线 4）。
-
-| Sector | 调用 |
-|---|---|
-| Technology | `metrics(query="DGS10", limit=5)` + `metrics(query="^VIX 行情", asset_type="tradfi")`（FRED 与 market 拆两条，不混批）|
-| Semiconductors | + `metrics(query="USO", asset_type="tradfi")` 🔄 + `metrics(query="PCEPILFE", limit=5)` |
-| Energy | `metrics(query="USO", asset_type="tradfi")` 🔄 ⚠️ CLUSD 已失效，见 N-30 |
-| Financials | `metrics(query="DGS10", limit=5)` + `metrics(query="DGS2", limit=5)`（每 series 单独 fire）|
-| Consumer | `metrics(query="RSAFS", limit=5)` + `metrics(query="CPIAUCSL", limit=5)` |
-| Real Estate | `metrics(query="MORTGAGE30US", limit=5)` ⚠️ 不要写 "30 年抵押贷款" |
-| Healthcare | `metrics(query="CPIAUCSL", limit=5)` ⚠️ CPIMEDSL 暂不在 Followin 字典（被错抓到 headline CPI，B-33），退而用 headline CPI |
-| 其他 | `metrics(query="DGS10", limit=5)` + `metrics(query="^VIX 行情", asset_type="tradfi")`（拆两条，不混批）|
-
-### Step 4: 三维分析
-
-#### 维度一：财报表现（Beat / Miss / In-line）
-
-从 `beat_miss` 取 Adjusted EPS:
-```
-- Beat:   epsActual > epsEstimated × 1.02
-- Miss:   epsActual < epsEstimated × 0.98
-- In-line: ±2% 内
-```
-
-从 `income_statement` 取 4 quarters GAAP EPS / Revenue 计算 QoQ（⚠️ N-54：最新季 YoY 的对比季不在 4 季窗口，YoY 需外源，别把 3 季前当去年同期）。
-
-趋势:
-- 是否连续 beat？
-- Revenue / EPS QoQ 增速加速 / 减速？（YoY 需外源，N-54）
-- Adjusted vs GAAP 两个 EPS 只要不相等即口径错位（N-29 硬判据；不限反号）
+用调用 B 的 4 季利润表算营收和 EPS 的环比，看是加速还是减速。
 
 #### 维度二：媒体覆盖与情绪
 
-从 news() 10 篇文章，Claude 逐篇分析：
-- 情绪偏向（正面 / 负面 / 中性）
-- 高频关键词
-- 代表性报道（标题 + 来源 + URL）
-- 标注"Claude 推断"
+对第 5 路返回的文章，先剔掉与该公司无关的，再逐篇判断：情绪偏向、高频话题、代表性报道（标题 + 来源 + 链接）。情绪结论标"Claude 推断"。
 
 #### 维度三：宏观一致性 + 价格动量
 
-1Y 时间序列计算多周期涨跌：
+用一年日线自算：
 ```
-1D = (今日 - 昨日) / 昨日
-5D = (今日 - 5 日前) / 5 日前
-1M = (今日 - 21 日前) / 21 日前
-3M = (今日 - 63 日前) / 63 日前
-6M = (今日 - 126 日前) / 126 日前
-YTD = (今日 - 年初) / 年初
-1Y = (今日 - 252 日前) / 252 日前
+1D = 最新收盘 ÷ 前一日收盘 − 1
+5D / 1M / 3M / 6M / 1Y = 最新收盘 ÷ 5 / 21 / 63 / 126 / 252 个交易日前的收盘 − 1
+YTD = 最新收盘 ÷ 今年第一个交易日的收盘 − 1
 ```
+交叉对照（用来提问，不是下结论）：
+- Beat + 情绪正面 + 宏观顺风 + 价格上行 → 各维度一致
+- Beat + 情绪负面 → 市场在担心什么
+- Miss + 价格没跌 → 是否已提前反映
+- Beat + 宏观逆风 + 价格下行 → 是否被板块拖累
 
-交叉验证:
-- 财报 Beat + 情绪正面 + 宏观顺风 + 价格上行 = 强多信号
-- 财报 Beat + 情绪负面 = 市场在担心什么？
-- 财报 Miss + 价格未跌 = 已 price in？
-- 财报 Beat + 宏观逆风 + 价格下行 = 板块 beta 拖累
-
-### Step 5: 输出报告（同 v1 格式）
+### Step 3: 输出报告
 
 ```
 ## 📋 [TICKER] 财报速查 — [CompanyName]
 
 ### 基本信息
-行业: [sector] / [industry] | 市值: $[mktCap] | 当前价: $[price] ([change/previousClose×100]%，自算)
+行业: [sector] / [industry] | 市值: $[marketCap] | 价格: $[price]（[自算涨跌%]，[实时 / 常规收盘]）
 CEO: [ceo] | IPO: [ipoDate] | Beta: [beta]
-⚠️ N-47：snapshot 的 change 是美元变动量不是百分比——别拿 change 去和新闻里的 % 交叉核实（会得到假的"核实通过"）
+[非交易时段且新闻里有盘后价时加一行] 盘后: [涨跌]（据 [来源]）
 
 ### 价格动量
 | 1D | 5D | 1M | 3M | 6M | YTD | 1Y |
 |----|----|----|----|----|-----|-----|
 
-### 最新季度财报 [Q? FY????]
+### 最新季度财报 [fiscal_period]（发布于 [report_date]）
 | 指标 | 实际 | 预期 | 差异 | 判定 |
 |------|------|------|------|------|
-| EPS (Adjusted) | $X.XX | $X.XX | +X.X% | ✅ Beat |
-| EPS (GAAP) | $X.XX | — | — | 参考 |
-| Revenue | $X.XB | $X.XB | +X.X% | ✅ Beat |
+| EPS（分析师口径）| $X.XX | $X.XX | +X.X% | ✅ Beat |
+| EPS（财报口径）| $X.XX | — | — | 参考 |
+| 营收 | $X.XB | $X.XB | +X.X% | ✅ Beat |
 
-> ⚠️ Adjusted 与 GAAP EPS 差异 XX%（仅在 >30% 时显示）
+[两个 EPS 不相等时] ⚠️ 两个 EPS 口径不同：分析师口径 $X.XX，财报口径 $X.XX
+[符号相反时] ⚠️ 该超预期为调整后口径，本季 GAAP 为亏损
 
-### 趋势（最近 4 季度）
-| 季度 | Revenue | QoQ | Adj. EPS | QoQ | GAAP EPS | Beat/Miss |
-|------|---------|-----|----------|-----|----------|-----------|
+### 趋势（最近 4 季，财报口径）
+| 季度 | 营收 | 环比 | 净利润 | EPS | 环比 |
+|------|------|------|--------|-----|------|
 
-> ⚠️ N-54：4 季窗口拿不到最新季的去年同期，本表只做 QoQ；YoY 如需展示须标"数据源外部"
+> 4 季窗口算不出同比；历史各季的"实际对预期"接口不提供。
 
 ### 关键比率 (TTM)
-PE: XX.X | PS: X.X | ROE: XX.X% | D/E: X.X | Gross Margin: XX.X%
+PE: XX.X | PS: X.X | PEG: X.X | ROE: XX.X% | D/E: X.X | 毛利率: XX.X%
 
-### 📈 长期增长预期
-| 期间 | 预期 EPS | 预期 Revenue | EPS 增速 |
-|------|---------|-------------|---------|
+### 📈 分析师预期（analyst_estimates）
+| 财年截止 | 预期 EPS | 预期营收 | 覆盖分析师数 |
+|------|---------|---------|---------|
 
-隐含 PEG: [当前 PE / 预期年化 EPS 增速]
+目标价共识: $XXX（区间 $XXX – $XXX）｜DCF: $XXX [DCF 与现价相差 5 倍以上时不展示，标"DCF 失效"]
 
-### 🏢 公司画像（profile_block）
-- 主营: [description 摘要 200 字]
-- 同行: 数据不可用（comprehensive 缺 stock_peers，Dev 待修）
+### 🏢 公司画像
+- 主营: [description 摘要，≤200 字]
+- 同行: [stock_peers 前 5]
 
 ### 📊 分析师评级（analyst_grades 最近 10 条）
-- maintain Buy: X 家
-- upgrade Buy: X 家
-- downgrade Hold: X 家
+- 维持 / 上调 / 下调各几家，列出上调和下调的机构与日期
 
-### 📰 媒体覆盖 (近 2 周, N 篇报道)
-情绪判断（Claude 推断）: [偏正面/中性/偏负面]
-正面: X篇 | 负面: X篇 | 中性: X篇
-热门话题: [关键词1], [关键词2]
+### 🧭 信号面
+- 内部人: [近 3 个月主动买入 / 卖出笔数与金额]
+- 机构持仓: [前几大持有人与占比]
+- KOL: [去重后的多空条数]
+- 机构研报: [专题报告 N 篇 / 仅被提及 N 篇；最新催化与主要保留意见]
+
+### 📰 媒体覆盖（近 2 周，相关报道 N 篇）
+情绪判断（Claude 推断）: [偏正面 / 中性 / 偏负面]
+正面: X 篇 | 负面: X 篇 | 中性: X 篇
+热门话题: [关键词]
 
 代表性报道:
-- "[标题]" — [来源] ([日期])
+- "[标题]" — [来源]（[日期]）
 
 ### 🌐 宏观背景
-- [宏观指标]: [值] → 对[sector]影响: [利好/利空/中性]
+- [宏观指标]: [值，数据日期] → 对 [sector] 的含义
 
 ### 🔍 三维交叉判断
-[综合 Beat/Miss + 情绪 + 宏观 + 动量的结论]
-[如有不一致信号，明确指出分歧点和可能原因]
+[综合 Beat/Miss、情绪、宏观、动量；信号不一致时点明分歧在哪、可能的原因]
+
+### 数据缺口
+- [没取到的部分及原因；没有就写"无"]
 ```
 
 ## 输出规则
 
-- Beat/Miss 数据来源标 `beat_miss block (Adjusted EPS)`
-- 趋势表同时展示 Adjusted 和 GAAP EPS
-- Adjusted 与 GAAP 差异 > 30% 专门标注
+- Beat/Miss 注明口径（分析师口径 EPS）
 - 情绪判断标"Claude 推断"
-- 财报分析不是交易建议，是"值得进一步研究"的线索
-
-## 注意事项（v2 — Followin MCP）
-
-- 🔒 **`asset_type="tradfi"` 必须**（除 news），否则 ticker 名同 crypto 山寨币会错路由
-- ⚠️ **news() 不要传 asset_type**（实测加 tradfi 返 0 results，is_tradfi 字段几乎全 false 老 bug）
-- ✅ **fundamentals 真聚合**：**必须显式 `query="<T> 全面分析"`**（N-8：ticker 并入 query 串）才走 comprehensive intent（query 不含意图词走 default 只 5 block）；comprehensive 返 14 block，仅缺 stock_peers（Followin dev 待修）
-- 单独 sub-intent 触发词（仅在不需要全套时用，ticker 并入 query）：
-  - `query="<T> 利润表"` = income_statement only（1.4K tokens 节省）
-  - `query="<T> 资产负债表"` = balance_sheet only
-  - `query="<T> 现金流量表"` = cashflow + financial_growth
-  - `query="<T> 估值"` = valuation_block only
-  - `query="<T> 评级变化"` = analyst_grades only
-- **多周期涨跌**：用 `query="<T> 历史走势"` + `time_range="1y"` 拿 1y daily OHLCV 自算（market snapshot 不含 priceAvg50/200）
-- **技术指标 RSI / EMA / SMA**：一次 `query="<T> 均线 指标"` 即 fanout 全部 9 个指标，按 `indicator` 字段筛（实测 2026-08-04） / `query="<T> 均线 指标"`（不要靠默认 fanout）
-- **`news()` query 三原则**：2-3 核心名词 / 不混搭中英 / 不写元词；`sources=` 数组已被 schema 拒且无字符串替代（N-8/N-59）——**分源改在客户端做**：报道读 `articles` 桶、风向读 `social` 桶（news 实返 2N 条两桶，N-25）
-- **避免高并发**：单批 ≤ 4 路并发，否则 SSE 可能挂
-- **`metrics()` FRED 字典未命中走 fred_search_fallback** → 改用 `query="<series_id>"`（纯 series_id 串）兜底
-- 🆕 **研报层 warning 是误报（N-21）**：研报调用的 `meta.warnings` 会报 `default_fanout_fallback`／"returning the CORE fundamentals set"，但 `results.fundamentals.research_reports` 数据齐全。**以 payload 为准，不要因为这条 warning 重试**——重试白烧 1 次额度
-- 🆕 **信号面必须单次 fanout（N-4）**：`signal()` **省略 `categories`** 即一次返回 `insider_trading` + `institutional`(13F) + `kol_call` 三类，**合计只计 1 次额度**。按类分 3 次调 = 3 倍额度且数据完全相同
-- 🆕 **13F 环比字段季内不可引用（N-7，2026-07-24 复核仍有效）**：`investorsHolding` / `ownershipPercentChange` / `putCallRatioChange` 在申报季中期是残缺假信号（实测 NVDA 6234→1441→1882 持续回补）。**只引用绝对值与持仓结构，不引用任何环比**
-- 🆕 **KOL 喊单先去重（N-5）**：多标的推文按 symbol 裂成多条（同一 `source_url` 出现 3 次），统计多空前必须按 `source_url` 去重，否则一条低信号推文被计成三个独立喊单
+- 取不到的字段写"数据不可用"并列入数据缺口，不要留空让人以为是零，更不要凭印象填
+- 这是"值得进一步研究"的线索，不是交易建议；不给买卖结论，不预测价格

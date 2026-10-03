@@ -163,21 +163,22 @@ GET https://api.dune.com/api/v1/query/{query_id}/results
 
 - ⚠️ **该 query 会触发误抽 + 重复行**（实测）：`curve` 被当成 **Curve 代币 `CRV`**，`keywords` 解析成 `["US","YIELD","CRV"]`，meta 还会报 `asset_type=tradfi 但所有 keyword 落到 crypto 家族`。
 - **后果是返回 3 行内容完全相同的曲线**（每个 keyword 各一行，靠 `_resolved_from_keyword` 区分）。数据本身是对的，但**读之前必须按 `_resolved_from_keyword` 去重**，否则会把同一条曲线当成三个独立数据点。那条 crypto 警告是误报，不用理会。
-- 想避开误抽可改用不含歧义词的写法（如 `query="treasury rates"`），但**去重这一步照做**——多 keyword 解析出来就会多行。
+- 想避开误抽可改用不含歧义词的写法：2026-10-01 实测 `query="treasury yield curve"` 返回干净的 1 行（`keywords` 为 null，无误抽）。仍建议读之前看一眼行数，多行就按 `_resolved_from_keyword` 去重。
 
 ## 商品符号
 
-- ⚠️ **商品符号实测**：`CLUSD` 返 0 结果 · `BZUSD` 在 query 串里**静默丢弃** · `OIL`/`GOLD` 别名会解析成 **iPath 原油 ETN / Gold.com 股票**（不是商品）；`GCUSD` **已可用**（2026-08-04 实测返回 Gold Futures 真实价格，旧记载"单调亦返 0"作废）。
-  **可用口径**：原油走 `USO`（WTI 近月期货 ETF，**代理指标非现货**，引用须标口径）；黄金直接 `GCUSD`（query 勿含英文 "gold"——会同时拖进 Gold.com 美股陷阱行，按 `symbol=="GCUSD"` 筛行）。
+- ⚠️ **商品符号实测（2026-10-01 复测，取代 08-04 记载）**：走 `keywords` 数组时 `GCUSD` / `SIUSD` / `CLUSD` / `BZUSD` / `NGUSD` / `DXUSD` / `ESUSD` 全部正常返回期货价；**写进 query 串则整批返空且不报错**（实测 `query="GCUSD CLUSD BZUSD ESUSD 行情"` → 0 结果）。旧记载"CLUSD 返 0 / BZUSD 静默丢弃"只是 query 串路径的表现（N-106）。`OIL`/`GOLD` 别名仍会解析成 **iPath 原油 ETN / Gold.com 股票**（不是商品）；`^DXY` 走数组也被静默丢弃，美元指数用 `DXUSD`。
+  **可用口径**：原油直接 `CLUSD`（WTI）/ `BZUSD`（布油），黄金 `GCUSD`，均为期货价，不必再用 `USO` 代理；统一写法 `metrics(keywords=[…≤5], query="行情", asset_type="tradfi")`，按 `symbol` 取行。
   🔒 **拿不到就按「价格数据铁律」处理**：简报标「未取到一手价」，**禁止引用新闻里的涨跌幅当数据**。
 
 ## 异动榜
 
-- **异动榜**：`metrics(query="most active stocks", asset_type="tradfi")`，**不传 `min_market_cap`**（间歇被 schema 拒 `-32602`）；⚠️ **返回行不含 `marketCap`**（实测：只有 symbol/name/price/change/changesPercentage），**必须二次批量快照补市值**后再按 ≥$1B 过滤，否则杠杆 ETF（BITO/SOXL/TSLL/NVD 等）会混进候选。另需按 name 剔 ETF/杠杆产品——正则 `ETF|ETN|UltraPro|Ultra|Leveraged|\dX|Bull|Bear|Daily`，⚠️ 只判 "ETF" 单词会漏（`ProShares UltraPro QQQ` 不含该字串）。`biggest gainers/losers` 端点全是仙股与数据错误，**禁用**。
+- **异动榜**：`metrics(query="most active stocks", asset_type="tradfi")`，**不传 `min_market_cap`**（间歇被 schema 拒 `-32602`）；⚠️ **返回行不含 `marketCap`**（实测：只有 symbol/name/price/change/changesPercentage），**必须二次批量快照补市值**后再按 ≥$1B 过滤，否则杠杆 ETF（BITO/SOXL/TSLL/NVD 等）会混进候选。另需按 name 剔 ETF/杠杆产品——正则 `ETF|ETN|UltraPro|Ultra|Leveraged|\dX|Bull|Bear|Daily`，⚠️ 只判 "ETF" 单词会漏（`ProShares UltraPro QQQ` 不含该字串）。`biggest gainers/losers` 端点 2026-10-01 实测数据已恢复正常（N-111），但仍以仙股为主、同样不带市值，要用须走同一套补市值过滤。
 
 ## signal 的 query 不做类型路由
 
 - ⚠️ **`signal` 的 query 串不做数据类型路由**（实测）：传 `query="congress senator stock purchase disclosure"`，`meta.filters_applied.keywords` 回 **null**，返回的是**默认全类 fanout**（insider_trading + institutional + kol_call + trader_position），而 `insider_trading` 里全是 `provenance:"corporate_insider"` 的 Form 4，**一条议员交易都没筛出来**。
+- 🔄 **2026-10-01 更新**：`signal` 不传 `categories` 已不再默认 fanout 四类（实测多种 query 只返 kol_call 或直接 `no_match`）。要内部人 / 议员交易，显式传 `signal(categories=["insider_trading"], asset_type="tradfi", limit=50)`，不带 time_range。下面"只能客户端按 `provenance` 分流"的结论不变（本条的 congress query 未重测）。
 - **想要议员交易只能客户端筛**：拿到 `insider_trading` 后按 `provenance` 字段自己分流，别指望用自然语言描述让服务端替你过滤。**query 写得再具体也不改变返回内容**——这是白花心思。
 
 

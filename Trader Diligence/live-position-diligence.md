@@ -89,20 +89,22 @@ args: ticker(可选·模式①) / trader(可选·模式②，服务端不支持�
 
 ## 执行流水线（1 额度）
 
-🔒 **数组参数全域被拒**（N-59f / N-8）：`categories` / `keywords` 一律走 query 串
-🔒 不传 `categories` 会 fanout 全 4 类且**只计 1 额度**（N-4）——**其余三类直接忽略**，本 Skill 只读 `results.trader_position`
+📌 **调用形态（2026-10-01 对生产端实测，取代旧"数组参数全域被拒、不传 categories 即 fanout 四类"）**：显式传 `categories=["trader_position"]`，标的放 `keywords` 数组。只返回 `results.trader_position` 一类，1 额度。
 
 ```
-signal(query="trader positions")                      # 全榜
-signal(query="<TICKER> positions", asset_type="crypto")  # 单标的（模式①）· 加密标的（BTC/ETH/SOL/HYPE 等）
-signal(query="<TICKER> positions", asset_type="tradfi")  # 单标的（模式①）· 股票/HIP-3 永续
+signal(categories=["trader_position"])                                            # 全榜
+signal(categories=["trader_position"], keywords=["<TICKER>"], asset_type="crypto")  # 单标的（模式①）· 加密标的（BTC/ETH/SOL/HYPE 等）
+signal(categories=["trader_position"], keywords=["<TICKER>"], asset_type="tradfi")  # 单标的（模式①）· 股票/HIP-3 永续
                                                       #   混合或拿不准 → 省略 asset_type（两类都返，客户端再筛）；
                                                       #   crypto 与 tradfi 分批（N-59g）
-signal(query="trader positions")                      # 模式② 也走这一个 —— 服务端不支持按人查（N-59e），
+signal(categories=["trader_position"])                # 模式② 也走这一个 —— 服务端不支持按人查（N-59e），
                                                       #          拉全榜后在客户端按归一后的交易员过滤
 ```
 
-> ⚠️ 返回里 `insider_trading` / `kol_call` / `institutional` 三类照样会来，**体积不小但与本 Skill 无关**，不要读、不要混进产出。
+> ⚠️ **三条实测备注（2026-10-01）**：
+> - 旧 query 串写法 `signal(query="trader positions")` / `signal(query="<TICKER> positions", asset_type=…)` 仍然可用，返回与上面逐字相同（实测 BTC / CRCL），可作客户端不接受数组入参（报 `-32602`）时的回退。**现在只返 `trader_position` 一类**——旧版提醒的"另外三类照样会来"已不再发生。
+> - **单标的查不到时不是返回空组，而是 `status:"degraded"` + `no_match`**（实测 MU / SNDK）。这只说明此刻榜上没有该标的的活跃仓，不是调用写错。
+> - **HIP-3 代码会被解析成底层股票代码而查空**：全榜里的 `SKHX`（`underlying_symbol:"000660.KS"`）单独查时 keywords 被解析成 `000660.KS`，返回 `no_match`。这类标的只能拉全榜后在客户端按 `symbol` 筛。
 
 ---
 

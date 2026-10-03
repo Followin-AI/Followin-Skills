@@ -22,15 +22,15 @@
 
 **是什么**：两层——① consensus PT 聚合数字；② **结构化投行研报**（Bernstein / Goldman / JPM / Morgan Stanley / Nomura / UBS 等），带 thesis、催化剂、caveat、与 consensus 的差异、以及**逐个标的的目标价改动 old→new + change_pct**。写进 Ticker「目标价追踪」+ `Research/Read/`。
 
-**怎么加**（followin 参考实现，⚠️ 下列参数均实测通过）：
+**怎么加**（followin 参考实现，⚠️ 下列参数 2026-10-01 对生产端实测通过）：
 
 ```
 # ① consensus 聚合
-metrics(query="<T> analyst price target", asset_type="tradfi")
+metrics(keywords=["<T>"], query="分析师评级 目标价", asset_type="tradfi")
     → targetConsensus / targetHigh / targetLow / targetMedian
 
 # ② 结构化研报（必须带日期窗口，见陷阱 1）
-metrics(query="<T> broker research reports", asset_type="tradfi",
+metrics(keywords=["<T>"], query="research reports", asset_type="tradfi",
         date_from="YYYY-MM-DD", date_to="YYYY-MM-DD", limit=10)
 ```
 
@@ -51,7 +51,7 @@ metrics(query="<T> broker research reports", asset_type="tradfi",
 
 **是什么**：第三方独立分析师的长文 thesis（如 Substack 深度）——区别于卖方（偏多、利益相关），独立研究给"完整推理 + 中立裁决"，是 KOL 争议的第三方裁决源 + 反方深度的主要来源。落 `Research/Read/`，反链回 Tickers/Sectors。
 
-**怎么加**（followin 参考实现）：`news(query="<主题短语>", time_range="2d", verbosity="detail")` 每日宽扫 1 次，挑与持仓/活跃争议相关的取全文。⚠️ `sources=[...]` 数组入参已被 schema 拒且**无字符串替代**（Followin caveats N-8/N-68）——独立深度只能客户端近似识别。
+**怎么加**（followin 参考实现）：`news(query="<主题短语>", sources=["research"], time_range="2d", verbosity="detail")` 每日宽扫 1 次，挑与持仓/活跃争议相关的取全文。`sources=["research"]` 2026-10-01 实测可用（返回 `source_quality:"research"` 的独立研究 / 深度文章，0 额度）；⚠️ `verbosity="detail"` 的正文上限是 2000 字符，要全文得去 `source_url` 读原文。
 
 **陷阱**：
 - **识别独立深度只能近似**（N-68 实测：`_source` 字段已不存在，全部条目 `provenance:"feeds"`，`category` 是话题噪音标签）：① `social[]` 里 `kol_info.categories` 含 `"research"` 且正文挂 substack 链接；② `articles[]` 里 `source_quality=="research"`（⚠️ Motley Fool 混入，隔离不干净）。正文恒 `content_truncated`（~300-500 字预览，全文需原始 URL）。
@@ -94,6 +94,6 @@ metrics(query="<T> broker research reports", asset_type="tradfi",
 
 ## 7. ❌ 实测否决：trader_position（tradfi）
 
-`signal(query="<T> trader position", asset_type="tradfi")` 在美股上**数据基本是空的**——实测 MU 只返回 1 个交易员，`notional_value_usd: null`、`n_trades: 0`、`profile_confidence: 1/5`、`rating_reason: "no eligible closed-PnL sample yet; unrated"`。
+`signal(keywords=["<T>"], categories=["trader_position"], asset_type="tradfi")` 在美股上**数据基本是空的**——2026-10-01 复测 MU / SNDK 直接返回空（`no_match`），全市场 tradfi 榜上多数标的只有 1 个交易员且 `notional_value_usd: null`；8 月实测 MU 只返回 1 个交易员，`notional_value_usd: null`、`n_trades: 0`、`profile_confidence: 1/5`、`rating_reason: "no eligible closed-PnL sample yet; unrated"`。
 
 **结论：不要接**。用 1 个无胜率样本的无名交易员的仓位去影响决策，比没有数据更糟。（该接口在 crypto 上可能有数据，但不在本框架辖区。）

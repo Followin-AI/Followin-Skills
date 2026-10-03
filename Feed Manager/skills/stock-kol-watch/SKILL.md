@@ -65,9 +65,10 @@ version: 2.0-framework
 
 **MCP 路由**（参考实现；⚠️ 调用签名**只写在各 Step 执行现场，一处维护**）：推文 → Step 2；报价 + 目标价 → Step 5；外部共识对照 → Step 6.6。
 
-⚠️ **两个 schema 级坑，对所有 metrics 调用生效（实测，照直觉传参会直接失败）**：
-1. **数组参数会被 schema 拒**（`keywords=[...]` / `categories=[...]` 报 `has type "string", want array"`）→ **一律走 `query` 字符串**。
-2. **只写 ticker 会路由到 fundamentals 拿不到价格**（返回三表+估值，无 price 字段）→ query 里**必须带 "live stock price quote" 这类明确意图词**。
+⚠️ **入参分工，对所有 metrics / signal 调用生效（2026-10-01 对生产端实测，取代旧"数组被拒、一律走 query 字符串"）**：
+1. **标的放 `keywords` 数组，意图词放 `query`**（如 `keywords=["NVDA","MU"], query="行情"`）。每次最多 5 个 keywords，超出或解析不了的写在 `meta.warnings`，调用后读一遍。个别客户端仍可能把数组序列化成字符串而报 `has type "string", want array`——遇到才退回 `query="<TICKER> live stock price quote"` 这类拼串（美股代码实测仍可用）。
+2. **query 写明意图**：要价格写"行情"，要目标价写"分析师评级 目标价"。不写意图只给 ticker 会返回整套基本面（三表 + 估值 + 快照），又大又慢。
+3. **`signal` 必须显式传 `categories`**：只传 ticker 返回空。
 
 ---
 
@@ -194,10 +195,10 @@ python3 ~/.claude/skills/stock-kol-watch/scripts/filter_tweets.py \
 ### Step 5 — 提取标的 + 抓报价
 
 ```
-mcp__followin__metrics(query="<TICKER> live stock price quote", asset_type="tradfi", verbosity="concise")
+mcp__followin__metrics(keywords=["<T1>","<T2>",…], query="行情", asset_type="tradfi", verbosity="concise")
 ```
 
-`asset_type="tradfi"` 必传；多 ticker 单调用并行，不要 batch。返回 `price / change / open / previousClose / dayHigh / dayLow / yearHigh / yearLow / marketCap / volume`。
+`asset_type="tradfi"` 必传；每批 ≤5 个 ticker（2026-10-01 实测批量正常，超出的在 `meta.warnings` 报 `keyword_count_over_max`），同时并行 ≤4 批。非交易时段返回的是上一常规收盘（`_quote_session:"regular_inactive"`），标"最近收盘"。返回 `price / change / open / previousClose / dayHigh / dayLow / yearHigh / yearLow / marketCap / volume`。
 
 ⚠️ **三个必踩的坑（全部实测过）**：
 1. **`change` 是绝对美元，不是百分比**。实测 META `change: 31.13` / `previousClose: 556.71` → 真实涨幅 **+5.59%**，不是 +31%。**涨幅要自己算** `change / previousClose`，直接把 `change` 当 % 报出去 = 编数字（违反铁律 2）。
@@ -237,7 +238,7 @@ mcp__followin__metrics(query="<TICKER> live stock price quote", asset_type="trad
 > **为什么进核心**：roster 是你自己挑的，**最危险的失效是它悄悄变成全员看多**（starter roster 就有这个缺口）。Step 6 的"跨账号共识"只能证明**你名单内部**一致，证明不了名单外也这么看。这一步用一个外部 KOL 池做机械对照。
 
 ```
-signal(query="<TICKER> consensus", asset_type="tradfi", verbosity="concise")
+signal(keywords=["<TICKER>"], categories=["kol_call"], query="consensus", asset_type="tradfi", verbosity="concise")
 ```
 
 返回 `bullish_count / bearish_count / neutral_count / total_posts` + `top_calls` 板（当前最被提及的标的及其多空分布）。
