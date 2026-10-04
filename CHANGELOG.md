@@ -4,6 +4,12 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-04 — 03 背离扫描去掉 Silent Buy
+
+- **删除"内部人静默买入"信号**，背离扫描只保留情绪错配、无声暴跌、无声暴涨三种价格类信号。原因：内部人全市场入口只覆盖最近约 1 个申报日、最多 50 条，大额卖出会挤掉买入，10-03 实跑和复跑都基本为空，这个信号几乎不可能触发。
+- 随之删除：`scope` 参数、内部人全量扫描（第 4 路 `signal` 调用）、内部人相关触发词，报告去掉 Silent Buy 一节和内部人覆盖说明；步骤重新编号为 Step 1~6。README 与 Earnings Screener 的路由同步更新。
+- 04 / 05 的"缺失指标按 0 分计、权重不转移"经审定保留。
+
 ## 2026-10-03 — 9 个 Skill 端到端实跑后修复
 
 **起因**：对 Base Skill 01-06、Earnings Screener，以及本地的 02_breaking-news、12_macro-analyzer 逐个实跑（BTC 宏观亲跑，其余 8 个由子 Agent 并行跑），按实际产出找问题。接口新行为登记为 caveats **N-128~N-139**。

@@ -45,7 +45,7 @@ args: days, top, watchlist
 |---------|------|
 | 财报季扫描、谁业绩大增、本周超预期 | ✅ 本 Skill |
 | AAPL 财报、NVDA earnings（点名单股）| ❌ 转 `Base Skill/02_us-stock-earnings-report` |
-| 背离扫描、内部人悄悄买入 | ❌ 转 `Base Skill/03_us-stock-divergence-scan` |
+| 背离扫描、没新闻却大涨 | ❌ 转 `Base Skill/03_us-stock-divergence-scan` |
 | 宏观早报、今日市场 | ❌ 转 `Base Skill/06_macro-morning-brief` |
 
 > 🔗 **已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文与登记表冲突时，以日期更新的一方为准。
