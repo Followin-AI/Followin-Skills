@@ -109,7 +109,7 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 |---|---|---|---|
 | **01** | [多 Agent 深度分析](./Base%20Skill/01_multi-agent-stock-analysis.md) | `NVDA 值不值得买` · `全面分析 NVDA` | `metrics` `news` `signal` |
 | **02** | [美股财报分析](./Base%20Skill/02_us-stock-earnings-report.md) | `AAPL 财报` · `AAPL earnings` | `metrics` `news` `signal` |
-| **03** | [美股背离扫描](./Base%20Skill/03_us-stock-divergence-scan.md) | `美股背离扫描` · `内部人悄悄买入` | `metrics` `news` `signal` |
+| **03** | [美股背离扫描](./Base%20Skill/03_us-stock-divergence-scan.md) | `美股背离扫描` · `没新闻却大涨` | `metrics` `news` |
 | **04** | [BTC 宏观看盘](./Base%20Skill/04_btc-macro-dashboard.md) | `BTC 宏观` · `BTC macro` | `metrics` |
 | **05** | [黄金宏观看盘](./Base%20Skill/05_gold-macro-dashboard.md) | `黄金宏观` · `Gold macro` | `metrics` |
 | **06** | [宏观早报](./Base%20Skill/06_macro-morning-brief.md) | `宏观早报` · `Morning brief` | `metrics` `news` |
@@ -124,7 +124,7 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 
 ### 03 —— 美股背离扫描
 
-发现价格、内部人交易与媒体报道三者之间的不一致 —— 也就是"没人报道却在动"的标的。可传 `scope` 与 `days`。
+发现价格与媒体报道之间的不一致 —— 也就是"没人报道却在动"的标的。可传 `days`。
 
 ### 04 / 05 —— BTC / 黄金宏观看盘
 
@@ -292,7 +292,7 @@ cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 |---|---|---|
 | `NVDA 值不值得买` | 01 多 Agent | 点名标的 + 买卖决策 |
 | `AAPL 财报` / `AAPL earnings` | 02 财报分析 | 点名标的 + 财报 |
-| `背离扫描` / `Divergence scan` | 03 背离扫描 | 价格/媒体/内部人不一致 |
+| `背离扫描` / `Divergence scan` | 03 背离扫描 | 价格/媒体不一致 |
 | `BTC 宏观` / `BTC macro` | 04 BTC 看盘 | 单一资产的宏观评分 |
 | `宏观早报` / `Morning brief` | 06 宏观早报 | 宏观/美股维度的每日简报 |
 | `财报季扫描` / `earnings screener` | [财报季扫描](./Earnings%20Screener/earnings-season-screener.md)（独立）| **无 ticker 的发现器**；点名单股走 Base Skill 02 |

@@ -109,7 +109,7 @@ Numbered in recommended onboarding order — 01 is the deepest dive, 06 the ligh
 |---|---|---|---|
 | **01** | [Multi-Agent Stock Analysis](./Base%20Skill/01_multi-agent-stock-analysis.md) | `Should I buy NVDA` · `全面分析 NVDA` | `metrics` `news` `signal` |
 | **02** | [US Stock Earnings Report](./Base%20Skill/02_us-stock-earnings-report.md) | `AAPL earnings` · `AAPL 财报` | `metrics` `news` `signal` |
-| **03** | [US Stock Divergence Scan](./Base%20Skill/03_us-stock-divergence-scan.md) | `Divergence scan` · `美股背离扫描` | `metrics` `news` `signal` |
+| **03** | [US Stock Divergence Scan](./Base%20Skill/03_us-stock-divergence-scan.md) | `Divergence scan` · `美股背离扫描` | `metrics` `news` |
 | **04** | [BTC Macro Dashboard](./Base%20Skill/04_btc-macro-dashboard.md) | `BTC macro` · `BTC 宏观` | `metrics` |
 | **05** | [Gold Macro Dashboard](./Base%20Skill/05_gold-macro-dashboard.md) | `Gold macro` · `黄金宏观` | `metrics` |
 | **06** | [Macro Morning Brief](./Base%20Skill/06_macro-morning-brief.md) | `Morning brief` · `宏观早报` | `metrics` `news` |
@@ -124,7 +124,7 @@ Three-dimensional single-stock earnings review: financial Beat/Miss + media sent
 
 ### 03 — US Stock Divergence Scan
 
-Finds inconsistencies between price, insider trading, and media coverage — the silent movers. Takes `scope` and `days`.
+Finds inconsistencies between price and media coverage — the silent movers. Takes `days`.
 
 ### 04 / 05 — BTC & Gold Macro Dashboards
 
@@ -301,7 +301,7 @@ Similar-sounding requests go to different skills:
 |---|---|---|
 | `Should I buy NVDA` / `NVDA 值不值得买` | 01 Multi-Agent | Named ticker + buy/sell decision |
 | `AAPL earnings` / `AAPL 财报` | 02 Earnings Report | Named ticker + earnings |
-| `Divergence scan` / `背离扫描` | 03 Divergence Scan | Price/media/insider inconsistency |
+| `Divergence scan` / `背离扫描` | 03 Divergence Scan | Price/media inconsistency |
 | `BTC macro` / `BTC 宏观` | 04 BTC Dashboard | Asset-specific macro score |
 | `Morning brief` / `宏观早报` | 06 Macro Morning Brief | Macro/US-stock daily briefing |
 | `earnings screener` / `财报季扫描` | [Earnings Season Screener](./Earnings%20Screener/earnings-season-screener.md) (standalone) | **No-ticker discovery**; a named ticker routes to Base Skill 02 |
