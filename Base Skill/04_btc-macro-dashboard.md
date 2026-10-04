@@ -28,7 +28,7 @@ tools: WebSearch, WebFetch
 - **`UNRATE` 会多占一个名额**（服务端把它同时展开成 `unemployment`），含它的那一批最多放 4 个。
 - **FRED 指标带 `categories=["macro"]`**，行情带 `asset_type="tradfi"`，BTC 带 `asset_type="crypto"`（不带会混入美股 BTC Inc）。
 - 如果你的客户端不接受数组入参（报 `-32602`），FRED 指标可退回 `query="<series_id>"` 单个直查；`*USD` 商品代码没有可用的 query 串写法，只能标"数据不可用"。
-- 非美股交易时段，行情快照返回的是上一个常规收盘（`_quote_session:"regular_inactive"`），输出里标"最近收盘"，不当实时价。
+- 非美股交易时段，行情快照返回的是上一个常规收盘。判断方法：有 `_quote_session` 字段就按它判（`regular_inactive` = 最近收盘）；没有这个字段（指数、外汇、商品通常没有）就看 `as_of`，早于今天或不在美东 9:30–16:00 内一律标"最近收盘"，不当实时价。
 
 ## 数据源
 
@@ -40,7 +40,7 @@ tools: WebSearch, WebFetch
 | BTC 价格 | `metrics(keywords=["BTC"], query="行情", asset_type="crypto")` |
 | 经济日历 | `metrics(query="economic calendar", country="US", …)`——**必须传 `country="US"`**，不传返回的是韩国、印度等地的事件 |
 | 稳定币总市值 | HTTP `GET https://stablecoins.llama.fi/stablecoins?includePrices=true`（Followin 不覆盖）|
-| FedWatch 降息概率、BTC 现货 ETF 资金流 | Web 检索（CME FedWatch；Farside / SoSoValue / CoinGlass）|
+| FedWatch 概率、BTC 现货 ETF 资金流 | Web 检索（见 Batch 3 的具体来源）|
 
 不可用的 series：`WTREGEN`（2026-10-01 实测返回空，财政部账户改用 **`WDTGAL`**）、`CPIMEDSL`。
 
@@ -69,12 +69,17 @@ tools: WebSearch, WebFetch
 
 | # | 指标 | 权重 | 取数 | +2 | +1 | 0 | -1 | -2 |
 |---|------|------|------|----|----|---|----|----|
-| ① | 净流动性 4 周变化 | 12% | `WALCL − WDTGAL − RRPONTSYD×1000`（见下方单位提醒）| > +1000 亿美元 | +200 ~ +1000 亿 | ±200 亿以内 | −200 ~ −1000 亿 | < −1000 亿 |
-| ② | 美联储政策方向 | 10% | `FEDFUNDS` 近 13 个月 + `WALCL` 趋势 + Web 检索最新 FOMC 声明 | 近 3 个月降过息**且**资产负债表不再收缩 | 降息或停止缩表占其一；或按兵不动但声明偏鸽 | 按兵不动、表态中性 | 按兵不动但表态偏鹰，或仍在缩表 | 近 3 个月加过息 |
-| ③ | FedWatch 降息概率变化 | 8% | Web：下次会议降息概率，对比一周前 | 上升 > 20 个百分点 | 上升 5~20 | 变化 ±5 以内 | 下降 5~20 | 下降 > 20，或开始定价加息 |
+| ① | 净流动性变化（4 周均值对比）| 12% | 每个周三算一次 `WALCL − WDTGAL − RRPONTSYD×1000`，取最近 8 个周三：**最近 4 周的均值 − 前 4 周的均值**（见下方说明）| > +1000 亿美元 | +200 ~ +1000 亿 | ±200 亿以内 | −200 ~ −1000 亿 | < −1000 亿 |
+| ② | 美联储政策方向 | 10% | 日历 `Fed Interest Rate Decision` 行（`actual` 对 `previous` 判断近 3 个月加 / 降 / 未调；不要用 `FEDFUNDS` 月均值推，月中调息会被拆进两个月）+ `WALCL` 趋势 + Web 检索最新 FOMC 声明。35 天日历只覆盖最近一次议息会议；若该次为未调息，用 Web 确认再前一次 FOMC 的结果后再判"近 3 个月"。 | 近 3 个月降过息**且**资产负债表不再收缩 | 降息或停止缩表占其一；或按兵不动但声明偏鸽 | 按兵不动、表态中性 | 按兵不动但表态偏鹰，或仍在缩表 | 近 3 个月加过息 |
+| ③ | FedWatch 偏鸽程度变化 | 8% | Web：下次会议的**降息概率**和**加息概率**，各自对比一周前。偏鸽变化 = 降息概率变化 − 加息概率变化（单位：百分点）| 偏鸽变化 > +20 | +5 ~ +20 | ±5 以内 | −5 ~ −20 | < −20 |
 | ④ | M2 同比 | 5% | `M2SL` 最新值 ÷ 12 个月前 − 1 | ≥ 3% | 1% ~ 3% | 0 ~ 1% | −1.5% ~ 0 | < −1.5% |
 
-> **① 的单位提醒**：`WALCL` 和 `WDTGAL` 的单位是**百万美元**，`RRPONTSYD` 是**十亿美元**，相减前先把 RRP 乘以 1000。`WALCL`/`WDTGAL` 是周频（周三），RRP 是日频——取与周三日期对齐的那天。
+> **① 的说明**：
+> - 单位：`WALCL` 和 `WDTGAL` 是**百万美元**，`RRPONTSYD` 是**十亿美元**，相减前先把 RRP 乘以 1000。
+> - 对齐：`WALCL`/`WDTGAL` 是周频（周三），RRP 是日频——取与周三同一天的值，那天休市就取前一个交易日。
+> - **为什么用 4 周均值对比，不用单点相减**：季末、月末前后财政部账户和逆回购会冲高后回落（实测 2026-09-30 季末 RRP 从不到 10 亿跳到 115 亿、TGA 单周 +367 亿），单点相减会把季末效应当成趋势。
+>
+> **③ 的说明**：同时看降息和加息两边，加息周期也适用——例如降息概率一直约为 0、加息概率从 28% 降到 17%，偏鸽变化 = 0 − (−11) = +11，得 +1。实测 CME FedWatch 页面常超时，可从新闻里找"据 CME FedWatch"的数字；一周前的值找不到时，用最近一次重大数据发布前后的变化代替并注明；都取不到按 0 分计。多个来源给出的一周前概率不一致时各算一遍；得分不同取更接近 0 的档，并在明细里写明各来源的数字和日期，优先采信注明"据 CME FedWatch"的主流媒体。
 
 ### 第二层：市场环境（30%）
 
@@ -91,7 +96,7 @@ tools: WebSearch, WebFetch
 
 | # | 指标 | 权重 | 取数 | +2 | +1 | 0 | -1 | -2 |
 |---|------|------|------|----|----|---|----|----|
-| ⑪ | BTC 现货 ETF 近 5 个交易日净流入合计 | 13% | Web：Farside / SoSoValue | > +10 亿美元 | +2 ~ +10 亿 | ±2 亿以内 | −2 ~ −10 亿 | < −10 亿 |
+| ⑪ | BTC 现货 ETF 近 5 个交易日净流入合计 | 13% | Web：bitbo.io + tftc.io（Farside 口径），见 Batch 3 | > +10 亿美元 | +2 ~ +10 亿 | ±2 亿以内 | −2 ~ −10 亿 | < −10 亿 |
 | ⑫ | 稳定币总市值 30 日变化 | 12% | DeFiLlama：各币 `circulating.peggedUSD` 求和，对比 `circulatingPrevMonth.peggedUSD` 求和 | > +2% | +0.5% ~ +2% | ±0.5% 以内 | −0.5% ~ −2% | < −2% |
 
 交易所 BTC 余额需要付费数据源，不纳入评分（它原本的权重已并入 ⑪⑫）。
@@ -103,9 +108,14 @@ tools: WebSearch, WebFetch
 | # | 指标 | 权重 | +2 | +1 | 0 | -1 | -2 |
 |---|------|------|----|----|---|----|----|
 | ⑭ | 通胀脉冲（核心 CPI、核心 PCE 环比，对比预期）| 5% | 两项都低于预期 | 一项低于、一项符合 | 都符合，或一高一低 | 一项高于、一项符合 | 两项都高于预期 |
-| ⑮ | 就业脉冲（非农新增、失业率，对比预期）| 5% | 非农低于预期、失业率持平，**且** ③ 得分 ≥ +1 | 非农略低于预期（差距 < 10 万）、失业率持平 | 符合预期 | 非农高于预期 10 万以上（降息预期后移）| 非农负增长**且**失业率单月上升 ≥ 0.2 个百分点（衰退担忧）|
+| ⑮ | 就业脉冲（非农新增、失业率，对比预期）| 5% | 两项都偏弱，**且** ③ 得分 ≥ +1 | 至少一项偏弱、另一项不偏强 | 两项都在预期附近，或一弱一强 | 至少一项偏强、另一项不偏弱 | **先判这一档**：非农为负**且**失业率单月上升 ≥ 0.2 个百分点（衰退担忧）|
 
-> **保鲜期**：数据发布超过 3 周，该指标得分乘以 0.5。
+> **⑭ 的"符合"**：实际值与预期值在公布精度上相等（环比通常精确到 0.1%）。
+> **⑮ 的"偏弱 / 偏强"**：非农低于预期 ≥ 5 万为偏弱、高于预期 ≥ 5 万为偏强；失业率高于预期 ≥ 0.1 个百分点为偏弱、低于预期 ≥ 0.1 为偏强；其余为"在预期附近"。偏弱意味着降息预期升温，对 BTC 偏利多——除非弱到衰退（−2 档）。
+
+> **保鲜期**：按两项中**较早**的那次发布算，超过 3 周该指标得分乘以 0.5。
+> **⑭⑮ 的取数**：只认日历里这几行——`Core Inflation Rate MoM`（核心 CPI 环比，名字里没有 "CPI"）、`Core PCE Price Index MoM`、`Non Farm Payrolls`（不是 `…Private`）、`Unemployment Rate`（不是 U-6）。不要用 `CPI (…)`、`CPI s.a`、`Inflation Rate (…)`，它们是总体 CPI 的指数点位。
+> **"4 周变化"的基准**（⑧⑨）：取 `observation_date` ≤ 最新日期 − 28 天的最近一行。档位区间一律左闭右开。
 
 ---
 
@@ -113,7 +123,7 @@ tools: WebSearch, WebFetch
 
 ```
 层得分 = Σ(该层指标得分 × 权重) ÷ 该层权重合计        （范围 −2 ~ +2，保留一位小数）
-层方向 = 层得分 > +0.5 为 ↑；< −0.5 为 ↓；其余为 →
+层方向 = 层得分 > +0.5 为 ↑；< −0.5 为 ↓；其余为 →          （按未取整的层得分判断，显示时再保留一位）
 ```
 
 矛盾度只看前三层（第四层权重小、噪音大）：
@@ -121,20 +131,21 @@ tools: WebSearch, WebFetch
 | 矛盾度 | 条件 | 含义 |
 |--------|------|------|
 | 低 | 三层里没有同时出现 ↑ 和 ↓ | 信号可靠 |
-| 中 | 市场环境层与加密资金层方向相反（一 ↑ 一 ↓），流动性层为 → 或与其中一层同向 | 信号需观察 |
-| 高 | 流动性层与另外两层的方向都相反 | 基准层被两层同时否定，观望 |
+| 高 | 流动性层与另外两层的方向都相反（两层都是反方向，不含 →）| 基准层被两层同时否定，观望 |
+| 中 | 其余所有情况 | 信号需观察 |
+
+**层内分歧**（不改分，只在卡片上标注）：同一层里同时有 +2 和 −2 的指标，就在卡片的矛盾度后面加一句"层内分歧：[指标 A] vs [指标 B]"。层得分是平均数，会把这种硬冲突抹成 →，矛盾度也因此显示为"低"——实测 2026-10-03 第一层"9 月加息 −2"对"M2 同比 +2"就是这种情况。
 
 ---
 
 ## 分析流程
 
-### 第一步：取数（两批，每批 ≤4 路并行）
+### 第一步：取数（三批，每批 ≤4 路并行）
 
 **Batch 1**
 ```
-metrics(keywords=["WALCL","WDTGAL","M2SL","FEDFUNDS","CPILFESL"], categories=["macro"], limit=13)   # ①②④⑭
-metrics(keywords=["RRPONTSYD","DFII10","T10Y2Y"],                 categories=["macro"], limit=22)   # ①⑧⑨（日频，22 条≈4 周）
-metrics(keywords=["PCEPILFE","PAYEMS","UNRATE"],                  categories=["macro"], limit=13)   # ⑭⑮（UNRATE 多占一个名额）
+metrics(keywords=["WALCL","WDTGAL","M2SL"], categories=["macro"], limit=13)   # ①④（⑭⑮ 的实际 / 预期取自日历，不需要 FRED 指数）
+metrics(keywords=["RRPONTSYD","DFII10","T10Y2Y"],                 categories=["macro"], limit=45)   # ①⑧⑨（日频；① 要对齐 8 个周三，需约 40 个交易日）
 metrics(keywords=["DXUSD","^IXIC","^VIX","GCUSD"], query="行情", asset_type="tradfi")               # ⑤⑥⑦⑩ 现价
 ```
 
@@ -142,20 +153,29 @@ metrics(keywords=["DXUSD","^IXIC","^VIX","GCUSD"], query="行情", asset_type="t
 ```
 metrics(keywords=["DXUSD","^IXIC","GCUSD"], query="均线 指标", period=50, limit=1, asset_type="tradfi")   # ⑤⑥⑩ 的 EMA50
 metrics(keywords=["BTC"], query="行情", asset_type="crypto")
-metrics(query="economic calendar", country="US", time_range="14d", limit=50)      # 已发布数据的 actual / estimate（⑭⑮）
-metrics(query="economic calendar", country="US", date_from="<今天>", date_to="<今天+14天>", limit=50)   # 下次关键事件
+metrics(query="economic calendar", country="US", time_range="35d", sort_by="hot", limit=50)   # ② 议息结果、⑭⑮ 已发布数据的 actual / estimate
+metrics(query="economic calendar", country="US", date_from="<今天>", date_to="<今天+14天>", sort_by="hot", limit=30)   # 下次关键事件（窗口别超过 14 天：服务端候选上限只覆盖约两周）
 ```
-日历噪音很多（国债拍卖、官员讲话、EIA 周报），只保留 `impact=="High"` 且事件名含 CPI / PCE / Nonfarm / Unemployment / FOMC 的行。`has_more:true` 时用 `meta.pagination` 里的 `next_cursor` 翻页。query 里不要写"本周"。
+**日历只写 `query="economic calendar"`（不传 keywords，传了会被静默忽略），必须带 `sort_by="hot"`**：不带时按时间排序，一天就有几十行国债拍卖、EIA 周报、官员讲话，50 行只能覆盖一两天，CPI / PCE / 非农全被挤出去（2026-10-03 实测）。带上后高重要度事件排在前面，35 天窗口内的非农、失业率、核心 CPI、核心 PCE、议息结果一次就能拿全。
+从返回里取：`Core Inflation Rate MoM`（核心 CPI 环比）、`Core PCE Price Index MoM`、`Non Farm Payrolls`（不是 `Nonfarm Payrolls Private`）、`Unemployment Rate`（不是 U-6）、`Fed Interest Rate Decision`。同一事件有多期时取最近一期。query 里不要写"本周"；不要用事件名当 query（实测 `query="nonfarm payrolls"` 只返回私营部门那一行，漏掉总数）。
 
 **Batch 3（HTTP + Web）**
 ```
 HTTP: GET https://stablecoins.llama.fi/stablecoins?includePrices=true        # ⑫
-Web:  CME FedWatch 降息概率（含一周前的值）                                   # ③
-Web:  Farside / SoSoValue BTC 现货 ETF 近 5 日净流入                          # ⑪
+Web:  CME FedWatch 下次会议降息 / 加息概率（含一周前的值）                     # ③
+Web:  BTC 现货 ETF 近 5 日净流入：bitbo.io/treasuries/etf-flows 与 tftc.io/bitcoin-etf-flows（Farside 口径）两家都 WebFetch   # ⑪
+      （Farside 官网会返回 403）。"近 5 个交易日" = 该来源已发布的最近 5 个交易日；先核对周一到周五没有缺行，
+      有缺行的来源只作对照、不单独计分（实测 bitbo 缺过一个周五）
 Web:  最新 FOMC 声明要点                                                     # ②
 ```
 
 每次 `metrics` 调用后核对：`meta.warnings` 是否有丢项；`results` 里是否每个请求的标的都有数据。
+
+**日历返回 `status:"partial"` 加"候选上限已满"的降级警告是常态**，不要因此补调：目标事件行都拿到就继续；缺哪行，用 `meta.pagination.next_cursor` 以相同参数翻一页；仍缺再 Web。
+
+**下次关键事件**：前瞻窗口里第一条本 Skill 用到的事件（核心 CPI / 核心 PCE / 非农 / `Fed Interest Rate Decision`）；窗口里没有就取第一条 `impact=="High"` 的事件。下次 FOMC 议息日若在窗口外，用 Web 确认后另列。
+
+**ETF 数据来源打架时**（实测 10-01 一家写 +1.03 亿、另一家写 −0.08 亿）：两种口径都算一遍。得分相同就照用；得分不同取更接近 0 的那一档，并在明细里写明两个来源的数字。
 
 ### 第二步：逐指标打分
 
@@ -163,7 +183,7 @@ Web:  最新 FOMC 声明要点                                                  
 
 ### 第三步：算综合分
 
-套公式。有指标缺失时按下面"数据缺失处理"重分配权重后再算。
+套公式。缺失指标按 0 分计、权重不转移（见"数据缺失处理"）。
 
 ### 第四步：层方向与矛盾度
 
@@ -189,7 +209,7 @@ Web:  最新 FOMC 声明要点                                                  
 │  主要支撑：[得分最高的 2-3 个指标]
 │  主要拖累：[得分最低的 2-3 个指标]
 │
-│  矛盾度：低/中/高  ·  数据时间：XXXX年X月X日
+│  矛盾度：低/中/高 [· 层内分歧：A vs B]  ·  数据时间：XXXX年X月X日
 │  下次关键事件：[日期] [事件名]
 └──────────────────────────────────────────────────┘
 ```
@@ -206,9 +226,9 @@ BTC宏观环境评分 — 完整明细
 ━━━ 评分明细 ━━━
 
 第一层 — 流动性方向（35%）  层得分：±X.X
-  净流动性 4 周变化    [得分]  [数值 · 数据日期 · 来源]
+  净流动性变化        [得分]  [两个 4 周均值 · 数据日期 · 来源]
   美联储政策方向       [得分]  [...]
-  FedWatch 概率变化    [得分]  [...]
+  FedWatch 偏鸽变化    [得分]  [降息 / 加息概率及一周前的值]
   M2 同比             [得分]  [...]
 
 第二层 — 市场环境（30%）  层得分：±X.X
@@ -254,7 +274,7 @@ BTC宏观环境评分 — 完整明细
 
 | 场景 | 处理 |
 |------|------|
-| 某指标取不到数（`results` 为空、`meta.warnings` 报丢项、Web 检索失败）| 该指标标"数据不可用"，它的权重按比例分给**同层其余指标**；整层都缺则按比例分给其余层 |
+| 某指标取不到数（`results` 为空、差集有缺口、Web 检索失败）| 该指标标"数据不可用"，**按 0 分计、权重不转移**（相当于向中性收缩），并在卡片上标注缺失项。不要把它的权重分给同层其余指标——实测黄金看盘 GLD 缺失后，权重转给一份两个月前的央行购金数据，把总分抬高了 3 分 |
 | Followin MCP 整体不可用 | 说明连不上数据源，不输出评分 |
 | 缺失指标 ≥ 3 个 | 评分照出，但在卡片和明细里都标"数据覆盖不足，可靠性降低" |
 
