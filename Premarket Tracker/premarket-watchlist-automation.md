@@ -68,12 +68,12 @@ http_headers = { "x-api-key" = "YOUR_API_KEY_HERE" }
 
 所有美股调用都传 `asset_type="tradfi"`（`news` 也可以传——2026-10-01 实测正常返回，旧"传了返 0 篇"已不复现）。
 
-1. **`metrics` 市场层**：`metrics(keywords=[≤5 个], query="行情", asset_type="tradfi")` 取指数或 ETF 市场背景、自选股当前价/最近收盘、涨跌、成交量；历史走势用 `query="历史走势"` + `time_range`，技术指标用 `query="均线 指标"`。
+1. **`metrics` 市场层**：`metrics(keywords=[≤5 个], query="行情", asset_type="tradfi")` 取指数或 ETF 市场背景、自选股当前价/最近收盘、涨跌、成交量；历史走势用 `query="历史走势"` + `time_range`，技术指标用 `query="均线 指标"`。⚠️ 日线的 `change` / `changePercent` 是**当日收盘对当日开盘**，不是对前一日收盘（N-131）——多日涨跌和波动一律用相邻两天的 `close` 自算。
 2. **`metrics` 基本面层**：`metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_type="tradfi")` 一次拿快照、最新一季财报（`fiscal_quarters[0].earnings_surprise` / `financial_statement`）、下一次财报日期（`next_earnings_estimate.date`）与分析师评级；估值比率在不写 query 的默认返回里（`valuation_block.ratios_ttm`）。
 3. **`news(query="<主题词>", time_range="24h"~"7d", limit=N)`**：最近 24 小时到 7 天的重大新闻、公告与催化。返回是 articles + social 两桶（实际约 2N 条，N-25）。
 4. **`news(query="<标的/主题词>", time_range=…, limit=N)`**：市场级或标的级社媒热度看返回里的 **social 桶**；按原帖 URL 去重后再统计。
 5. **结构化研报走 `metrics(keywords=["<TICKER>"], query="research reports", asset_type="tradfi", date_from=…, date_to=…)`**（红线 12：query 必含研报意图词）。目标价、评级和结构化 thesis 仍以 `metrics` 为准。
-6. **`signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional"], asset_type="tradfi")`**：**必须显式列出 `categories`**（2026-10-01 实测：省略后只传 ticker 返回空），三类一次调用仍只计 1 额度；不带 `time_range`（13F 带窗口会被拒，喊单上游只覆盖最近 24 小时）；喊单行按 `symbol` 自行筛，内部人按 `transactionDate` 自行过滤。只解读实际返回的类别。
+6. **`signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional"], asset_type="tradfi")`**：**必须显式列出 `categories`**（2026-10-01 实测：省略后只传 ticker 返回空），三类一次调用仍只计 1 额度；不带 `time_range`（13F 带窗口会被拒，喊单上游只覆盖最近 24 小时）；喊单行按 `symbol` 自行筛并按 `source_url` 去重（一条推文提到多个标的会拆成多行，N-136），内部人按 `transactionDate` 自行过滤（国会议员交易带 `_chamber` 字段、滞后 2~4 周申报，按 `disclosureDate` 判新旧，N-137）。13F 的 `*_change_percent` 恒为 0，只用持仓绝对值（N-134 ⑦）。只解读实际返回的类别。
 7. **`twitter`**：仅在用户点名账号、指定推文或需要原始线程时使用，不拿它替代一般社媒搜索。
 8. **`subscription`**：用户要求维护 KOL 喊单关注收件箱时使用。它是拉取式未读箱，不是服务端主动推送。
 
@@ -93,7 +93,7 @@ http_headers = { "x-api-key" = "YOUR_API_KEY_HERE" }
 - 最近催化、重大新闻、公司公告、财报/研报变化。
 - 去重后的社媒热度、KOL/内部人/机构信号及样本量。
 
-是否为旧收盘用**字段判据**判定，不用挂钟时间猜：返回里 `_quote_session=="regular_inactive"` / `_quote_cache=="last_regular"`（N-48）即是上一个 regular 收盘——盘前时段 `metrics` 返回的仍是旧收盘，输出一律标"最近收盘"，不得称为真实盘前价。字段缺失就略过，不用旧数据补齐。
+是否为旧收盘用**字段判据**判定，不用挂钟时间猜：返回里 `_quote_session=="regular_inactive"` / `_quote_cache=="last_regular"`（N-48）即是上一个 regular 收盘——盘前时段 `metrics` 返回的仍是旧收盘，输出一律标"最近收盘"，不得称为真实盘前价。有 `_quote_session` 字段就按它判（`regular_inactive` = 最近收盘）；没有这个字段（`^VIX`、外汇、商品和多数小盘股都没有，N-139）就看 `as_of`，早于今天或不在美东 9:30–16:00 内一律标"最近收盘"，不能因为字段缺失就当成实时价。
 
 ### 3. 持仓对应计划
 

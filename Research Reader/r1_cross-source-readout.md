@@ -108,7 +108,7 @@ metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_t
 
 **这一个调用同时返回**（2026-10-01 实测）：`consensus_price` + `analyst_grades` + `analyst_estimates` + `eps_trend` + `fiscal_quarters[0]`（内含 `earnings_surprise` 与 `financial_statement`，只有最新一季）+ `next_earnings_estimate` + `market.snapshot`。
 
-> ⚠️ **字段已换代（N-109）**：旧的 `beat_miss` / `latest_quarter` 两个 block 不存在了。对应关系：`beat_miss.epsActual` → `fiscal_quarters[0].earnings_surprise.actual_eps`；`beat_miss.date` → `earnings_surprise.report_date`；`latest_quarter.eps` → `fiscal_quarters[0].financial_statement.eps`；`latest_quarter.date` → `financial_statement.period_end`。本调用不再返回 `valuation_block`（要 DCF 得把"DCF"写进 query，本 Skill 不用）。`analyst_grades` 的行数受 `limit` 控制，估家数时传 `limit=20`。
+> ⚠️ **字段已换代（N-109）**：旧的 `beat_miss` / `latest_quarter` 两个 block 不存在了。对应关系：`beat_miss.epsActual` → `fiscal_quarters[0].earnings_surprise.actual_eps`；`beat_miss.date` → `earnings_surprise.report_date`；`latest_quarter.eps` → `fiscal_quarters[0].financial_statement.eps`（基本 EPS；GAAP 稀释在 `epsDiluted`，闸 1 用后者）；`latest_quarter.date` → `financial_statement.period_end`。本调用不再返回 `valuation_block`（要 DCF 得把"DCF"写进 query，本 Skill 不用）。`analyst_grades` 的行数受 `limit` 控制，估家数时传 `limit=20`。
 
 > ⚠️ **query 里不要加会撞 ticker 的英文词**（N-14）：`beat` / `miss` / `hold` / `buy` / `now` / `all` 都会被当成 ticker 抽取（实测 `BEAT` 撞上仙股 HeartBeam $0.55）。调用后核对 `meta.filters_applied.keywords` 只有目标 ticker。
 
@@ -150,7 +150,9 @@ metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_t
 > 实测 INTC：公布日 2026-07-23、财季结束 2026-06-27 → **gap = 26 天 < 90 → 同季**，闸 1 生效。若按朴素比日期则判为不同季，闸 1 被误作废。
 > gap ≥ 90 天才标"口径无法核对"并作废闸 1——跨季比对会让一盈一亏的相邻两季产生假阳性。
 
-**闸 1 · GAAP 口径错位（N-29）**：`earnings_surprise.actual_eps` 与 `financial_statement.eps`（与 `eps_trend` 同源）**只要不相等即判定口径错位**（2026-10-01 复测 NVDA 仍是 2.22 vs 2.47）——服务端始终不标 basis。
+**闸 1 · GAAP 口径错位（N-29）**：`earnings_surprise.actual_eps` 与 `financial_statement.epsDiluted`（GAAP 稀释 EPS）**只要不相等即判定口径错位**（2026-10-01 复测 NVDA 仍是 2.22 vs 2.47）——服务端始终不标 basis。
+
+> ⚠️ **GAAP 侧用 `epsDiluted`，不用 `financial_statement.eps`**（N-134 ③，2026-10-03 实测）：`eps` 是**基本** EPS。拿它比，哪怕超预期本身就是 GAAP 口径，基本与稀释之间的差也会让这道闸误判"口径错位"。下文 NVDA / INTC 的示例数字当时取自 `eps` 字段（基本 EPS），只用来说明错位的形态。
 
 > ⚠️ **2026-08-05 判据放宽**：原文写「**反号**即判定」，那是照 INTC 定的（`+0.42` vs `−2.16`，一正一负很扎眼）。**实测 NVDA 是同号不同值**——`actual_eps 1.87` vs `financial_statement.eps 2.40`，同一个季度、都为正、差 **28%**，按旧判据**这道闸不会触发**。
 > **同号错位比反号更危险**：反号一眼看得出不对劲，同号会被当成同一个数直接混用。

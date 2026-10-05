@@ -105,7 +105,7 @@ N-10 记载的是 `metrics()` 工具在 `time_range` 小于 1 天时会返回一
 
 4. metrics(keywords=["<TICKER1>","<TICKER2>",…], query="行情", asset_type="tradfi")
    # 受影响标的批量快照；每批 ≤5，超出的写在 meta.warnings（keyword_count_over_max），分批补跑
-   # 快照没有涨跌幅字段，自算 change ÷ previousClose × 100；非交易时段返回的是上一常规收盘（_quote_session:"regular_inactive"），标「最近收盤」
+   # 快照没有涨跌幅字段，自算 change ÷ previousClose × 100；非交易时段返回的是上一常规收盘，标「最近收盤」：有 _quote_session 按它判；没有（^VIX、商品、多数小盘股，N-139）看 as_of，不在美东 9:30–16:00 内都算最近收盘
    # 若热点发生在盘前/盘后时段，快照自带的 extendedHoursQuote 字段可直接引用并标注「盤前」/「盤後」
    # 原油 / 黄金等商品只能走数组：keywords=["CLUSD","BZUSD","GCUSD"]（写进 query 串整批返空）
 
@@ -209,7 +209,7 @@ metrics(keywords=["<TICKER>"], query="财报 分析师评级", asset_type="tradf
 
 - **继承 c1 全部过滤规则**：c5 第 1 节步骤 1 与 c1 步骤 1/3 用的是同一类趋势/异动榜调用，会遇到同样的数据污染，规则原样继承，不重新发明：
   - 代币化股票与加密噪音：趋势榜内容可能混入代币化股票与加密资产（c1 实测命中 SKHYx、LAB），按"美股正股白名单"原则剔除，不进热点菜单。
-  - 杠杆 ETF/仙股：第 2 节步骤 4 批量补标的快照时若涉及类似异动榜场景，同样按 marketCap ≥$1B + 剔杠杆 ETF（name 含 2X/3X/Long/Short/Bull/Bear/Daily/Leveraged）+ 仙股 <$5 三重过滤（红线 9/N-9）。
+  - 杠杆 ETF/仙股：第 2 节步骤 4 批量补标的快照时若涉及类似异动榜场景，同样按 marketCap ≥$1B + 剔杠杆 / 反向 ETF（name 含 2X/3X/Long/Short/Inverse/Target/Bull/Bear/Daily/Leveraged）过滤（红线 9/N-9）；仙股 <$5 闸与 c1 一致，只在拿不到市值时兜底（实测会误杀 GRAB 这类低价大市值票）。
 
 - **速报时效红线（age gate，S-7 铁律 5 的强化版）**：c5 定位是"实时"热点，趋势榜按热度排序返回、常混多日陈货——混入一条几天前的陈货并当"刚发生"来写，是对新手社群的信任伤害，因此本模块把铁律 5 加严为机器核规则：
   - 扫描菜单的每一条候选，必须机器核对其 `published_ts` 字段，用当前时间减去 `published_ts` 算出实际间隔小时数——不是"读一眼发布时间字符串觉得看起来很新"这种肉眼估算，是拿两个时间戳做减法算出精确小时数。

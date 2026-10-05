@@ -32,9 +32,9 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 | 1 | `news(query="", asset_type="tradfi", time_range="24h")` 热点趋势榜 | 0（实测） |
 | 2 | （按需）对头条事件 `news(query="<核心名词×2>", asset_type="tradfi", time_range="24h")` 补细节，≤3 次 | 0（实测） |
 | 3 | `metrics(query="most active stocks", asset_type="tradfi")` 异动榜（要涨跌幅榜可另调 `query="biggest gainers"` / `"biggest losers"`，2026-10-01 实测数据已恢复正常，但仍以仙股为主）。三张榜的行都只有 symbol / name / price / change / changesPercentage 五个字段，**不带 marketCap 和 exchange**，需对候选 ticker 另发一次 `metrics(keywords=[≤5 个 ticker], query="行情", asset_type="tradfi")` 补快照取 marketCap 后再套用 ≥$1B 过滤（**≤5 个一批**，超出会在 `meta.warnings` 里报 `keyword_count_over_max`） | 2 |
-| 4 | `signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")` 喊单榜 + 多空比；内部人大额动向**另调** `signal(categories=["insider_trading"], asset_type="tradfi", limit=50)`（不带 time_range，客户端按 transactionDate 过滤）——2026-10-01 实测：不传 categories 只返喊单一类；两类合在一次调用里再带 `time_range="24h"`，内部人整类静默消失 | 2 |
-| 5 | 当日财报两条腿：① 关注池逐批 `metrics(keywords=[≤5 个 ticker], query="next earnings date", asset_type="tradfi")`，取 `next_earnings_estimate.date` = 今日的；② 市场级日历 `metrics(query="earnings calendar", asset_type="tradfi", country="US", date_from=<今日>, date_to=<今日>)` 补关注池外的名字（2026-10-01 实测已恢复可用，但带 `status:"partial"`，覆盖不保证全）。做法与铁律见 c2 第 2 节 | 关注池数 ÷5 ＋ 1 |
-| 6 | `metrics(query="economic calendar upcoming releases", country="US")` 当日宏观数据发布（**`country="US"` 必传**——2026-10-01 实测不传返回的是韩国 / 印度 / 博茨瓦纳的事件）| 1 |
+| 4 | `signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")` 喊单榜 + 多空比；内部人大额动向**另调** `signal(categories=["insider_trading"], asset_type="tradfi", sort_by="amount", limit=50)`（不带 time_range，客户端按 transactionDate 过滤）——2026-10-01 实测：不传 categories 只返喊单一类；两类合在一次调用里再带 `time_range="24h"`，内部人整类静默消失 | 2 |
+| 5 | 当日财报两条腿：① 关注池逐批 `metrics(keywords=[≤5 个 ticker], query="next earnings date", asset_type="tradfi")`，取 `next_earnings_estimate.date` = 今日的；② 市场级日历 `metrics(query="earnings calendar", asset_type="tradfi", date_from=<今日>, date_to=<今日>)` 补关注池外的名字（**不传 `country`**：它按注册地过滤，会漏掉 ACN 这类外国注册的美股，N-133；客户端只留 `^[A-Z]{1,5}$` 代码，剔掉 `.KS` / `.T` 等外国代码和 `MKC-V` 这类重复股类；覆盖仍不保证全）。做法与铁律见 c2 第 2 节 | 关注池数 ÷5 ＋ 1 |
+| 6 | `metrics(query="economic calendar", country="US", sort_by="hot", date_from=<今日>, date_to=<今日>)` 当日宏观数据发布（**`country="US"` 必传**——2026-10-01 实测不传返回的是韩国 / 印度 / 博茨瓦纳的事件；**`sort_by="hot"` 必传**——不传按时间排，国债拍卖、官员讲话会把 CPI / 非农挤出 50 行，N-128）。筛选：`impact=="High"` 全留，Medium 只留 `estimate` 非空的 | 1 |
 | 7 | 大盘指数 `metrics(keywords=["^GSPC","^IXIC","^DJI","^VIX"], query="行情", asset_type="tradfi")` + 过滤后重点股快照（同样走 keywords 数组，≤5 个一批） | 1-4 |
 
 调用形态铁律（本序列全程通用）：
@@ -57,16 +57,16 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 
 4. signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")
    # 喊单聚合（总帖数 / 多空比 / top_calls），1 额度
-   signal(categories=["insider_trading"], asset_type="tradfi", limit=50)
-   # 内部人全市场最新申报，1 额度；不带 time_range，客户端按 transactionDate 过滤
+   signal(categories=["insider_trading"], asset_type="tradfi", sort_by="amount", limit=50)
+   # 内部人全市场最新申报，1 额度；按金额降序（N-137）；不带 time_range，客户端按 transactionDate 过滤
 
 5. 对关注池逐批（≤5 只）：metrics(keywords=["<T1>",…,"<T5>"], query="next earnings date", asset_type="tradfi")
    # 取 next_earnings_estimate.date = 今日的
-   metrics(query="earnings calendar", asset_type="tradfi", country="US", date_from="<今日>", date_to="<今日>")
-   # 市场级日历补漏；status 恒为 partial，不能当"当日全貌"
+   metrics(query="earnings calendar", asset_type="tradfi", date_from="<今日>", date_to="<今日>")
+   # 市场级日历补漏；不传 country（N-133），客户端只留 ^[A-Z]{1,5}$ 代码；不能当"当日全貌"
 
-6. metrics(query="economic calendar upcoming releases", country="US")
-   # 宏观日历；country="US" 必传；query 严禁带"本周"（红线 10，会返历史而非前瞻）
+6. metrics(query="economic calendar", country="US", sort_by="hot", date_from="<今日>", date_to="<今日>")
+   # 宏观日历；country="US" 与 sort_by="hot" 必传；query 只写 economic calendar，不写事件名、不写"本周"（N-129 / 红线 10）；date 字段是 UTC
 
 7. metrics(keywords=["^GSPC","^IXIC","^DJI","^VIX"], query="行情", asset_type="tradfi")
    # 大盘四指数一次批量；快照没有涨跌幅字段，自算 change ÷ previousClose × 100
@@ -111,12 +111,13 @@ args: mode(晨報|開盤前瞻|刷新，默认晨報)
 
 ## 4. 防坑镜像（逐条，来源编号见括号）
 
-- **异动榜过滤**：客户端过滤 = marketCap ≥$1B + 剔杠杆 ETF（name 匹配 `ETF|ETN|UltraPro|Ultra|Leveraged|\dX|Bull|Bear|Daily`）；价格 <$5 的仙股闸只在市值拿不到时兜底（实测会误杀 GRAB 这类低价大市值票）。三张榜（most active / gainers / losers）的行都**不带 marketCap 和 exchange**（2026-10-01 实测只有 symbol / name / price / change / changesPercentage），须另发一次批量快照补 marketCap 才能套 ≥$1B 过滤。涨跌幅榜 2026-10-01 实测数据已恢复正常（旧"禁用"撤销，N-111），但榜首仍多为仙股，过滤照做。
+- **异动榜过滤**：客户端过滤 = marketCap ≥$1B + 剔杠杆 / 反向 ETF（name 匹配 `ETF|ETN|UltraPro|Ultra|Leveraged|\dX|Bull|Bear|Daily|Short|Inverse|Target`，不区分大小写；RWM 叫 ProShares - Short Russell2000，只判 ETF 会漏）；价格 <$5 的仙股闸只在市值拿不到时兜底（实测会误杀 GRAB 这类低价大市值票）。三张榜（most active / gainers / losers）的行都**不带 marketCap 和 exchange**（2026-10-01 实测只有 symbol / name / price / change / changesPercentage），须另发一次批量快照补 marketCap 才能套 ≥$1B 过滤。涨跌幅榜 2026-10-01 实测数据已恢复正常（旧"禁用"撤销，N-111），但榜首仍多为仙股，过滤照做。每张榜最多约 30 行（`limit=50` 也只回 31 行，N-138），跌得不够极端的大盘股不在榜上——只能写"榜内可见"，不能写"今日最大跌幅"。
 - **代币化+加密噪音白名单剔除**：趋势榜内容含代币化股票与加密混排（实测 SKHYx、LAB 代币），按"美股正股白名单"原则剔除。（来源：c1 本次实测命中 SKHYx、LAB）
 - **news 的 asset_type**：趋势模式（空 query）与搜索模式都可传 `asset_type="tradfi"`，均 0 额度（2026-10-01 实测搜索模式传了正常返回，旧"加了返 0 篇"不再复现，N-112）。需要权威报道时加 `sources=["media"], sort_by="relevance"`。⚠️ 宽主题词搜索传 tradfi 时可能带 `asset_type_no_matching_keyword` 提示，属正常。
-- **内部人 transactionDate=昨日，只认 S-Sale/P-Purchase**：步骤 4 的内部人行客户端过滤 transactionDate=昨日，且只认 `formType=="4"` 的 S-Sale / P-Purchase（F-InKind / M-Exempt 是缴税代扣 / 豁免行使，剔除；2026-10-01 实测榜首常是 `formType:"3"`、`transactionType` 为空的新任董事初始申报，同样剔除）。**不要给内部人调用带 time_range**：实测带 `7d` 返回 `status:"partial"`，与喊单合并调用再带 `24h` 时内部人整类静默消失。
-- **市场级财报日历已恢复，但只能当补漏腿（N-114，2026-10-01 实测）**：`metrics(query="earnings calendar", asset_type="tradfi", country="US", date_from, date_to)` 现在返回无后缀美股代码（实测 10-01~10-08 返回 AYI / MKC / NKE / STZ / LEVI 等）并支持 cursor 翻页，7 月"只返回字母前段"的问题（N-22）不再复现。但响应恒带 `status:"partial"`（部分标的缺国别档案，country 过滤无法完全执行），**覆盖不保证全**——主腿仍是关注池 + `next_earnings_estimate` 核实，做法见 c2 第 2 节。
+- **内部人 transactionDate=昨日，只认 S-Sale/P-Purchase**：步骤 4 的内部人行客户端过滤 transactionDate=昨日，且只认 `formType=="4"` 的 S-Sale / P-Purchase（F-InKind / M-Exempt 是缴税代扣 / 豁免行使，剔除；2026-10-01 实测榜首常是 `formType:"3"`、`transactionType` 为空的新任董事初始申报，同样剔除）。**不要给内部人调用带 time_range**：实测带 `7d` 返回 `status:"partial"`，与喊单合并调用再带 `24h` 时内部人整类静默消失。**覆盖只有最近约 1 个申报日、最多 50 条**，同一公司多笔申报会挤占名额（N-137）——没筛出东西就写"最近一个申报日内未见大额买卖"，不写"昨日无内部人交易"。混在里面的国会议员交易带 `_chamber` 字段（senate / house），交易日期滞后 2~4 周，按 `disclosureDate` 判新旧，别按 transactionDate=昨日 筛掉。
+- **市场级财报日历已恢复，但只能当补漏腿（N-114 / N-133）**：`metrics(query="earnings calendar", asset_type="tradfi", date_from, date_to)` 返回美股代码（实测 10-01~10-08 返回 AYI / MKC / NKE / STZ / LEVI 等）并支持 cursor 翻页。**不要传 `country="US"`**：它按注册地过滤，2026-10-03 实测把爱尔兰注册、10-01 发财报的 ACN 漏掉；不传时混有外国代码和重复股类，客户端只留 `^[A-Z]{1,5}$`。候选有上限（同日 HUBG 也被漏），**覆盖不保证全**——主腿仍是关注池 + `next_earnings_estimate` 核实，做法见 c2 第 2 节。
   🔒 **对外发布铁律**：贴文写「今天我们盯的这几家发财报」，**严禁写「今日财报一览」**——日历是 partial 的，把它当"当天全貌"的任何变体都是错的。
+- **经济日历（N-128~N-130，2026-10-03 实测）**：一律 `query="economic calendar"` + `country="US"` + `sort_by="hot"`。不带 `sort_by` 时按时间排，一天几十行国债拍卖、EIA 周报、官员讲话就把 50 行占满；query 写事件名会被拆成股票代码（`Non Farm Payrolls` → FARM，返回 0 行）；传 `keywords` 被静默忽略。事件名写死（N-130）：利率决议 `Fed Interest Rate Decision`、核心 CPI `Core Inflation Rate MoM`、核心 PCE `Core PCE Price Index MoM`、非农 `Non Farm Payrolls`、失业率 `Unemployment Rate`；`CPI (…)` / `Inflation Rate (…)` 是指数点位行，别当成 CPI 读数。`date` 是 UTC。
 - **指数走 keywords 数组，别写进 query 串（N-18，2026-10-01 复测）**：query 串 `"^GSPC ^IXIC ^DJI ^VIX"` 仍被解析成 5 个 keywords（多出一个裸 `VIX`）、^VIX 出现两条相同的行、`status:"partial"`；`keywords=["^GSPC","^IXIC","^DJI","^VIX"]` 数组写法返回干净的 4 行。若客户端只能发 query 串，写贴文前按 `symbol` 去重。
 - **原油走 `CLUSD` / `BZUSD`，必须用 keywords 数组（N-106，2026-10-01 实测）**：`metrics(keywords=["CLUSD","BZUSD"], query="行情", asset_type="tradfi")` 直接返回 WTI 与布油期货价，不必再用 USO 代理。⚠️ **商品代码写进 query 串整批返空且不报错**（实测 `query="GCUSD CLUSD BZUSD ESUSD 行情"` → 0 结果、`status:"ok"`），黄金 `GCUSD`、白银 `SIUSD`、美元指数 `DXUSD` 同理只能走数组。`OIL` / `GOLD` 别名仍会解析成同名美股，不要用。
 - **S-7 五铁律（全文镜像，五条均对本 skill 生效）**：

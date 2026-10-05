@@ -27,8 +27,8 @@ args: 可選：關注標的（最多 5 檔）、社群時區（預設台北）
 |---|---|---|
 | 1 | `metrics(keywords=["SPY","QQQ","DIA","^VIX"], query="历史走势", time_range="30d", asset_type="tradfi")` 市場底色四標的日線收盤（2026-10-01 實測 `time_range="7d"` 回傳的是小時線，直接用 30 日區間取日線；VIX 寫 `^VIX`） | 1–2 |
 | 2 | `news(query="<事件關鍵詞>", asset_type="tradfi", time_range="7d")` 本週主線事件，必要時換關鍵詞補查 ≤3 次（要權威報導加 `sources=["media"], sort_by="relevance"`） | 0（實測） |
-| 3 | 關注標的逐批（≤5 檔）`metrics(keywords=["<T1>",…,"<T5>"], query="next earnings date", asset_type="tradfi")` 查下次財報日期；可另調市場級日曆 `metrics(query="earnings calendar", asset_type="tradfi", country="US", date_from, date_to)` 補漏（恆為 `status:"partial"`，不保證全） | ⌈N/5⌉＋0–1 |
-| 4 | `metrics(query="economic calendar upcoming releases", country="US")` 下週經濟日曆（**`country="US"` 必傳**，不傳回傳韓國／印度等地事件；query 嚴禁帶「本週」，紅線 10） | 1 |
+| 3 | 關注標的逐批（≤5 檔）`metrics(keywords=["<T1>",…,"<T5>"], query="next earnings date", asset_type="tradfi")` 查下次財報日期；可另調市場級日曆 `metrics(query="earnings calendar", asset_type="tradfi", date_from, date_to)` 補漏（**不傳 `country`**，它按註冊地過濾會漏掉 ACN 這類外國註冊的美股，N-133；客戶端只留 `^[A-Z]{1,5}$` 代碼；不保證全） | ⌈N/5⌉＋0–1 |
+| 4 | `metrics(query="economic calendar", country="US", sort_by="hot", date_from=<下週一>, date_to=<下週五>)` 下週經濟日曆（**`country="US"` 必傳**，不傳回傳韓國／印度等地事件；**`sort_by="hot"` 必傳**，不傳按時間排，50 行只涵蓋一兩天、CPI／非農被擠出去，N-128；query 只寫 economic calendar，不寫事件名、不寫「本週」，N-129／紅線 10） | 1 |
 | 5 | （可選）`signal(categories=["kol_call"], query="consensus", asset_type="tradfi")` 選擇性訊號（**喊單上游只涵蓋最近 24 小時**，傳 `time_range="7d"` 回傳的仍是 24h 口徑並標 `partial`） | 0–1 |
 
 > 調用形態（2026-10-01 實測）：標的放 `keywords` 數組、意圖詞放 `query`、訊號類別放 `categories`。每次最多 **5 個** keywords，超出或解析不了的項寫在 `meta.warnings`，調用後讀一遍，缺的分批補。客戶端不接受數組入參（報 `-32602`）時，美股代碼可退回 query 空格拼串。
@@ -39,7 +39,7 @@ args: 可選：關注標的（最多 5 檔）、社群時區（預設台北）
 
 預設使用最近一個完整交易週；週中試跑時，明確寫出比較區間與截至哪個收盤日。
 
-用 `metrics` 取得 SPY、QQQ、DIA、VIX 的**日線**收盤資料。若 `time_range=7d` 回傳小時線，改用 30 日區間日線，取週初與週末收盤計算週變動；不得把盤中小時資料當成週報收盤表現。只保留實際可計算的數字與截至日期。
+用 `metrics` 取得 SPY、QQQ、DIA、VIX 的**日線**收盤資料。若 `time_range=7d` 回傳小時線，改用 30 日區間日線，用**上週最後一個交易日收盤 → 本週最後一個交易日收盤**計算週變動（用本週第一天收盤當起點會漏掉週一的漲跌；也不要用日線的 `changePercent`，那是當日收盤對當日開盤，N-131）；不得把盤中小時資料當成週報收盤表現。只保留實際可計算的數字與截至日期。
 
 ### 2. 本週主線
 
@@ -49,7 +49,7 @@ args: 可選：關注標的（最多 5 檔）、社群時區（預設台北）
 
 ### 3. 下週已確認事項
 
-用 `metrics` 查未來 7 天經濟日曆，拆成兩段日期窗口。只選高影響、日期與時間可核實的 2–5 項；優先利率決議、通膨、就業、GDP、PMI。
+用 `metrics` 一次查未來 7 天經濟日曆（帶 `sort_by="hot"` 後前瞻 14 天內都能涵蓋，不必拆窗口）。只選高影響、日期與時間可核實的 2–5 項；優先利率決議、通膨、就業、GDP、PMI。事件名寫死（N-130）：利率決議 `Fed Interest Rate Decision`、核心 CPI `Core Inflation Rate MoM`、核心 PCE `Core PCE Price Index MoM`、非農 `Non Farm Payrolls`、失業率 `Unemployment Rate`；`CPI (…)` / `Inflation Rate (…)` 是指數點位行，別當成 CPI 讀數。日曆的 `date` 是 UTC，換算美東／北京時間時注意跨日。
 
 關注標的最多 5 檔，逐檔查下一次財報日期；只有落在未來 7 天且可核實者才列入。沒有就不寫個股財報。宏觀與財報時間一律標「美東／台北」雙時區，並加註「非完整清單」。
 

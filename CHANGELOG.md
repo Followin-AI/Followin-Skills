@@ -4,6 +4,16 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-05 — 把 10-03 实跑发现的接口坑同步到其余 Skill
+
+10-03 的实跑只覆盖 Base Skill 和 Earnings Screener。这次按 N-128~N-139 逐条扫了其余各组，只改已经实测过的问题，规则本身未审、未实跑。
+
+- **c1 晨报 / c2 周报（简繁两版）**：经济日历改为 `query="economic calendar"` + `country="US"` + `sort_by="hot"`，写死事件名（N-128~N-130）——原写法按时间排，CPI / 非农会被国债拍卖、官员讲话挤出 50 行；市场级财报日历去掉 `country="US"`（按注册地过滤会漏掉 ACN，N-133）。c2 的周变动改为"上周末收盘 → 本周末收盘"（原来从本周第一天收盘算，漏掉周一涨跌）。
+- **c1**：内部人调用加 `sort_by="amount"`，写明只覆盖约 1 个申报日、议员交易按 `_chamber` + 披露日识别（N-137）；榜单每张约 30 行只能写"榜内可见"（N-138）；杠杆 / 反向 ETF 正则补 `Short|Inverse|Target`。c5 的过滤与 c1 对齐（仙股闸只在缺市值时兜底）。
+- **r1 跨源研报解读**：GAAP 口径闸改用 `epsDiluted`——`financial_statement.eps` 是基本 EPS，拿它比会把基本与稀释之差误判成口径错位（N-134 ③）。r3 的财报日历同步去掉 `country`。
+- **Premarket Tracker / Feed Manager / c5 / trend-scout**："最近收盘还是实时"在缺 `_quote_session` 时改看 `as_of`（N-139，`^VIX`、商品、多数小盘股没有这个字段，原写法会把旧收盘当实时价）。Premarket 另补日线 `changePercent` 是收盘对开盘（N-131）、kol_call 按 `source_url` 去重（N-136）、13F 变化率恒为 0（N-134 ⑦）。
+- **trend-scout**：内部人 / 13F 调用改为显式传 `categories`（N-113）；议员交易按 `_chamber` 识别，`provenance` 分不出来（N-137）。
+
 ## 2026-10-04 — 03 背离扫描去掉 Silent Buy
 
 - **删除"内部人静默买入"信号**，背离扫描只保留情绪错配、无声暴跌、无声暴涨三种价格类信号。原因：内部人全市场入口只覆盖最近约 1 个申报日、最多 50 条，大额卖出会挤掉买入，10-03 实跑和复跑都基本为空，这个信号几乎不可能触发。

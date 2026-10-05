@@ -13,7 +13,7 @@ args: ticker(必填，可多个，每个 1 额度), horizon(可选，默认 180d
 
 > **版本**：v1.0 ｜ **实测验证于 2026-07-29**（NVDA 10 篇 20 条催化剂全量统计）
 >
-> 📌 **这支 Skill 补的是一个真实的洞**：上游财报日历（`metrics(query="earnings calendar", asset_type="tradfi", country="US", date_from, date_to)`）2026-10-01 实测已恢复返回美股代码（N-114，N-22 销案），但它**只有财报日**，且响应恒带 `status:"partial"`、覆盖不保证全——产品量产、竞品发布会、融资付款这类节点它一个都没有。
+> 📌 **这支 Skill 补的是一个真实的洞**：上游财报日历（`metrics(query="earnings calendar", asset_type="tradfi", date_from, date_to)`，不传 `country`——它按注册地过滤会漏掉 ACN 这类外国注册的美股，N-133）2026-10-01 实测已恢复返回美股代码（N-114，N-22 销案），但它**只有财报日**，且响应恒带 `status:"partial"`、覆盖不保证全——产品量产、竞品发布会、融资付款这类节点它一个都没有。
 > 研报催化剂是另一条独立的前瞻腿，且覆盖**产品周期 / 竞品发布会 / 融资节点 / 客户导入**这些日历根本没有的类别。
 
 ## 参数

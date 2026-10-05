@@ -72,7 +72,7 @@ NOW_MS=$(( $(date +%s) * 1000 ))
 - 🔴 **`change` 字段是「美元变动量」不是「百分比」**（实测 META `change:-9.18` / `previousClose:593.41` → 真实 **−1.55%**）。
   百分比必须自己算：`change / previousClose × 100`。**危险在于数值会巧合吻合**——META 的 −9.18 与新闻标题「crashes −9%」看着对上，
   直接拿去和新闻交叉核实会得到**假的"核实通过"**（那 −9% 是盘后跌幅、−9.18 是美元，两个数毫无关系）。写进简报的涨跌幅一律用自算的 %，并注明基准。
-- 🔴 **盘后/盘前拿到的是上一个 regular 收盘，不是当前价**：看 `_quote_session`（`regular_inactive` = 已收盘）与 `_quote_cache`（`last_regular`）。
+- 🔴 **盘后/盘前拿到的是上一个 regular 收盘，不是当前价**：看 `_quote_session`（`regular_inactive` = 已收盘）与 `_quote_cache`（`last_regular`）；`^VIX`、外汇、商品和多数小盘股没有 `_quote_session`（N-139），这时看 `as_of`，不在美东 9:30–16:00 内一律当最近收盘。
   这时 metrics 的 price 是 8+ 小时前的收盘，而**新闻里的盘后价才是当下真相**——「价格铁律」在此时段是反的（见 §6 修正）。
   盘后事件（财报后跳水）标注 `regular 收盘 X（−a%）｜盘后另跌约 b%（来源：新闻，未取到一手盘后价）`，两个数分开写、别混。
 - 🔴 **不带 `asset_type` 的 query 会同时返币和同名 ETF**：`query="BTC price"` 返回 BTC 币 64,140 **和** Grayscale Bitcoin Mini ETF 28.08 两条。
@@ -137,8 +137,8 @@ P0：**`config.md` 里已配置的每条 list 都必须成功**（失败重试 1
 只报墙钟会把 30% 的覆盖说成"回看了一整天"。
 
 ### 2.4 signal
-- tradfi `insider_trading` / `institutional`（议员 / 内部人 / 13F）：走 query 串。返回可能超长 → 落盘再抽；剔税务代扣类条目；空信号标 `empty_no_signal` 不阻塞。
-  🔴 **query 写得再具体也不改变返回内容**——`signal` 不做类型路由，想要议员交易只能拿到结果后按 `provenance` 客户端筛（见 §MCP 坑位）。
+- tradfi `insider_trading` / `institutional`（议员 / 内部人 / 13F）：显式传 `categories=["insider_trading"]` / `["institutional"]`（不传返空，N-113）。全市场内部人入口只覆盖最近约 1 个申报日、最多 50 条（N-137）。返回可能超长 → 落盘再抽；剔税务代扣类条目；空信号标 `empty_no_signal` 不阻塞。
+  🔴 **query 写得再具体也不改变返回内容**——`signal` 不做类型路由，想要议员交易只能拿到结果后按 `_chamber` 字段（senate / house）客户端筛（议员行的 `provenance` 是 `"fmp"`，分不出来，N-137；见 §MCP 坑位）。
 - crypto `kol_call` / `trader_position`：**`ACCOUNT_ENGINES` 不含"喊单 / 实盘跟单"则默认关闭**（低差异化、长期 0 候选），突发模式用户明确要"看巨鲸/实盘"时例外；加密交易向账号可全开。
 
 ### 2.5 MCP 类型铁律
