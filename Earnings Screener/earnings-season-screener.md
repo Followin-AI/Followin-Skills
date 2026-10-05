@@ -94,8 +94,8 @@ metrics(query="most active stocks", asset_type="tradfi", limit=30)
 **腿③：新闻反向捞（0 额度）——日历漏掉的票**
 
 ```
-news(query="record quarterly revenue results", sources=["media"], asset_type="tradfi", time_range="<days>d", limit=10)
-news(query="earnings beat raised guidance",    asset_type="tradfi", time_range="<days>d", limit=10)
+news(query="record quarterly revenue results", sources=["media"], time_range="<days>d", limit=10)
+news(query="earnings beat raised guidance", time_range="<days>d", limit=10)
 ```
 - 用**陈述业绩事实**的句式。"earnings surprise stock surges" 这类情绪句式命中率很低。
 - 第二条不限来源：返回媒体和社交两桶（各 `limit` 条），社交桶里美股代码密度更高，两桶都解析。

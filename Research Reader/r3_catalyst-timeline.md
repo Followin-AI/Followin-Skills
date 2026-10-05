@@ -11,9 +11,11 @@ args: ticker(必填，可多个，每个 1 额度), horizon(可选，默认 180d
 
 **卖方研报里点名的催化剂，公开日历给不了。**
 
-> **版本**：v1.0 ｜ **实测验证于 2026-07-29**（NVDA 10 篇 20 条催化剂全量统计）
+> **版本**：v1.1 ｜ **实测验证于 2026-07-29**（NVDA 10 篇 20 条催化剂统计）｜ **2026-10-05 MU + AVGO 端到端复跑后修订**（每篇只露出前 2 条、相对时间假精度、降级表补全、同框桶、去重键）
 >
-> 📌 **这支 Skill 补的是一个真实的洞**：上游财报日历（`metrics(query="earnings calendar", asset_type="tradfi", date_from, date_to)`，不传 `country`——它按注册地过滤会漏掉 ACN 这类外国注册的美股，N-133）2026-10-01 实测已恢复返回美股代码（N-114，N-22 销案），但它**只有财报日**，且响应恒带 `status:"partial"`、覆盖不保证全——产品量产、竞品发布会、融资付款这类节点它一个都没有。
+> ⚠️ **"20 条"不是全量**：2026-10-05 实测每篇报告的 `detail.catalysts` **只返回前 2 条**（10 篇 × 2 = 20），真实条数在 `detail_sections.catalysts`（实测单篇 3–16 条）。本文所有基准统计都是这个截断样本上的。
+>
+> 📌 **这支 Skill 补的是一个真实的洞**：上游财报日历（`metrics(query="earnings calendar", asset_type="tradfi", date_from, date_to)`，不传 `country`——它按注册地过滤会漏掉 ACN 这类外国注册的美股，N-133）2026-10-01 实测已恢复返回美股代码（N-114，N-22 销案），但它**只有财报日**；不传 country 时混有 `.KS/.T/.L` 外国代码、需客户端只留 `^[A-Z]{1,5}$`，覆盖仍不保证全——产品量产、竞品发布会、融资付款这类节点它一个都没有。
 > 研报催化剂是另一条独立的前瞻腿，且覆盖**产品周期 / 竞品发布会 / 融资节点 / 客户导入**这些日历根本没有的类别。
 
 ## 参数
@@ -43,6 +45,8 @@ args: ticker(必填，可多个，每个 1 额度), horizon(可选，默认 180d
 > ⚠️ **初版这里写的是"只有 10% 精确到日"——那个数字是我自己的归一器坏掉造成的假象**（漏了 5 种时间格式，把 23% 的条目错扔进"待锚定"，其中大部分本是日级）。修好归一后真实占比是 **40%**。
 >
 > **但"不是日历"这个结论不变**：仍有 **60% 粗于日级**，其中 40% 粗到季/半年/年。任何把它整体渲染成日历的做法都是过度承诺——**按精度分桶输出，粗的照实标粗**。
+>
+> ⚠️ **2026-10-05 复跑：40% 也偏高。** 按第 2 节修订后的规则（相对时间不再算日级、`deadline`/`fiscal_year`/`range` 等降级），**MU 日级 4/20 ≈ 20%，AVGO 日级 0/20**。按旧规则字面执行时 MU 8 条"日级"里 4 条、AVGO 3 条"日级"全部是假精度。日级占比**逐标的剧烈波动**，别拿任何一次的占比当基准。
 
 ## 意图路由
 
@@ -71,8 +75,13 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 > ✅ **与 r1/r2 同源**：本轮已跑过 r1 或 r2 的话，**直接复用返回，0 额度**。
 >
 > ⚠️ **`verbosity="detail"` 是必须的**——`catalysts` 在 `detail` 块里，标准 verbosity 拿不到。
+>
+> ⚠️ **返回体约 100K 字符（2026-10-05 实测 MU 101K / AVGO 94K），超出工具输出上限会被写进本地文件。** 一律用脚本只抽 `report_date / institution / report_title / subject_name / detail.catalysts / detail_sections / detail.affected_names` 再进上下文，不要整份读入。
 
 **催化剂在**：`subject_reports[].detail.catalysts[]` 与 `mention_reports[].detail.catalysts[]`，两个桶都要扫。
+
+> 🔴 **每篇只返回前 2 条催化剂**（2026-10-05 实测，生产端与 followdao-test 一致；`limit` 调到 1/2/10、query 写成 "research report catalysts" 都解不开，且该字段**没有 `truncated` 标记**）。真实条数看 `detail_sections.catalysts`——实测 MU 首页可见 20 条 / 报告内共 81 条，AVGO 20 / 57。同一响应里 `key_points`(3) / `risks`(2) / `data_points`(3) / `caveats`(1) 也被同样截断。
+> 产出必须写"可见 X 条 / 报告内共 Y 条"，**任何"近期没有节点"的结论都要加上"在可见样本内"**。
 
 单条结构（实测）：
 ```json
@@ -103,6 +112,8 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 | **`YYYY-MM-DD-<语义后缀>`** | **2** | `"2026-07-23-upcoming-earnings-call"` | 截到 `YYYY-MM-DD` | **日** |
 | **`YYYY-FQN`** | **2** | `"2026-FQ3"` | 同值 | **财季**（⚠️ 与自然季不同，标注口径）|
 | `YYYYHN`（无连字符）| 1 | `"2026H2"` | → `YYYY-HN` | 半年 |
+| **`YYYY-MM-DD/YYYY-MM-DD`**（2026-10-05 实测）| 1 | `"2026-08-07/2027-08-07"`（Citi "in the next four quarters"）| 拆成起止 | **区间** |
+| **`YYYY-FY`**（2026-10-05 实测）| 1 | `"2027-FY"`（MS "FY27"）| → `YYYY` | **年（标"财年"）** |
 | **`"9999"`** | — | 哨兵 | → **待锚定桶** | ⛔ **不是 9999 年** |
 
 > ⚠️ **`"9999"` 与四位年份形态完全一样**（`YYYY`），只能按**值**判，不能按形态判。先查 `sort == "9999"` 再做形态匹配。
@@ -110,29 +121,49 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 **`time_std.type` 实测 22 种取值**（不是初版写的 12 种），且**同义异写严重**：
 `relative`(9) `year`(8) `quarter`(6) `month`(4) `datetime`(4) `date`(3) `event_relative`(3) `null`(2) `range`(2) `relative_period`(2) `rolling_window`(2) `deadline`(2) `recurring`(2) `relative_event`(2) `fiscal_quarter`(2) `half-year`(1) `half_year_range`(1) `relative_year`(1) `date_range`(1) `quarter_range`(1) `half_year`(1) `period`(1)
+**2026-10-05 起又见到 7 种**：`relative_window` `quarter_end` `fiscal_year`（MU/AVGO 实跑）· `relative_range` `half` `month_range` `reporting_period`（r4 查 TSM 实跑）。取值集合**仍在增长**，见下方自检②。
 
-**⚠️ 三组同义异写必须先合并**：`half-year` / `half_year` / `half_year_range` ｜ `event_relative` / `relative_event` ｜ `quarter` / `quarter_range` / `fiscal_quarter`
+**⚠️ 三组同义异写必须先合并**：`half-year` / `half_year` / `half_year_range` / `half` ｜ `event_relative` / `relative_event` ｜ `quarter` / `quarter_range` / `fiscal_quarter`
+
+**`time_std.anchor` 也要读**（2026-10-05 实测）：`anchor` 常比 `sort` 更诚实——`sort="2026-10-01"` 时 anchor 是 `"2026-Q4"`；`sort="2026-10"` 时 anchor 是 `"FY2026-Q4"`；`sort="2026"` 时 anchor 是 `"2026-01-01/2030-12-31"`。**anchor 含 `Q` / `H` / `FY` / `/` 时，按 anchor 定精度，不按 sort。**
 
 **归一规则（按序执行）**：
 
-1. `sort == "9999"` 或 `time_std` 缺失 → **待锚定桶**，单列，不进时间线
+1. `sort == "9999"` 或 `time_std` 缺失 → **待锚定桶**，单列，不进时间线。
+   **例外：`type == "earnings"`（财报类）**——这类常能从报告上下文锚定，且可能已经发生（实测 UBS 09-23《MU FQ4:26 (Aug) Preview》的 "this call" 就是 9-30 那次财报；GS 08-18 AVGO 的 "heading into the print" 在 Bernstein 09-03《FQ326 recap》之前就已发生）。处置：标"报告日 <report_date> 之后的首次财报"；报告标题含 `Preview` / `FQn`，或本轮已跑 r1 拿到 `next_earnings_estimate`（**复用，不额外调用**）时，据此判断是否已发生，**已发生的移进【已过期】**。
+   
+   1b. ⛔ **相对时间的 sort 是报告日，不是事件日**（2026-10-05 实测）：`type` 属于 `relative*` 族（`relative` / `relative_window` / `relative_period` / `relative_range` / `rolling_window` / `relative_event` / `event_relative`）**且** `sort[:10] == report_date` 时，sort 只是起算点。
+   实测：Bernstein 09-24 Sumco "within the next 3 months" → `sort="2026-09-24"`；GS 09-24 "in coming quarters" → `"2026-09-24"`；Bernstein 09-24 "now" → `"2026-09-24"`；r4 实跑巴克莱 "in the coming month" → `"2026-09-28"`、高盛 "next several quarters" → `"2026-08-24"`——**全部等于各自的 `report_date`**。字面执行会渲染成日级，且因为报告日早于今天，**被误塞进【已过期】**。
+   处置：能从 `time` 原文换算出区间的（"next 3 months" → 报告日起 +3 个月）进**区间桶**；换算不了的按 `time` 原文展示、精度标"**模糊**"。⛔ **不许进日级，也不许进已过期**。
+   即使 sort ≠ 报告日，`relative*` 的 sort 也只当排序参考：能对上 `anchor` 的 `Q`/`H`/年 的按那一级，否则同样标"模糊"。
 2. 剥前缀 `CY`；剥尾部 `+`（标"起始于"）；剥尾部语义后缀（`-upcoming-earnings-call` 等，正则 `-[a-z-]{4,}$`）
 3. ISO datetime → 截到 `YYYY-MM-DD`，原时刻可留作展示（实测 4 条都是财报电话会的准确开始时间，是**本数据里最精确的一类**）
-4. 统一半年写法：`2026H2` → `2026-H2`
-5. 按 `sort` 形态定基础精度：日 / 月 / 季 / 半年 / 年
+4. 统一写法：`2026H2` → `2026-H2`；`2027-FY` → `2027`（标财年）；`A/B` 区间拆成起止
+5. 按 `sort` 形态定基础精度：日 / 月 / 季 / 半年 / 年 / 区间；`anchor` 含 `Q`/`H`/`FY`/`/` 时以 anchor 为准
 6. ⛔ **按 `type` 语义向下降级——这一步是本 Skill 最容易出错的地方**：
    `type` 表达的时间颗粒度**粗于** `sort` 的字面粒度时，**以 type 为准**。
    | `type` | 强制精度 | 实测反例（不降级就会出错）|
    |---|---|---|
    | `year` / `relative_year` | 年 | `sort="2028-01-01"` → 渲染成"2028 年 1 月 1 日"，实为"2028 年某时" |
-   | `quarter` / `quarter_range` / `fiscal_quarter` | 季 | **INTC 实测**：`sort="2026-09-30" type="quarter"` 与 `sort="2026-10-01" type="quarter"` → 渲染成"9 月 30 日""10 月 1 日"，实为"Q3 末 / Q4 内某时" |
-   | `half-year` / `half_year` / `half_year_range` | 半年 | `sort="2026-07-01"` → 实为"2026 下半年" |
-   | `month` | 月 | `sort="2026-10-01"` → 实为"10 月某时" |
-   > **初版规则只防了 `type=year` 这一种，实跑立刻被 `quarter` 打穿**——INTC 有 4 条季度类催化剂被误升级成日级。
-7. 排序：同精度按日期，跨精度**粗的排在该区间末尾**（`2026-07` 排在 `2026-07-31` 位置）
-8. 与 `horizon` 比：超出的进"远期"折叠区；早于今天的进"已过期"区（**不丢弃**——过期催化剂说明报告在等的事已经发生了，值得回看兑现没有）
+   | `fiscal_year` | 年（标"**财年**"）| 2026-10-05 实测 AVGO "FY27" → `sort="2027-10"` → 渲染成"2027 年 10 月"，实为 FY27 全年 |
+   | `quarter` / `quarter_range` | 季 | **INTC 实测**：`sort="2026-09-30" type="quarter"` 与 `sort="2026-10-01" type="quarter"` → 渲染成"9 月 30 日""10 月 1 日"，实为"Q3 末 / Q4 内某时"。季号优先取 `anchor`（如 `"2026-Q4"`），anchor 不含 Q 时按月份换算 |
+   | `fiscal_quarter` | **财季**（⛔ 不换算成自然季）| 2026-10-05 实测 AVGO "FQ426" → `sort="2026-10"`、anchor `"FY2026-Q4"`；写成"2026-Q4"就把财季当成了自然季（与上方形态表"财季≠自然季"的要求冲突）|
+   | `half-year` / `half_year` / `half_year_range` / `half` | 半年 | `sort="2026-07-01"` → 实为"2026 下半年" |
+   | `month` / `month_range` / `reporting_period` | 月 | `sort="2026-10-01"` → 实为"10 月某时" |
+   | `deadline` | 月（标"**截止**"）| 2026-10-05 实测 UBS "By November 2026" → `sort="2026-11-30"`，另一篇写同一件事给的是 `"2026-11"`；渲染成"11 月 30 日"是假精度，也会让两篇对不上 |
+   | `date_range` / `range` | **区间**（取 `anchor` 的 `A/B` 或 `time` 原文）| 2026-10-05 实测 JPM "2026-2030" → `sort="2026"`，字面渲染成"2026 年"且落进窗口内；GS "late 2026" → `sort="2026-10"`，渲染成"10 月" |
+   | `relative*` 族 | 区间 / **模糊** | 见规则 1b |
+   | `quarter_end` | 日（标"**季末**"，不降级）| 2026-10-05 实测 Bernstein "from the end of 3Q26" → `sort="2026-09-30"`，季末日本身就是事件日 |
+   > **初版规则只防了 `type=year` 这一种，实跑立刻被 `quarter` 打穿**——INTC 有 4 条季度类催化剂被误升级成日级。**2026-10-05 又被 `fiscal_year` / `deadline` / `date_range` / `range` / `relative*` 打穿**——这张表必须全跑，遇到表外的 type 先查自检②。
+7. 排序：同精度按日期，跨精度**粗的排在该区间末尾**（`2026-07` 排在 `2026-07-31` 位置）；区间按终点排；"模糊"不上时间轴，单列在本桶末尾，按 `time` 原文展示
+8. 与 `horizon` 比：超出的进"远期"折叠区；早于今天的进"已过期"区（**不丢弃**——过期催化剂说明报告在等的事已经发生了，值得回看兑现没有）。**区间桶**：终点早于今天 → 已过期；起点晚于 horizon 末 → 远期；其余算窗口内
 
-**自检**：归一后统计 `待锚定 / 总数`。**实测三标的合计应 ≈5%**；若某次跑出来 >15%，说明遇到了本表未收录的新形态，**先补规则再出图**，不要静默丢进待锚定桶。
+**自检三计数**（归一后、出图前）：
+① **待锚定率**：`待锚定 / 总数`。实测三标的合计 ≈5%，2026-10-05 MU 5% / AVGO 10%。
+② **未收录数**：形态表匹配不上的 `sort` 条数 + 降级表与上方 type 清单都没有的 `type` 条数。
+③ **可疑日级数**：日级里 `type ∉ {date, datetime, quarter_end}` 的，或 `sort[:10] == report_date` 的。
+**① >15%，或 ②、③ 任一 >0 → 先补规则再出图**，不要静默丢进待锚定桶或日级桶。
+> ⚠️ 只看①是不够的：2026-10-05 实测 MU / AVGO 的待锚定率都过了，但 MU 8 条"日级"里 4 条、AVGO 3 条"日级"全部是假精度——③ 才拦得住。
 
 ### 步骤 3 · 分流：本标的 vs 跨标的
 
@@ -140,21 +171,29 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 实测查 NVDA 拿到：竞品 **AMD** 的 AI Day（BofA 报告里）、Nomura 亚洲晨报里 **Naver(035420.KS)** 的融资节点与英伟达出资时点。
 
-**分三桶输出**：
+⚠️ **但并非所有 `security != ticker` 都是收获**（2026-10-05 实测）：查 MU 拿到的联发科 TPU v8/v9 节点来自 UBS《Asia Semiconductors: Sector Keys》，与 MU 毫无关系；`security` 还可能是 **null**（实测 MU 3 条、AVGO 2 条，如 HSBC 写的美国非农、GS 写的云厂商资本开支），或者是板块名 / 逗号多值（N-67）。
+
+**分四桶输出**：
 
 | 桶 | 内容 | 用途 |
 |---|---|---|
 | 🎯 本标的 | `security == ticker` | 主时间线 |
-| 🔗 关联标的 | `security != ticker`，但事件与本标的相关（竞品、客户、供应商）| **顺带收获**，标明"来自 X 的报告，讲的是 Y" |
-| ❓ 待锚定 | `sort == "9999"` 或缺失 | 单列，只给事件描述不给时间 |
+| 🔗 关联标的 | `security != ticker`，且满足**客观判据**之一：① 该 security 出现在**本标的专题报告**的 `detail.affected_names` 里；② 在 mention 报告的 `affected_names` 中，本标的那一条的 `context_snippet` 点名了它 | **顺带收获**，标明"来自 X 的报告，讲的是 Y" |
+| 🧺 同框 | `security` 为 null / 板块名，或所在报告 `subject_name` 命中 N-67 汇编词（sector keys / strategy / morning news / tracker / views / portfolio），且不满足上面的关联判据 | **只计数不展开**，写"另有 N 条同框催化剂与本标的无直接关系"——⛔ 不进关联桶冒充产业链 |
+| ❓ 待锚定 | `sort == "9999"` 或缺失（财报类先走规则 1 的例外）| 单列，只给事件描述不给时间 |
+
+> `security` 清洗沿用 N-67：含 `,` → 拆分后逐个分桶；含空格且无 `.` 后缀 → 板块名，进同框。
 
 ### 步骤 4 · 去重
 
 同一催化剂常被多家机构重复点名（这本身是信念读数）。
 
-- **按 (归一后时间键, `security`, `type`) 分组**，事件描述取最详细的一条
-- **保留"被几家点名"计数**——3 家独立点名同一节点，比 1 家点名有信息量
+- **按（归一到两条中较粗的那一级精度后的时间键, `security`）分组**，组内由 LLM 按 `event` 语义判断是否同一节点；事件描述取最详细的一条
+  - ⛔ `catalyst.type` 是自由文本（"pricing" / "earnings" / "guidance"…），**不作为分组键**——2026-10-05 实测"FY27 AI 营收约 1000–1200 亿美元 / 约 10GW"被 Bernstein 09-03、GS 08-18、MS 07-14 三家点名，但三条的时间键（`2027-10` / `2027` / `2027-FY`）和 type 各不相同，按旧键一条都合不上，**最该标的公共押注被漏掉**
+  - "较粗的那一级"：`2026-11` 与 `2026-11-30` 都按月比；`2027` 与 `2027-Q2` 按年比后再由语义判断
+- **保留"被几家点名"计数，按机构去重，不按篇数**——3 家独立点名同一节点，比 1 家点名有信息量；同一家写了两篇只算 1 家
 - ⚠️ 先做 N-3 报告去重（机构+标题+日期），否则同一份报告双 `event_id` 会让催化剂被数两遍
+- ⚠️ 再做**系列版本去重**（2026-10-05 实测）：同机构、标题只差版本号（`v2` / `v3` / `Update`）的系列报告视为同一份，取最新一篇。实测 UBS《APAC Tech Strategy: Sector Keys September 2026 v2》(09-22) 与 `v3`(09-23) 的 SK 海力士回购节点重复出现，N-3（标题不同）和 N-62（日期不同）都去不掉
 
 ---
 
@@ -162,13 +201,13 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 ```
 🗓 <TICKER> 研报催化剂时间线 · <日期> · 前瞻 <horizon>
-来源：可见 N 篇研报（单页 10 篇，<已翻页至尽头 ／ 仅取首页>）｜共 M 条催化剂
+来源：可见 N 篇研报（单页 10 篇，<已翻页至尽头 ／ 仅取首页>）｜可见 M 条催化剂（各报告 `detail_sections.catalysts` 合计 Y 条，每篇只露出前 2 条）
 
 【🔎 领读】（先写这段，不是最后补）
 <2–4 句判断，不是统计。至少答出：近期到底有没有真的检验点？故事压在近处还是全在远期？
- 哪一个节点最该盯、为什么？>
+ 哪一个节点最该盯、为什么？"近期没有"一类结论须加"在可见样本内"。>
 
-⚠️ 这是「卖方认为什么重要」，不是客观日程；本次 <日 N / 月 N / 季 N / 半年 N / 年 N / 待锚定 N>。
+⚠️ 这是「卖方认为什么重要」，不是客观日程；本次 <日 N / 月 N / 季 N / 财季 N / 半年 N / 年 N / 区间 N / 模糊 N / 待锚定 N>。
 
 【🎯 本标的】
 ├ 日级
@@ -179,26 +218,38 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 │  · 2026-Q4 ｜产能爬坡｜DCAI 产能上线缓解供给紧张〔Bernstein〕
 ├ 月级
 │  · 2026-10 ｜代工里程碑｜Intel 发布 14A PDK 0.9〔Citi、GS ×2 家点名〕
+├ 财季级                            ← 财季不换算成自然季
+│  · FY26-Q4｜执行｜营收与 AI 营收指引兑现〔Bernstein〕
 ├ 半年级
 │  · 2026-H2 ｜产品发布｜Vera 独立 CPU 机架部署〔MS〕
-└ 年级
-   · 2027    ｜产品路线｜Coral Rapids 收窄服务器 CPU 性能差距〔MS〕
+├ 年级
+│  · 2027    ｜产品路线｜Coral Rapids 收窄服务器 CPU 性能差距〔MS〕
+├ 区间                              ← 写起止，不写成单个日期
+│  · 2026-09-24 起约 3 个月｜战术窗口｜…〔Bernstein，time="within the next 3 months"〕
+└ 模糊（不上时间轴，照抄 time 原文）
+   · "in coming quarters"｜盈利兑现｜…〔GS〕
 
-【🔗 关联标的】（顺带收获）
+【⏩ 远期】（超出 horizon，折叠）
+· 2028    ｜…〔…〕
+
+【🔗 关联标的】（顺带收获，须满足步骤 3 的客观判据）
 · 2026-10｜035420.KS Naver｜融资｜英伟达出资节点〔Nomura 亚洲晨报，主题非本标的〕
+
+【🧺 同框】另有 N 条同框催化剂与本标的无直接关系（只计数不展开）
 
 【❓ 待锚定】（有事件无时间）
 · 行业 KPI 采纳｜产业界若接受某项 agentic CPU 指标可能收敛竞争叙事〔BofA，sort=9999〕
 
 【⏮ 已过期】（报告当时在等的事，回看兑现没有）
-· 2025-H2｜产品爬坡｜Blackwell Ultra ramp〔BofA〕
+· 2025-H2｜产品爬坡｜Blackwell Ultra ramp〔BofA〕｜兑现：未核
 
 【🧩 分布读法】（**不可省——这是把日历变成判断的一步**）
 时间线的**疏密和远近本身就是读数**，跟具体有哪几条同样重要：
 
 · **近期密度**：未来 90 天内有几个可检验节点？
-  近乎为零 → **这标的短期没有研报意义上的时间催化**，价格更可能被板块和宏观推着走，
-  而不是被自身事件驱动。这是一条很硬的判断，不是"没找到东西"。
+  近乎为零 → **在可见样本内**，这标的短期没有研报意义上的时间催化，价格更可能被板块和宏观推着走，
+  而不是被自身事件驱动。⚠️ 每篇只露出前 2 条催化剂（实测被截掉约 65–75%），所以这是一条**线索，不是定论**——
+  写的时候带上"可见 X / 共 Y 条"。
 
 · **重心在哪**：催化剂集中在近处还是全堆在 12 个月后？
   全在远期 = **故事讲的是长期，兑现检验点也在长期**——意味着这段时间里
@@ -209,11 +260,14 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 · **已过期桶的兑现率**：报告当时在等的事，后来发生了吗？
   这是唯一能回头验证"这批机构的预判准不准"的窗口，别只往前看。
+  ⚠️ **本 Skill 不核兑现**（1 额度预算内拿不到兑现数据）：逐条标"兑现：未核"；需要核实时接 r1（已拿 fundamentals）
+  或 Base 11 财报 Skill，**不在本 Skill 里额外调用**。
 
 【口径声明】
 · 催化剂来自研报正文，带卖方选择偏好——看多的标的利好节点会列得更细
-· 上游只给 10 篇，本时间线不代表全部覆盖
-· 时间精度：日 N 条 / 月 N 条 / 季 N 条 / 半年 N 条 / 年 N 条 / 待锚定 N 条
+· 单页 10 篇（<已翻页至尽头 ／ 仅取首页>），且每篇只露出前 2 条催化剂（可见 M / 共 Y 条），本时间线不代表全部覆盖
+· 时间精度：日 N 条 / 月 N 条 / 季 N 条 / 财季 N 条 / 半年 N 条 / 年 N 条 / 区间 N 条 / 模糊 N 条 / 待锚定 N 条
+· 点名家数按机构去重；同框 N 条未展开
 ```
 
 **⛔ 硬要求**：
@@ -226,7 +280,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 | "2027 有两条：EMIB-T 放量、Coral Rapids" | "**两条最硬的产品论据都在 2027**。也就是说未来 12 个月里，没有任何东西能证伪'转型成功'这个故事" |
 | "14A PDK 0.9 被 Citi 和 GS 点名" | "**两家独立点到同一个节点**——这是这批研报的公共押注，它兑现与否决定了多头逻辑还剩几成" |
 
-**2. 不许把粗粒度渲染成精确日期。** `2028` 就写 2028，不写 2028-01-01——哪怕 `sort` 字段是那么给的。
+**2. 不许把粗粒度渲染成精确日期。** `2028` 就写 2028，不写 2028-01-01——哪怕 `sort` 字段是那么给的。相对时间同理："within the next 3 months" 写区间，不写报告日。
 
 **3. 不许丢弃待锚定与已过期两桶。** 前者是有信息无时间，后者能回看兑现率——都比静默删掉有用。
 
@@ -236,11 +290,14 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 | 边界 | 性质 | 处置 |
 |---|---|---|
-| 日级占比 10%–25% 且**逐标的波动** | 数据特性（N-41）| 按精度分桶，粗的标粗；**不承诺"日历"**。别拿单标的占比当基准 |
-| `sort` **10 种形态**、含 `9999` 哨兵 | 上游未归一（N-41）| 步骤 2 的完整归一表；**待锚定率 >15% 说明遇到新形态，先补规则再出图** |
-| `type` **22 种取值**、三组同义异写 | 上游未收敛 | 先合并同义写法，再用于**精度降级**（规则 6）；不做语义分类 |
-| **精度降级是最大的出错源** | 规格陷阱 | 初版只防 `type=year`，实跑被 `quarter` 打穿（INTC 4 条季度催化剂被误升成日级）。规则 6 的四行表必须全跑 |
+| 日级占比**逐标的剧烈波动**（07-29 三标的 40%；2026-10-05 MU ≈20%、AVGO 0%），且全部是每篇前 2 条的截断样本 | 数据特性（N-41）| 按精度分桶，粗的标粗；**不承诺"日历"**。别拿单标的占比当基准 |
+| **每篇只返回前 2 条催化剂**，真实条数在 `detail_sections.catalysts`，无 `truncated` 标记 | 上游截断（2026-10-05 实测，生产与 dev 一致，`limit`/query 措辞都解不开）| 产出写"可见 X / 共 Y 条"；"近期没有节点"只能当线索 |
+| `sort` **12 种形态**、含 `9999` 哨兵 | 上游未归一（N-41）| 步骤 2 的完整归一表；**自检三计数**任一触发就先补规则再出图 |
+| `type` **29 种取值**且仍在增长、三组同义异写 | 上游未收敛 | 先合并同义写法，再用于**精度降级**（规则 6）；表外 type 进自检② |
+| **`relative*` 族的 sort 是报告日** | 规格陷阱（2026-10-05 实测）| 规则 1b：进区间或"模糊"，⛔ 不进日级、不进已过期 |
+| **精度降级是最大的出错源** | 规格陷阱 | 初版只防 `type=year`，实跑被 `quarter` 打穿（INTC 4 条季度催化剂被误升成日级）；2026-10-05 又被 `fiscal_year` / `deadline` / `date_range` / `range` 打穿。规则 6 的整张表必须全跑，且 `anchor` 优先于 `sort` |
 | 单页只有 10 篇，且**不一定给满** | 上游单页硬顶（N-38）| **可翻页补全**（N-81）。仅取首页时覆盖标下界。实测 F 首页只返回 3 篇 |
 | `subject_reports=0` 时仍有催化剂 | 数据特性 | mention 报告的 `detail.catalysts` 照样可用（实测 F 全靠 mention 出催化剂），但须标明"来自行业报告非专题研究" |
 | 催化剂带卖方选择偏好 | 口径特性，非 bug | 强制写进口径声明 |
-| 多标的批量成本线性 | 每标的 1 额度 + ~70KB context | 池子大时先用 r1 筛，别无差别全扫 |
+| 多标的批量成本线性 | 每标的 1 额度 + 约 100K 字符（2026-10-05 实测 MU 101K / AVGO 94K，超出工具输出上限会落盘）| 一律用脚本只抽 `report_date / institution / report_title / subject_name / detail.catalysts / detail_sections / detail.affected_names` 再进上下文；池子大时先用 r1 筛，别无差别全扫 |
+| mention 报告的催化剂常与本标的无关、`security` 可为 null | 数据特性（2026-10-05 实测，N-67 同源）| 步骤 3 的🧺同框桶：只计数不展开 |

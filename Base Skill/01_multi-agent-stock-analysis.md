@@ -92,7 +92,7 @@ args: ticker
 ```
 8.  metrics(keywords=["<T>"], query="research reports", categories=["fundamentals"],
             asset_type="tradfi", time_range="30d", verbosity="concise")     → subject_reports + mention_reports
-9.  news(query="<CompanyName> <TICKER>", sources=["media"],   asset_type="tradfi", time_range="1m", limit=10, sort_by="relevance")
+9.  news(query="<CompanyName> <TICKER>", sources=["media"], time_range="1m", limit=10, sort_by="relevance")
 10. news(query="<CompanyName> <TICKER>", sources=["twitter"], time_range="1w", limit=10)
 11. news(query="<CompanyName> <TICKER>", sources=["research"], time_range="2w", limit=10)
 ```

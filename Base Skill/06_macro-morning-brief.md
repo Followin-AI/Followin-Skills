@@ -61,8 +61,8 @@ args: watchlist
 
 **Batch 3：新闻**
 ```
-9.  news(query="<按下方规则选>", sources=["media"], asset_type="tradfi", time_range="1d", limit=8, sort_by="relevance")
-10. news(query="stock market",    sources=["media"], asset_type="tradfi", time_range="1d", limit=8, sort_by="relevance")
+9.  news(query="<按下方规则选>", sources=["media"], time_range="1d", limit=8, sort_by="relevance")
+10. news(query="stock market",    sources=["media"], time_range="1d", limit=8, sort_by="relevance")
 ```
 第 9 路的 query 按优先级取第一条满足的（都不满足就用 `"Federal Reserve"`）：
 1. 上一交易日有 High 级数据，且 `actual` 偏离 `estimate` 超过 20%（或方向与预期相反）→ 用事件主题词，如 `"nonfarm payrolls"` / `"CPI inflation"`
@@ -90,7 +90,7 @@ args: watchlist
    ```
    快照行带 `marketCap` 和 `exchange`。涨跌幅沿用榜单行的 `changesPercentage`（**快照的 `change` 是美元变动量，不是百分比**）。
 4. **终筛**：`marketCap > 5 亿美元` 且 `exchange` 属于 NYSE / NASDAQ / AMEX。名称含 `Acquisition Corp` 的是 SPAC（借壳空壳公司），保留但在输出里标"SPAC"——它们的暴涨通常来自合并消息，不代表行业动向。
-5. **watchlist**（如果传了）每批 ≤5 个取快照；涨跌幅自己算 `change ÷ previousClose × 100`。对涨跌超过 2% 的每只，补一次 `news(query="<公司英文名>", sources=["media"], asset_type="tradfi", time_range="1d", limit=3, sort_by="relevance")` 找原因——只在两路宏观新闻里找会把大涨大跌的票误标成"无新闻"（实测 TSLA +4.7% 的交付超预期、MU −2.1% 的财报后报道都只能这样找到）。
+5. **watchlist**（如果传了）每批 ≤5 个取快照；涨跌幅自己算 `change ÷ previousClose × 100`。对涨跌超过 2% 的每只，补一次 `news(query="<公司英文名>", sources=["media"], time_range="1d", limit=3, sort_by="relevance")` 找原因——只在两路宏观新闻里找会把大涨大跌的票误标成"无新闻"（实测 TSLA +4.7% 的交付超预期、MU −2.1% 的财报后报道都只能这样找到）。
 
 ### Step 3: 分析与聚合
 
