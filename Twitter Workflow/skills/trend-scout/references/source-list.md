@@ -179,7 +179,7 @@ GET https://api.dune.com/api/v1/query/{query_id}/results
 
 - ⚠️ **`signal` 的 query 串不做数据类型路由**（实测）：传 `query="congress senator stock purchase disclosure"`，`meta.filters_applied.keywords` 回 **null**，返回的是**默认全类 fanout**（insider_trading + institutional + kol_call + trader_position），而 `insider_trading` 里全是 `provenance:"corporate_insider"` 的 Form 4，**一条议员交易都没筛出来**。
 - 🔄 **2026-10-01 更新**：`signal` 不传 `categories` 已不再默认 fanout 四类（实测多种 query 只返 kol_call 或直接 `no_match`）。要内部人 / 议员交易，显式传 `signal(categories=["insider_trading"], asset_type="tradfi", limit=50)`，不带 time_range。下面"只能客户端按 `provenance` 分流"的结论不变（本条的 congress query 未重测）。
-- **想要议员交易只能客户端筛**：拿到 `insider_trading` 后按 `provenance` 字段自己分流，别指望用自然语言描述让服务端替你过滤。**query 写得再具体也不改变返回内容**——这是白花心思。
+- **想要议员交易只能客户端筛**：拿到 `insider_trading` 后按 `_chamber` 字段（senate / house）自己分流（议员行的 `provenance` 是 `"fmp"`，靠它分不出来，N-137），别指望用自然语言描述让服务端替你过滤。**query 写得再具体也不改变返回内容**——这是白花心思。
 
 
 ---

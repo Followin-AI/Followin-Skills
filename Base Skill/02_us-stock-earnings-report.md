@@ -93,7 +93,7 @@ args: ticker
 
 **Batch 2**
 ```
-5. news(query="<CompanyName> <TICKER>", sources=["media"], asset_type="tradfi",
+5. news(query="<CompanyName> <TICKER>", sources=["media"],
         time_range="2w", limit=10, sort_by="relevance")                      # 媒体报道
 6. news(query="<CompanyName> <TICKER>", sources=["twitter"], time_range="1w", limit=10)   # 推特风向（可选）
 7. signal(keywords=["<T>"], categories=["insider_trading","institutional","kol_call"],

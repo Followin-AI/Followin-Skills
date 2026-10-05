@@ -198,7 +198,7 @@ python3 ~/.claude/skills/stock-kol-watch/scripts/filter_tweets.py \
 mcp__followin__metrics(keywords=["<T1>","<T2>",…], query="行情", asset_type="tradfi", verbosity="concise")
 ```
 
-`asset_type="tradfi"` 必传；每批 ≤5 个 ticker（2026-10-01 实测批量正常，超出的在 `meta.warnings` 报 `keyword_count_over_max`），同时并行 ≤4 批。非交易时段返回的是上一常规收盘（`_quote_session:"regular_inactive"`），标"最近收盘"。返回 `price / change / open / previousClose / dayHigh / dayLow / yearHigh / yearLow / marketCap / volume`。
+`asset_type="tradfi"` 必传；每批 ≤5 个 ticker（2026-10-01 实测批量正常，超出的在 `meta.warnings` 报 `keyword_count_over_max`），同时并行 ≤4 批。非交易时段返回的是上一常规收盘，标"最近收盘"。判断方法：有 `_quote_session` 字段就按它判（`regular_inactive` = 最近收盘）；没有这个字段（`^VIX`、外汇、商品和多数小盘股都没有，N-139）就看 `as_of`，早于今天或不在美东 9:30–16:00 内一律标"最近收盘"。返回 `price / change / open / previousClose / dayHigh / dayLow / yearHigh / yearLow / marketCap / volume`。
 
 ⚠️ **三个必踩的坑（全部实测过）**：
 1. **`change` 是绝对美元，不是百分比**。实测 META `change: 31.13` / `previousClose: 556.71` → 真实涨幅 **+5.59%**，不是 +31%。**涨幅要自己算** `change / previousClose`，直接把 `change` 当 % 报出去 = 编数字（违反铁律 2）。

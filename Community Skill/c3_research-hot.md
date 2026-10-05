@@ -3,7 +3,7 @@ name: Community Research Hot (c3 — 研報熱議榜+研究筆記)
 description: 美股新手社群研报模块。层1=**本週**研报点名密度榜（`time_range="7d"`，提及篇数/机构家数/目标价覆盖；⚠️ 方向字段仍不可用）；层2=对 Top 3-5 或指定标的产出研究笔记贴（多机构目标价区间+分歧+多空情景+催化剂时间线）。周跑（指出稿频率，非数据窗口），产出繁体社群贴文。仅供运营使用。
 trigger: 研報熱點、研报榜、本周研报、研究笔记、给XX写研究笔记、research hot
 not_trigger: 单股财报分析（走 earnings-report）、早报、热点速报、温度计
-mcp: mcp__followin__metrics
+mcp: mcp__followin__metrics, mcp__followin__news
 args: ticker(可选，指定则跳过榜单直接出笔记)
 ---
 
@@ -16,19 +16,22 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 > **① 榜单终于可以做真周榜了。** 07-31 曾因 `time_range` 完全无效而全文改成「累计口径」；**2026-08-03 上游修复**，`7d` 与 `30d` 现在返回不同结果，且带 `date_from`/`date_to` 自证区间。
 > ⇒ 层 1 **恢复传 `time_range="7d"`**，对外可以正当地说「本週」——**但必须引用返回的 `date_from`→`date_to`，不要自己算**。
 > ⚠️ 首次恢复前请自查：同日连发 `7d` 与 `30d`，`eligible_event_count` 应不同；`time_scope` 应为 `report_date_window`。
+> ⛔ **但窗口生效 ≠ 窗口里有货**（2026-10-05 实测）：研报库可能整周停止入库，`7d` 榜会退化成"一家机构一天的报告"。每次发稿前必过第 1 节的**样本闸**，不过就不发「本週」榜。
 >
 > **② 榜面的多空方向仍然不可用（N-39）——但字段已改名。** 🔄 **2026-08-04 起**：`direction_counts`/`net_direction` **已不存在**，新名是 **`mention_impact{counts:{adverse,beneficiary,mixed,neutral}, dominant}`**。新名更诚实（自己说明是 **mention 层影响**不是共识），但**底层性质未变**——实测同一标的换窗口就换 `dominant`。层 1 继续不输出方向。
 >
 > 想给投研用户（非社群）一个带完整口径闸 + 双窗口对照的版本，走 [`Research Reader/r0_coverage-radar`](../Research%20Reader/r0_coverage-radar.md)。
 
-## 1. 两层产出与调用序列（≈4-6/周）
+## 1. 两层产出与调用序列（≈4-7/周）
 
 调用序列：
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
 | 1 | `metrics(query="research reports most mentioned stocks", asset_type="tradfi", time_range="7d")` 聚合榜（**N-37 已修，可传窗口**）| 1 |
-| 2 | 对榜单 Top 3-5 逐个 `metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detail", time_range="7d", asset_type="tradfi")` | 各 1 |
+| 1b | 仅当样本闸不过：同一调用改 `time_range="30d"` 重拉（见下方样本闸）| 0-1 |
+| 2 | 按榜序逐个 `metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detail", time_range="30d", asset_type="tradfi")`，subject=0 的跳过顺延，**最多钻取 5 次、最多出 3-5 篇** | 各 1 |
+| 3 | 每篇笔记 1 次 `news(query="<公司英文名>", sources=["media"], sort_by="relevance", time_range="7d")`，供"最新動態"段 | 0 |
 
 ### 层 1：本週研報點名榜（`7d` 窗口）
 
@@ -37,29 +40,45 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 > ✅ **传 `time_range="7d"`**（N-37 已于 2026-08-03 修复）。返回会带 `date_from`/`date_to`/`time_scope`——**对外文案的日期区间必须引用这两个返回值，不要自己算**。
 > ⚠️ 若某次返回 `time_scope` 不是 `report_date_window`，说明窗口没生效，此时**退回累计表述**，不要硬写「本週」。
 
+> ⛔ **样本闸（2026-10-05 实测）**：发稿前另核三项——① `eligible_event_count` ≥ 30；② Top 5 中至少 3 行 `distinct_institution_count` ≥ 2；③ 榜面最大 `latest_report_date` 距 `date_to` ≤ 3 天。任一不过 → 不发「本週」榜，改传 `time_range="30d"` 重拉（+1 额度），抬头写「近一個月研報點名榜｜date_from–date_to」，并在产出末尾附内部提醒「⚠️ 研报库最新入库停在 MM/DD，本周窗口仅 N 篇」（不进对外贴文）。
+> 实测背景：2026-10-05 的 `7d`（09-28→10-05）只有 **6 篇**、Top 10 每行都是 **1 家机构**（全是瑞银 09-28 同一批），`date_from=09-29` 起 `eligible_event_count:0`——研报库 09-29 后未再入库；等长的上一周（09-21~09-27）有 140 篇（r0 同日实跑）。不加闸会把"瑞银一天的报告"写成「本週研報點名榜」。
+
 输出内容：**该窗口内**被点名最密集的标的（提及篇数/机构家数/目标价覆盖）。
 
 具体字段：
-- **排名**：按提及篇数或机构家数降序（二者不一致时以机构家数为准，避免同一机构多篇报告刷高排名）。
+- **排名**：排序键依次为 `distinct_institution_count` 降序 → `mentioned_report_count` 降序 → 服务端 `rank`（以机构家数为先，避免同一机构多篇报告刷高排名；后两键用于打平手——2026-10-05 实测 7d 前 3 名同为 3 篇/1 家）。层 2 的"榜序"即指这个重排后的顺序。
 - **提及篇数**：该标的**在窗口内**被研报提及的总篇数——含 `subject_reports` 与 `mention_reports` 两层混算，见第 3 节分层说明。
 - **机构家数**：榜面覆盖该标的的独立机构数量。⚠️ **是上界**——钻取去重后常大幅缩水（实测榜面 23 家 → 钻取只见 3 家，N-38）。
-- **目标价覆盖**：是否有目标价数据、覆盖家数。
+- **目标价覆盖**：`with_target_price` = 带目标价的**报告篇数**（同一机构多篇会重复计），对外只能写『N 篇報告附目標價』，不可写成家数。2026-10-05 实测：2330.TW 7d `with_target_price:2` 而 `distinct_institution_count:1`（两篇都是瑞银 TWD3650）；30d 为 17 篇 / 11 家。
 - **最近点名日期**：`latest_report_date`。✅ 与 `date_from`/`date_to` 一起用：前者是窗口边界，后者是这只票在窗口内最后一次被点名。
 - ⛔ **多空方向：不输出**。`mention_impact.dominant`（2026-08-04 前叫 `direction_counts`/`net_direction`）是 mention 层连带混算的假共识（N-39），不可当"机构看多"引用。要方向去层 2 用 `subject_reports[].rating_current` 重算。
   ⚠️ **不要改用 `mention_reports[].rating_current` 顶替**——那是**该报告自己主角的评级，不是你查的票的**（实测查 NVDA，Goldman 的 `Neutral` 是给 ON 的、Nomura 的 `Buy` 是给 2454.TW 的）。`target_price.security` 字段写明了是谁的价，核对它。
 
 非美股 ticker（如 2330.TW、005930.KS）默认保留但标注市场（如"2330.TW（台股）"），运营可自行删除——榜单混入非美股不代表数据错误，只是新手社群以美股为主，交给运营取舍是否收录。
 
-单行排版示例（非实测数据，示范格式，S-9 镜像）：`1️⃣ NVDA 輝達｜本週 36 篇・榜面 12 家機構｜目標價：5 家有覆蓋｜最近點名 07/31`
+单行排版示例（非实测数据，示范格式，S-9 镜像）：`1️⃣ NVDA 輝達｜本週 36 篇・榜面 12 家機構｜目標價：5 篇附目標價｜最近點名 07/31`
+
+层 1 周榜贴骨架（纯文字＋emoji，S-9 镜像；**300-500 字**，Top 5 单行本身只有约 250 字，不套 S-4 默认的 500-800 字）：
+1. 抬头：「📌 本週研報點名榜｜MM/DD–MM/DD」（样本闸不过时为「📌 近一個月研報點名榜｜MM/DD–MM/DD」）
+2. 一句话口径说明：篇數＝被研報提到的次數，不等於有幾家機構在研究它；榜上不標多空方向
+3. Top 5 单行（上方格式）
+4. 今日名詞（如「研報點名」「目標價」）＋免责声明
 
 > ⚠️ 排版示例此前写作 `多 22：空 0`，**已按 N-39 移除**——那个多空比是 mention 层连带混算，不是机构共识（**N-39 至今未修**）。
 > ✅ 抬头**可以**写「本週」了（N-37 已修），但日期区间要用返回的 `date_from`→`date_to`，例：「📌 本週研報點名榜｜07/27–08/03」。
 
 ### 层 2：研究笔记（对 Top 3-5 或指定标的）
 
-调用：`metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detail", time_range="7d", asset_type="tradfi")`（2026-10-01 实测可路由）。⚠️ **query 里的"行情"不能省**：研报调用已不再自动附带行情快照，实测 `query="research reports"` 只返研报卡，加上"行情"才在同一次调用（仍 1 额度）里多返 `market.snapshot`。
+调用：`metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detail", time_range="30d", asset_type="tradfi")`（2026-10-01 实测可路由）。⚠️ **query 里的"行情"不能省**：研报调用已不再自动附带行情快照，实测 `query="research reports"` 只返研报卡，加上"行情"才在同一次调用（仍 1 额度）里多返 `market.snapshot`。
+> **层 2 用 `30d`，不用 `7d`**（2026-10-05 实测）：研究笔记要"多机构目标价区间＋分歧"（第 2 节），`7d` 结构上很难凑到多家——2330.TW `7d` 钻取只有瑞银 1 篇 subject，同一标的 `30d` 榜面有 11 家、17 篇附目标价。**选哪几只仍按层 1 的榜序**；笔记里机构观点段标「近 30 天」。
 
-对层 1 榜单 Top 3-5 逐个调用；若触发时带 args `ticker`，跳过层 1，只对该 ticker 调用一次。
+**选标的规则（2026-10-05 实测补）**：层 2 标的按层 1 榜序依次钻取——
+① **`subject_report_returned_count`=0 的跳过、不计入篇数**，顺延到下一名；**最多钻取 5 次**。
+② 若两个标的返回的 `event_id` 重合 ≥2/3，只保留 subject 多的那个，另一个在其笔记的"最新動態"里带一句。
+③ 最终一篇都凑不出时，本周不出层 2，并在内部提醒说明原因（不进对外贴文）。
+> 实测背景：2026-10-05 `7d` 榜 Top 3 = 2330.TW / INTC / NVDA，INTC 与 NVDA 的 subject 均为 0，三者返回的 event_id 集合几乎一样（{002,005,006} / {002,005,006} / {002,003,005}，同一批瑞银报告）——不加这条会把同一批报告改写成三篇"不同"的笔记。
+
+若触发时带 args `ticker`，跳过层 1，只对该 ticker 调用一次（subject=0 时照第 3 节 N-19 条处理，不顺延）。
 
 > 🔴 **取数前先认块（N-86，2026-08-12 实测）**：解析层会静默扩展出额外候选 ticker，**每个候选都是一个平级结果块，顺序不保证主匹配在前**（实测 `ASML.AS` 的 `[0]` 是空块、数据在 `[1]`；`2330.TW` 会多出一个 `TW` 块，而 `TW` 是 Tradeweb 的真实代码）。
 > ① ⛔ **禁止用 `research_reports[0]` 取数**　② 逐块比对 `query_ticker` == 本次标的，**只认相等的块**　③ ⛔ **禁止用 `meta.total` 判条数**（它数的是块）
@@ -76,9 +95,12 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
    # 层 1 聚合榜；query 必须含研报意图词（红线 12，见第 3 节），不可只放标的名或话题词
    # ✅ time_range 已于 2026-08-03 修复；返回带 date_from/date_to/time_scope，文案引用返回值
 
-2. metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detail", time_range="7d", asset_type="tradfi")
+2. metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detail", time_range="30d", asset_type="tradfi")
    # 层 2 单标的钻取；每页最多 10 张研报卡，更多走 meta.pagination 的 next_cursor
-   # Top 3-5 逐个调用，每批 ≤4 路并行（SSE 红线 2，Top 5 时拆成 4+1 两批）；带 args ticker 时只此一次，跳过步骤 1
+   # 按榜序逐个调用（subject=0 跳过顺延，最多 5 次），每批 ≤4 路并行（SSE 红线 2）；带 args ticker 时只此一次，跳过步骤 1
+
+3. news(query="<公司英文名>", sources=["media"], sort_by="relevance", time_range="7d")
+   # 每篇笔记 1 次，0 额度；只供"最新動態"段，百分比照 S-7 铁律 2 经快照核实
 ```
 
 ## 2. 研究笔记模板
@@ -86,24 +108,25 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 > 层 2 研究笔记贴（对标公开研究页的结构，数据纵深更强）：一句話先懂 → 最新動態（融合 c4 推特层，见下）→ 機構怎麼看（多机构目标价区间标准化 + 对现价上行/回撤，注明分歧）→ 空方在擔心什麼（研报 risks + bear scenario）→ 接下來看什麼（catalysts 时间线）→ 名词卡。
 
 七段骨架（S-3 骨架适配，去掉互动钩子——见第 4 节）：
-1. **标题**：📌 本週研報點名榜｜TICKER 公司名（日期区间用返回的 date_from→date_to）
+1. **标题**：📌 研究筆記｜TICKER 公司名（數據區間 date_from–date_to）——用层 2 钻取返回的 date_from/date_to；**不要写成「本週研報點名榜」**，那是层 1 的抬头
 2. **一句話先懂**（≤40 字）：提及篇数+机构家数+目标价区间 vs 现价涨幅，一句话说完
-3. **最新動態**：近期催化新闻/事件；渲染时可拆成"最新動態"（事件本身）+「推特風向」（社群怎么说，2-4 条 🐦 bullet，对应 T-1 样例的实际排版）两个视觉段落——素材来源：news 层近期新闻，或本周若已跑过 c4 温度计可直接复用其推特层结论（零新增调用；c3 本身 frontmatter 只声明 `mcp__followin__metrics`，不重复造 c4 的 signal/news 调用）
-4. **機構怎麼看**：多机构目标价区间标准化（如"$288–350"）+ 参与家数 + 分歧幅度 + 对现价的上行/回撤幅度——**现价直接用层 2 调用里（query 带"行情"）一并返回的 `market.snapshot` 就地计算，不再额外调用 metrics 查现价**（见第 3 节）
+3. **最新動態**：近期催化新闻/事件；渲染时可拆成"最新動態"（事件本身）+「推特風向」（社群怎么说，2-4 条 🐦 bullet，对应 T-1 样例的实际排版）两个视觉段落——**最新動態**固定调 1 次 `news(query="<公司英文名>", sources=["media"], sort_by="relevance", time_range="7d")`（0 额度）；**推特風向**只在本周已跑过 c4 温度计时复用其推特层结论，**没跑就整段省略，不另调 signal / 推特**（2026-10-05 实测：未跑 c4 时此段无任何素材来源）
+4. **機構怎麼看**：多机构目标价区间标准化（如"$288–350"）+ 参与家数 + 分歧幅度 + 对现价的上行/回撤幅度——**现价直接用层 2 调用里（query 带"行情"）一并返回的 `market.snapshot` 就地计算，不再额外调用 metrics 查现价**（见第 3 节）。
+   现价须注明时点：快照 `_quote_session` 为 `regular_inactive` 时写「MM/DD 收盤」（实测 2026-10-05 周一盘前，INTC 快照为 10/02 收盘 119.33，盘前 `extendedHoursQuote` 已在 114 附近）。非美股按 `matched_asset_target_price.currency` 标币别（如 NT$），**不用 $**——台股快照本身不带 `currency` 字段
 5. **空方在擔心什麼**：研报 risks + bear scenario
-6. **接下來看什麼**：catalysts 时间线
+6. **接下來看什麼**：catalysts 时间线。`time_std.sort=="9999"` 的催化剂（N-41 哨兵值，实测 2026-10-05 台积电"Q326 财报"即是）**不进时间线排序**，按 `time` 原文写「日期待公司公告」
 7. 今日名詞卡 + 免责声明
 
-**目标价必带家数+分歧幅度（约束所有对外模块的总则，c6 同条镜像）**：機構怎麼看段落的目标价必须标注参与家数与分歧幅度，禁止只给单一均值——单均值误导性大（公开研究页的常见毛病），这条规则同样约束 bundle 内所有对外模块。T-1 样例的"三家大行目標價落在 $288–350"就是标准写法。
+**目标价必带家数+分歧幅度（约束所有对外模块的总则，c6 同条镜像）**：機構怎麼看段落的目标价必须标注参与家数与分歧幅度，禁止只给单一均值——单均值误导性大（公开研究页的常见毛病），这条规则同样约束 bundle 内所有对外模块。T-1 样例的"三家大行目標價落在 $288–350"就是标准写法。**仅 1 家机构时**写「目前僅 X 一家給出目標價，無法比較分歧」，不硬凑区间（2026-10-05 实测：2330.TW `7d` 只有瑞银一家）。
 
-字数按 S-4 镜像：研究笔记（层 2）单篇 ≤1000 字（S-4 只点名"c3 研究笔记"这一例外，T-1 样例本身即示范长度）；周榜贴（层 1）按 S-4 默认档 500-800 字，不套用层 2 的 1000 字上限。
+字数：研究笔记（层 2）单篇 ≤1000 字（S-4 只点名"c3 研究笔记"这一例外，T-1 样例本身即示范长度）；周榜贴（层 1）**300-500 字**，按第 1 节"层 1 周榜贴骨架"排（2026-10-05 实测：Top 5 单行只有约 250 字，S-4 默认的 500-800 字只能靠凑）。
 
 以下是 T-1 样例（2026-07-22 已核可，逐字收录作为层 2 基准示例。实际产出照此排版：纯文字＋emoji，不套 markdown 加粗/标题/表格，层级靠 emoji ＋ 空行 ＋「｜」——S-9 镜像）：
 
-> ⚠️ **本样例已于 2026-07-31 修订抬头与首句**（原文写"本週研報熱點"与"過去 7 天被機構研報提到最多"，按 N-37 属对外表述错误——榜单是建库累计，不是 7 天窗口）。**排版、语气、七段结构全部未动，仍是逐字基准。**
+> ⚠️ **本样例的数字是 2026-07-22 跑的累计口径**，所以首句保留「累計」——**改标签而不重跑数据等于编造**（`references/community-post-style.md` T-1 同条）。2026-10-05 只把抬头改成层 2 的「研究筆記」。**新稿**首句写「本週（date_from–date_to）被點名 N 篇、M 家機構」（样本闸不过时写「近一個月」），机构观点段标「近 30 天」，现价标「MM/DD 收盤」。排版、语气、七段结构仍是逐字基准。
 
 ```
-📌 研報點名榜｜NVDA 輝達
+📌 研究筆記｜NVDA 輝達
 
 一句話先懂：研報庫裡被機構提到最多的股票就是輝達（累計 87 篇、22 家機構），三家大行目標價落在 $288–350，比現價 $207 高出約 39%～69%。
 
@@ -135,8 +158,8 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
   > 五档交叉验收：`24h`(eligible **0**) / `7d`(**170**) / `14d`(**333**) / `30d`(**622**) / 不传(**677**)，全不同。新增 `time_scope`(`report_date_window` vs `all_available_reports`) + `date_from`/`date_to`/`window_granularity` 四个自证字段。
 
-  层 1 **传 `time_range="7d"`**，对外可正当说「本週」。**但日期区间必须引用返回的 `date_from`→`date_to`，不要自己算**；每次发稿前核一眼 `time_scope`，不是 `report_date_window` 就退回累计表述。
-  ⚠️ **短窗口会让榜尾样本变薄**（实测 7d 第 10 名仅 11 篇/8 家，30d 第 10 名有 70 篇/16 家）→ 周榜贴建议只报 **Top 5**，不报 Top 10。
+  层 1 **传 `time_range="7d"`**，对外可正当说「本週」。**但日期区间必须引用返回的 `date_from`→`date_to`，不要自己算**；每次发稿前核一眼 `time_scope`，不是 `report_date_window` 就退回累计表述；**再过第 1 节样本闸**，不过就改 `30d`、抬头写「近一個月」。
+  ⚠️ **短窗口会让榜尾样本变薄**（实测 7d 第 10 名仅 11 篇/8 家，30d 第 10 名有 70 篇/16 家）→ 周榜贴建议只报 **Top 5**，不报 Top 10。极端情况下整张 `7d` 榜都会变薄（2026-10-05 实测 eligible 仅 6、Top 10 全是 1 家机构）——这正是样本闸要拦的。
 
 - **N-39（榜面多空方向是假共识，不可引用）**：
 
@@ -148,7 +171,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
   > **研报查询 query 必须含研报意图词**（"research reports" / "研报"等）：实测（2026-07-15）query 只放报告标题（如 `query="Can semi cap work if memory doesn't"` + keywords=["MU"]）**不会路由到 research-report 路径**，掉进 CORE fundamentals 默认全家桶（三表/估值/profile），且照常计 1 次额度。**钻取指定报告的正确姿势 = 保持 `query="research reports"` + `verbosity="detail"` 重查，客户端从结果挑目标报告**；无按 event_id/标题取单份的入参。返回分 `subject_reports`（主题报告）与 `mention_reports`（提及报告）两层。
 
-  本 skill 两个步骤的 query 都必须固定带研报意图词——层 1 用 `"research reports most mentioned stocks"`，层 2 用 `"<TICKER> research reports"`；禁止把某份具体报告的标题、或"半导体/AI"这类话题词单独当 query 用，否则会静默掉进 fundamentals 默认全家桶且照样计额度（费而无功）。层 2 也没有按 event_id/标题直接取单份报告的入参，客户端必须从 detail 返回的报告列表里自己挑目标报告。
+  本 skill 两个步骤的 query 都必须固定带研报意图词——层 1 用 `"research reports most mentioned stocks"`，层 2 用 `keywords=["<TICKER>"], query="research reports 行情"`；禁止把某份具体报告的标题、或"半导体/AI"这类话题词单独当 query 用，否则会静默掉进 fundamentals 默认全家桶且照样计额度（费而无功）。层 2 也没有按 event_id/标题直接取单份报告的入参，客户端必须从 detail 返回的报告列表里自己挑目标报告。
 
 - **subject_reports 与 mention_reports 分层的实际用法**：`subject_reports`（主题报告）指该报告的核心研究对象就是这支股票；`mention_reports`（提及报告）指报告主题是别的东西，只是提到了这支股票（比如一份半导体产业展望报告里点名 NVDA 作为例子）。**機構怎麼看段落的目标价/评级/家数统计只能用 `subject_reports`**——只有真正把该股票当研究对象的报告才会给出正式目标价，把 `mention_reports` 的提及也算进"家数"会虚增覆盖度、稀释分歧幅度的准确性。`mention_reports` 可以作为最新動態/推特風向段落的背景叙事来源（如"另一份报告点出 XX 是产业链例子"），但不能标成"机构评级"。
 
@@ -170,7 +193,11 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
   第 1 节层 1 输出已述；此处重申：层 2 若榜单 Top 3-5 里出现非美股 ticker（如台积电 2330.TW、三星 005930.KS），研究笔记照样可以产出，只需在标题/一句話先懂里标注市场，运营自行决定是否收录进当周产出。
 
-- **meta.warnings 检查（`research_report_limit_capped`）**：每次调用（层 1 聚合榜、层 2 detail 钻取）后检查一次 `meta.warnings`。研报路径对应的告警键预期为 `research_report_limit_capped`——出现即代表本次榜单排名或 detail 报告数被上游截断，不代表"研报本来就这么少"，成稿前须知会运营；该键名尚待实测最终确认，实现时以实际返回字段为准。⚠️ 另注意 N-21：研报调用的 `default_fanout_fallback` warning 是**假阴性**（实测该警告出现时 payload 里 `fundamentals.research_reports` 数据齐全），不要据此判定失败或重试——重试白烧额度；成败一律以 `results.fundamentals.research_reports` 是否存在为准，不看这个 warning。
+- **meta.warnings 与成败判定（2026-10-05 实测改写）**：每次调用（层 1 聚合榜、层 2 detail 钻取）后读一次 `meta.warnings`，但**成败不看 warning**：
+  - 层 1 榜单调用**必带** info 级 `ticker_unresolved`（`"No ticker was resolved from query …"`）——这是无 ticker 的聚合模式，属正常，忽略。成败看 `results.fundamentals.research_report_most_mentioned[0].items` 是否非空（注意：榜单**不在** `research_reports` 下）。
+  - 层 2 成败看 `results.fundamentals.research_reports` 中 `query_ticker`==本标的的块是否存在（N-86 认块）。
+  - 截断看 `meta.pagination.fundamentals.research_reports.has_more`，不靠 warning。此前预期的 `research_report_limit_capped` 键实测从未出现。
+  - ⚠️ N-21 仍适用：研报调用若出现 `default_fanout_fallback` warning 是**假阴性**，不要据此判定失败或重试——重试白烧额度。
 
 - **S-5 多空平衡**：
 
@@ -184,7 +211,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
   機構怎麼看段落引用的现价、目标价、涨跌幅度，一律只用本次 metrics 调用返回值；最新動態/推特風向段落若要写具体涨跌幅百分比，同样必须是本次调用返回的快照数据，不能照抄新闻/推特转述的数字。
 
-- **榜单高位 ≠ 有专题报告（N-19 原则仍成立，例证已按 N-64 更新）**：榜单排名基于 mention count，排名高不保证有以该标的为核心研究对象的专题报告。⚠️ 原 GOOGL 例子已过期——`subject_reports` 数量是时点状态、会日间剧变（07-23 实测 GOOGL subject=0，07-29 复测 subject=6），**绝不照抄历史结论，每次当场看返回的 subject 报告数**。现行 subject=0 的实测例子是 **F（福特）**：2026-07-29 实测 `report_returned_count=3`，3 篇全是行业报告里的顺带提及（`mention_reports`），无一篇专题。钻取后必须先看两层比例：只有 mention 没有 subject 时，贴文不能写成"X 家機構出了專題研究"，只能写"在多份行業報告裡被提到"，并把 `mention_context.rationale` 当作机构观点来源。层 2 研究笔记若某标的 subject_reports=0，考虑改出"行業視角"体裁或换标的。
+- **榜单高位 ≠ 有专题报告（N-19 原则仍成立，例证已按 N-64 更新）**：榜单排名基于 mention count，排名高不保证有以该标的为核心研究对象的专题报告。⚠️ 原 GOOGL 例子已过期——`subject_reports` 数量是时点状态、会日间剧变（07-23 实测 GOOGL subject=0，07-29 复测 subject=6），**绝不照抄历史结论，每次当场看返回的 subject 报告数**。现行 subject=0 的实测例子是 **F（福特）**：2026-07-29 实测 `report_returned_count=3`，3 篇全是行业报告里的顺带提及（`mention_reports`），无一篇专题。钻取后必须先看两层比例：只有 mention 没有 subject 时，贴文不能写成"X 家機構出了專題研究"，只能写"在多份行業報告裡被提到"，并把 `mention_context.rationale` 当作机构观点来源。层 2 研究笔记若某标的 subject_reports=0，**按第 1 节"选标的规则"跳过、顺延到下一名**（不出"行業視角"贴——本 skill 没有这种体裁的模板）；只有带 args `ticker` 指定单一标的时，才按上面的 mention 叙事写法出稿，并在一句話先懂里写明"在 N 份行業報告裡被提到"。
 
 ## 4. 发前自检 + 额度哨兵
 
