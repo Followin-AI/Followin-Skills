@@ -37,7 +37,7 @@
 > ### 📊 状态总览（2026-08-17 · 每轮验收更新此块）
 >
 > **118 个条目 = 正文 102 + 归档 16。**（09-07：+N-101~N-104） ⚠️ **计数已于 2026-08-29 重算并订正**——此前头部写的 105→110 是历轮 `+N` 累加出来的，从未重数，与实际表行差 4~10 条；「存根」这一档无法从文件机器判定（正文标 ⚪ 的只有 N-85 一条），故取消该分项。条目数是认知覆盖率，不是产品破损度——大多数条目是「读法纪律」（数据的脾气，永远不会"修好"），真正需要客户端设闸的硬问题见下。
-> 🆕 **10-05**：社群 c1–c6 / 研报 r0–r4 端到端实跑新增 N-140~N-155（研报库停更 / detail 嵌套数组截顶 / 双重上市按代码分桶 / news 搜索传 tradfi 召回大降 / signal limit 按类生效 / 13F 季度切换等）；N-110、N-120、N-133 部分被订正。条目计数未重算。
+> 🆕 **10-05**：社群 c1–c6 / 研报 r0–r4 端到端实跑新增 N-140~N-156（研报库停更 / detail 嵌套数组截顶 / 双重上市按代码分桶 / news 搜索传 tradfi 召回大降 / signal limit 按类生效 / 13F 季度切换等）；N-110、N-120、N-133 部分被订正。条目计数未重算。
 > 🆕 **09-07**：链上 CA 解析前置实测新增 N-101~N-104（CA 在 news 默认模式字面兜底混他币·**必须 `quick`** / keywords 单项 30 字符 CA 必截断 / cashtag 实体匹配同名人名 / 衍生品四叶 dev 可用生产未触发）；**N-8 标注：dev 契约已修，生产"数组能用但 schema 仍无类型"（校验放宽非契约修复，P0-1 生产未销案）**；**N-13 结案**（上游窗口仅 24h）；N-51 补 CMC 长尾定价（"仅 Binance"作废）。
 > 🆕 **08-17**：中国市场卖点前置实测新增 N-95~N-100（议员数据只有个股入口 / tradfi trader_position 镜像 / 中文公司名静默丢弃 / 财报日历非重要度排序 / user_tweets 单页载荷过大 / tradfi kol_call 方向恒看多）。
 > **08-14**：全池 KOL 复检实测新增 N-90~N-94（user_tweets 账号态 / 采样窗 / 嵌套归属 / followings 游标换位置 / 嵌套 author 的 description 恒空）。
@@ -441,7 +441,7 @@
 
 **本轮同时确认的 news 行为**：查不到时可能返回空数组 + `status:"degraded"`（不一定是兜底内容）；`entity_filter_applied:false` 时为语义召回需逐条判断；`source_name` 一律是 `"media"`，媒体名要从 `source_url` 域名取；用 SPAC 原名查新闻几乎全无关，用合并对象名才准。
 
-### 2026-10-05 社群 c1–c6 / 研报 r0–r4 端到端实跑（N-140~N-155）
+### 2026-10-05 社群 c1–c6 / 研报 r0–r4 端到端实跑（N-140~N-156）
 
 > 背景：社群 bundle 6 个 Skill（c2 简繁两版）与研报 bundle 5 个 Skill 逐个规则审查 + 实跑（11 个子 Agent 并行，约 200 次调用）。下表只收接口行为；各 Skill 自身的规则缺口已直接改进 Skill 文件。2026-10-05 是周一，美股盘前跑。
 
@@ -463,6 +463,7 @@
 | N-153 | **`date_from`/`date_to` 与 `time_range` 同传时，绝对区间优先，`time_range` 被静默丢弃**（`filters_applied` 与结果里都消失），无 warning | 仍不要同传；要自定窗口只传绝对区间 | `2e62856e…` |
 | N-154 | **研报路径的零碎新行为**：① 纯聚合榜每次必带 info 级 `ticker_unresolved`（正常，不是 N-78 的失败）；② 数组写法下 2330.TW 不再扩展出 `TW`（N-86 当前未复现，认块规矩保留）；③ `time_std.type` 出现新值 `fiscal_year` / `date_range` / `range` / `deadline` / `relative_window` / `relative_range` / `quarter_end` / `half` / `month_range` / `reporting_period`，`relative*` 的 `sort` 填的是报告日（假精度），`fiscal_year` 的 sort 形如 `2027-10`；`sort` 新形态 `A/B` 与 `YYYY-FY`；新字段 `anchor`；④ `mention_direction` 新值 `competitor`；⑤ `list_changes` 出现 `action:"remove"`（移出催化剂观察名单，≠停覆） | 降级表与方向值以 r3 / r4 现行文本为准 | `960fdf70…` / `372a173c…` / `c4d18240…` / `78e2ef6e…` / `132cfcdc…` / `495a1d17…` |
 | N-155 | **signal 字段语义不可直接引用**：kol_call 的 `target_price` 会把假设估值当目标价（"若给同倍数会到 $3,210"→3210），`direction` 会把"别追 IPO 但公司更强"标成 bearish；tradfi `trader_position` 的 trending 混入加密币（SUI、LIT 标成 `stock_perp`） | 引用 target_price / direction 前对照原文；入场价量级不像股价的按加密处理 | `a7a958b4…` / `212ea161…` |
+| N-156 🔴 | **行情上游整体 403 时照样扣额度**：2026-10-05 美东盘中，报价 / 批量报价 / 历史 K 线 / 三张涨跌榜 / 内部人 / 市场级财报日历同时返回 `status:"degraded"` + `severity:"source_dead"`（`fmp_quote_error` / `fmp_batch_quote_error` / `fmp_earnings_calendar_error` / `insider_trading_subsources_failed`，HTTP 403），正式端与 followdao-test 一致，重试无效；每次失败调用仍 `consumed:1`。趋势榜、新闻搜索、喊单、经济日历、关注池财报日不受影响。内部人空结果在这种时候会被误读成"没有交易" | 先发一次快照当探针，source_dead 就跳过同一上游的其余调用；source_dead 段落按"缺数据"写，不按"没有"写；报给 dev | `4788e3a7…` / `50cec001…` / `c6cd32e7…` / `5c7c8b00…` / `af9c3ca4…`（test）/ `f1bf021b…`（主会话复核） |
 
 ### 🗄️ 已修 / 已作废归档（销案不删条，防回归自查用）
 
