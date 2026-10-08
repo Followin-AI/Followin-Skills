@@ -11,7 +11,7 @@ args: ticker(可选·模式①) / trader(可选·模式②，服务端不支持�
 
 **这张表最扎眼的三个数字——净方向、胜率、盈亏比——恰好是最会骗人的三个。散户的眼睛正好落在那儿。本 Skill 不复述它们，只把它们钉住。**
 
-> **版本**：v1.7 ｜ **端到端实跑于 2026-10-08**（followdao-test 端，正式端当日连不上；`3897bdc5` 等 12 次调用；全榜 5 组 / 16 仓 / 12 人 + 按族分拉）· v1.6 复验于 2026-08-04（`5a6f20d4`；5 组 / 18 仓）· v1.5 验证于 2026-08-03（`c02a7271`）· 初测 2026-08-01（`66880966` / `2ab45ef2`）
+> **版本**：v1.7 ｜ **端到端实跑于 2026-10-08**（先在 followdao-test 端跑 12 次，`3897bdc5` 等；**正式端 2026-10-08 复核** 10 次，`3d42b288` 等，逐字段一致；全榜 5 组 / 16 仓 / 12 人 + 按族分拉）· v1.6 复验于 2026-08-04（`5a6f20d4`；5 组 / 18 仓）· v1.5 验证于 2026-08-03（`c02a7271`）· 初测 2026-08-01（`66880966` / `2ab45ef2`）
 > **v1.7 变更**（全部由 10-08 实跑撞出）：调用一律带 **`limit=50`**——默认每组只回 10 条、按 tier 排序，截断先砍 D/P 档，且 **`symbol_rollup` 按截断后的行重算**（`limit=3` 时 BTC 组 7 人变 3 人）· **「全榜」只是 5 组的窗口**，组的入选随 `asset_type` / `sort_by` 变 ⇒ 模式② 的跨标的敞口一律写**「榜内可见下界」**（实测某人 31% 的敞口、另一人 4 仓里 3 仓不在不带 asset_type 的榜上）· 闸⑤ 按**日期**判刷新不同步（本批跨度 23h59m，旧的 1 天阈值刚好漏掉）· 能力圈补「同一标的同时在 focus 与 caution」· 闸④ 表格断行修复 · **同日拍板五项**：模式② 保持 1 额度不补拉 · summary 提到的榜外仓只当线索 · 不用 `time_range` 剔旧 · 新增红旗「小样本 A 档」（A 档且 <20 笔）· `profile_confidence` 只展示不计分
 > **v1.6 变更**：闸② 改为**双向**归一——新增 **N-59s 同名不同人**（实测同一返回里「同人两名」与「同名两人」并存）· 自查 6→7 条
 > **v1.5 变更**（全部由 08-03 全流程实跑撞出）：闸① 新增**判据③「组整体陈旧」**——判据② 在整组冷掉时结构性失明（XYZ100 整组 3.26 天未动却 0 命中）· 闸③ 补 **N-59r：`agreement=unknown` 的第二个成因是平局，与双向无关**（CL 组 `pr==atc` 仍 unknown）· 模式① 表格新增**「下界」标记**（JS/T13 聚合显示 $0 却持 25x/20x，裸排序会被静默沉底）· 自查条目① 改**逐组全扫**（BTC 组本批一致，只看它会误判已修）
@@ -38,7 +38,7 @@ args: ticker(可选·模式①) / trader(可选·模式②，服务端不支持�
 > ⑦ 按显示名分组，看有没有**同名但 profile 指纹不同**的两行 → 有 = N-59s 仍在（**别当渲染重复合掉**）
 > ⑧ 同一调用分别带 `limit=3` 与 `limit=50` 拉一次，比较人数最多那组的 `active_trader_count` → 前者变小 = **rollup 仍按截断后的行重算**，`limit=50` 必须保留
 >
-> 📌 **2026-10-08 复测结果**（followdao-test）：①④⑤⑥ 仍在（BTC 组 4:3 偏多报 `short`、ETH 组 3:1 偏空报 `long`；`actions.close` 10 组全 0；12 人里 11 人 `summary_refreshed_at` 停在前一天；ZEC 组全 null 报 `balanced`）· ③ **触发条件出现但未污染**（ETH 组两条 null 名义都带 `entry_price`，rollup 未加进去）· ②⑦ 本批无双向持仓、无同名，不可测 · ⑧ 仍在
+> 📌 **2026-10-08 复测结果**（测试端实跑，**正式端 2026-10-08 复核一致**）：①④⑤⑥ 仍在（BTC 组 4:3 偏多报 `short`、ETH 组 3:1 偏空报 `long`；`actions.close` 10 组全 0；12 人里 11 人 `summary_refreshed_at` 停在前一天；ZEC 组全 null 报 `balanced`）· ③ **触发条件出现但未污染**（ETH 组两条 null 名义都带 `entry_price`，rollup 未加进去）· ②⑦ 本批无双向持仓、无同名，不可测 · ⑧ 仍在
 
 ## 参数
 
@@ -66,7 +66,7 @@ args: ticker(可选·模式①) / trader(可选·模式②，服务端不支持�
 > - ✅ **在榜的人**：可做完整尽调（跨标的敞口 / 对冲 / 战绩 / 三分类）
 > - ❌ **不在榜的人**：拿不到任何数据。措辞只能是「**当前榜上没有他**」，**绝不能说「他没有仓位」**——两者不是一回事。
 > - ⚠️ 榜本身很小（实测 13 人；2026-10-08 为 5 组 / 16 仓 / 12 人），且**日内会变**（N-59d）。"这次没查到"不代表"下次也没有"。
-> - 🔴 **在榜的人，看到的也只是他在榜内那几组的仓**（2026-10-08 实测）：「全榜」**每次只回 5 个标的组**（`limit=50` 也一样），组的入选随 `asset_type` 和 `sort_by` 变——不带 asset_type 是 BTC/ETH/NEAR/INTC/ZEC，`asset_type="crypto"` 换出 XRP，`"tradfi"` 是 INTC/AVGO/RKLB/NVDA/AAPL，`sort_by="amount"` 又用 XRP 换掉 ZEC。
+> - 🔴 **在榜的人，看到的也只是他在榜内那几组的仓**（2026-10-08 实测，正式端 2026-10-08 复核）：「全榜」**每次只回 5 个标的组**（`limit=50` 也一样），组的入选随 `asset_type` 和 `sort_by` 变——不带 asset_type 是 BTC/ETH/NEAR/INTC/ZEC，`asset_type="crypto"` 换出 XRP，`"tradfi"` 是 INTC/AVGO/RKLB/NVDA/AAPL，`sort_by="amount"` 又用 XRP 换掉 ZEC。
 >   实测某 tier A 交易员在不带 asset_type 的榜上只有 BTC 空 $164万，**另一条 XRP 空 $75万（占他已标名义的 31%）只在 crypto 榜或单查 XRP 时出现**；某美股交易员在该榜上只有 INTC 一仓，`tradfi` 榜上是 **4 仓**（另 3 仓 AVGO/RKLB/NVDA）。
 >   ⇒ 「跨标的总敞口」一律写「**榜内可见 $X（下界）**」，并在【口径】注明拉了哪几张榜；**不能写成"他的总敞口"**。
 >   📌 **模式② 默认只拉这一张榜（1 额度），不补拉 `crypto` / `tradfi` 榜**（2026-10-08 拍板）。补拉能多看到一些但仍不是全量，换不来"总敞口"这个结论，不值 +2 额度。
@@ -111,7 +111,7 @@ signal(categories=["trader_position"], limit=50)      # 模式② 也走这一�
                                                       #          拉全榜后在客户端按归一后的交易员过滤
 ```
 
-> 🔴 **为什么 `limit=50` 必带（2026-10-08 实测）**：
+> 🔴 **为什么 `limit=50` 必带（2026-10-08 实测，正式端 2026-10-08 复核）**：
 > - `limit` 管的是**每组返回几条仓位**，默认 10；不传 `sort_by` 时组内按 **tier → `profile_confidence`** 排（A 在前，D / P 在后）⇒ 一组超过 10 人时，**先被截掉的正是 D / P 档——本 Skill 要主动顶出的避雷位**。
 > - 更糟的是 **`symbol_rollup` 按截断后的行重算，不是按全组**：同一时刻 BTC 组 `limit=50` 为 7 人、4 多 3 空、`agreement long/4/0.571`；`limit=3` 变成 **3 人**、2 多 1 空、`long/2/0.667`；`limit=1` 时 ETH 组只剩一条无名义的空单，rollup 直接吐 `balanced`（N-59q 被截断人为制造出来）。**rollup 没有任何字段提示自己被截过。**
 > - ⇒ 每组 `positions_returned == limit` 时视为**可能被截断**，在【口径】里写明。
@@ -161,7 +161,7 @@ signal(categories=["trader_position"], limit=50)      # 模式② 也走这一�
 > 📌 但本批断层很干净：**陈旧簇 3.0–4.8 天、活跃簇 ≤1.8 天，中间无任何仓位**——切点是数据自己给的。
 > ✅ **方向是确定的**：`close` 不回流 + `is_active` 恒 true ⇒ **不设闸就必然把幽灵仓当真实敞口**。本批 21 仓中 **7 仓（33%）命中，涉及名义 $486万（40%）**。
 > ✅ **2026-10-08（周四）复测，断层依旧干净**：16 仓中 3 仓命中绝对陈旧（**6.1 / 8.1 / 11.1 天**），其余全部 **≤1.94 天**；`actions.close` 10 个组全为 0、`is_active` 全 true。其中一条是 BTC 组 tier D、**40x** 的空单（$40万，6.1 天未动）——不剔除它，BTC 组按人数是 4:3，剔除后是 3:2。
-> ⛔ **不用 `time_range` 做服务端剔旧**（2026-10-08 拍板）：`time_range="2d"` 确实能把这几条陈旧仓挡在返回外，但返回 `status:"partial"`（*"candidate limit reached before full time-window coverage could be proven"*），且**组汇总按过滤后的行重算**——被剔掉的人从 `active_trader_count` 和 `agreement` 里一起消失，读者看不到"剔了谁"。闸① 一律**客户端判、单独列出**，不交给服务端。
+> ⛔ **不用 `time_range` 做服务端剔旧**（2026-10-08 拍板）：`time_range="2d"` 确实能把这几条陈旧仓挡在返回外，但**组汇总按过滤后的行重算**——被剔掉的人从 `active_trader_count` 和 `agreement` 里一起消失，读者看不到"剔了谁"。且**有没有警告看运气**（正式端 2026-10-08 复核）：全榜 + `limit=3` 返回 `status:"partial"`（*"candidate limit reached before full time-window coverage could be proven"*）；单查 BTC + `limit=50` 则 `status:"ok"`、无任何 warning，BTC 组静默从 7 人变 5 人（两条陈旧仓被剔），`agreement` 从 `long/4/0.571` 变成 `long/3/0.6`。闸① 一律**客户端判、单独列出**，不交给服务端。
 
 ### 处置
 
@@ -340,7 +340,7 @@ long: {count: 2} / short: {count: 1}                      ← 三条腿全是 20
 ## 闸⑥ · 不可计价标的
 
 部分永续标的没有价格源（非上市/合成）。**取价是可选的第二次调用（`metrics` 侧，另计 1 额度，见「额度哨兵」）**；实测 **CXMT**（长鑫存储，未上市）、**XYZ100**（合成指数）取价返回 `results:{}` + `status:"ok"`，且 keyword 被**静默丢弃**（N-59c/N-59g）。
-2026-10-08 复测（数组写法 `metrics(keywords=["CXMT","XYZ100","INTC","AVGO"], categories=["market"], asset_type="tradfi")`）：CXMT / XYZ100 **仍取不到**，但形态变了——两者都留在 `filters_applied.keywords` 里，只是快照里**默默少两行**，`status:"ok"`、无点名 warning ⇒ **拿请求列表与返回行的 `symbol` 做差集**才判得出来。另：带 `categories=["market"]` 后不再附带整套 fundamentals（info warning 仍照旧说会附带）。
+2026-10-08 复测（正式端复核一致；数组写法 `metrics(keywords=["CXMT","XYZ100","INTC","AVGO"], categories=["market"], asset_type="tradfi")`）：CXMT / XYZ100 **仍取不到**，但形态变了——两者都留在 `filters_applied.keywords` 里，只是快照里**默默少两行**，`status:"ok"`、无点名 warning ⇒ **拿请求列表与返回行的 `symbol` 做差集**才判得出来。另：带 `categories=["market"]` 后不再附带整套 fundamentals（info warning 仍照旧说会附带）。
 
 → 这类仓位**跟方向、不编价格**，单独标 `unpriced` 并报条数。本 Skill 本来就不算收益，此闸只用于"别对用户承诺能看到这仓赚没赚"。
 
@@ -496,7 +496,7 @@ long: {count: 2} / short: {count: 1}                      ← 三条腿全是 20
 | **rollup 把 `entry_price` 当名义加总** | **上游疑似 bug（N-59l）** | **手算 `long.notional` 之和核对 `gross`**；对不上时以逐仓明细为准。2026-10-08 实测触发条件出现（两条 null 名义带 `entry_price`）而 rollup 算术干净——**可能已修，核对成本极低，保留** |
 | 不能按交易员姓名检索 | 上游（N-59e）| 拉全榜本地过滤；措辞用"当前榜上没有"。`query` 与 `keywords` 两条路都零过滤（2026-10-08）|
 | **「全榜」只有 5 组** | 数据形态（2026-10-08）| 组的入选随 `asset_type` / `sort_by` 变；按人聚合的敞口一律标「榜内可见下界」；模式② 不补拉别的榜；summary 提到的榜外仓只列为「摘要提及、未核实」线索 |
-| `time_range` 能挡掉陈旧仓 | 服务端行为（2026-10-08）| **不用**：返 `partial` 且组汇总按过滤后的行重算，剔了谁看不见；闸① 客户端判 |
+| `time_range` 能挡掉陈旧仓 | 服务端行为（2026-10-08）| **不用**：组汇总按过滤后的行重算，剔了谁看不见；单标的 `limit=50` 时连 `partial` 都不报（正式端 2026-10-08 复核）；闸① 客户端判 |
 | **rollup 按截断后的行重算** | 上游（2026-10-08）| 一律 `limit=50`；`positions_returned == limit` 时标「可能被截断」 |
 | **focus 与 caution 可重叠** | 上游（2026-10-08）| 先判 caution，标「名单矛盾」 |
 | 无 unrealized PnL / 无逐笔历史 | 数据形态（N-59b）| **不算收益**，本 Skill 只做尽调不做账本 |
