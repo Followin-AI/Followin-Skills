@@ -466,7 +466,7 @@
 | N-155 | **signal 字段语义不可直接引用**：kol_call 的 `target_price` 会把假设估值当目标价（"若给同倍数会到 $3,210"→3210），`direction` 会把"别追 IPO 但公司更强"标成 bearish；tradfi `trader_position` 的 trending 混入加密币（SUI、LIT 标成 `stock_perp`） | 引用 target_price / direction 前对照原文；入场价量级不像股价的按加密处理 | `a7a958b4…` / `212ea161…` |
 | N-156 🔴 | **行情上游整体 403 时照样扣额度**：2026-10-05 美东盘中，报价 / 批量报价 / 历史 K 线 / 三张涨跌榜 / 内部人 / 市场级财报日历同时返回 `status:"degraded"` + `severity:"source_dead"`（`fmp_quote_error` / `fmp_batch_quote_error` / `fmp_earnings_calendar_error` / `insider_trading_subsources_failed`，HTTP 403），正式端与 followdao-test 一致，重试无效；每次失败调用仍 `consumed:1`。趋势榜、新闻搜索、喊单、经济日历、关注池财报日不受影响。内部人空结果在这种时候会被误读成"没有交易" | 先发一次快照当探针，source_dead 就跳过同一上游的其余调用；source_dead 段落按"缺数据"写，不按"没有"写；报给 dev | `4788e3a7…` / `50cec001…` / `c6cd32e7…` / `5c7c8b00…` / `af9c3ca4…`（test）/ `f1bf021b…`（主会话复核） |
 
-### 2026-10-08 全仓复跑 + 四组新审计（N-157~N-173）
+### 2026-10-08 全仓复跑 + 四组新审计（N-157~N-174）
 
 > 背景：行情上游与研报库恢复后，对 Base 01–06、Earnings Screener、社群 c1–c6、研报 r0–r2/r4 复跑，并首次审计 + 实跑 Premarket Tracker、Feed Manager、Trader Diligence、Crypto Watchlist Tracker（约 20 个子 Agent，美东 10-08 盘中）。下表只收接口行为；各 Skill 的规则缺口已直接改进文件。
 
@@ -489,6 +489,7 @@
 | N-171 | **trader_position**：`limit` 是每组条数，默认 10、组内按评级排序，组汇总按截断后的行重算（`limit=1` 时 ETH 组显示"多空平衡"），无任何截断提示；全榜固定 5 组，入选随 `asset_type` / `sort_by` 变；按名字过滤不生效；取不到价格的标的静默少行；新字段 `profile_confidence`；擅长与弱项名单可重叠、弱项名单可为 null；`time_range` 会静默过滤陈旧仓——单查加 `limit=50` 时返回 `status:"ok"`、无警告，组人数与 `agreement` 按过滤后重算（BTC 7→5 人），全榜加小 `limit` 时才报 partial（`2326e2c7` / `18207b4a`） | 一律 `limit=50`；跨标的敞口写"榜内可见下界"并写明拉了哪几张榜 | 正式端 2026-10-08 复核与测试端逐字段一致：`c4cc9110` / `9796041c` / `3d42b288` / `cd30c9de` / `0fca5208` / `d9ce869c` / `fded70b5` |
 | N-172 | **twitter 推文接口有 `verbosity`**（订正 N-99）：默认正文截在 600 字、detail 截在 2000 字，带 `content_truncated`；`include_replies=true` 时 `isReply` 是真值（N-91 只在不带回复时成立）；单页 9~17 万字符 | 拉 KOL 推文传 `verbosity="detail"` | `cbf320c9…` / `3ff0811e…`（followdao-test） |
 | N-173 | **外部数据源**：DeFiLlama 部分稳定币 `circulatingPrevMonth` 为空或 0（USDD、OUSD、USDX），且收录了代币化国债基金（BUIDL）；tftc ETF 日度合计来自 SoSoValue，bitbo 晚一天且缺行；SPDR 官网 GLD CSV 已 301，`https://api.spdrgoldshares.com/api/v1/historical-archive?product=gld&exchange=NYSE` 可取逐日吨数；thevaultreport 上海金溢价数据滞后约 9 天 | 稳定币只计两期都有值的币；ETF 两源对齐日期；溢价写明数据日期 | 见 04 / 05 Skill 10-08 修订 |
+| N-174 | **10-08 拍板后复跑的零碎新行为**：① DeFiLlama 部分稳定币 `price` 为 null（M、HUSD、USDA）；② FedWatch 二手来源的"一周前值"差异极大（同为 10-01 前后，CME 来源 28%、Yahoo 未注明来源 50.9%），检索还会把 09-23 的旧值当成"10 月初"返回；③ SPDR GLD 存档是 xlsx（第二个工作表、`Tonnes of Gold` 列、假日行为文字 `US Holiday`），WebFetch 解析不了，需下载后脚本读；④ 盘中 `market.history` 当天那行的 close 与同一次返回的快照价不一致（ACN 199.26 vs 195.51）；⑤ `analyst_grades` 传 `limit=21` 报"上限 20"却实际回 21 行；⑥ 快照 `volume` 出现小数、`yearHigh` 有未按合股调整的值（RPGL 现价 40.8、yearHigh 66432）；⑦ `mention_direction` 出现 `neutral`；⑧ tradfi 趋势榜混进 A 股、韩股新闻；⑨ 律所"集体诉讼调查"稿大量出现在个股新闻里 | ②：多来源冲突时按 04 / 05 现行写法取更接近 0 的档，各来源原始值写进明细；③④⑥：见 05 / r1 / c1 现行写法；⑨：不计入报道数 | 见 04 / 05 / 03 / c1 / r1 10-08 复跑记录 |
 
 ### 🗄️ 已修 / 已作废归档（销案不删条，防回归自查用）
 
