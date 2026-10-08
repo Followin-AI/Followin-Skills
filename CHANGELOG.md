@@ -4,6 +4,15 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-08 — sweep 门禁补三条日历 / 新闻写法
+
+- `tools/sweep-check.sh` 新增三条拦截（只看 staged 新增行，带 ❌ / 实测 / 旧写法 等标记的行放行）：
+  - (e) 经济日历没带 `sort_by="hot"`（N-128：按时间排时 CPI / 非农被挤出 50 行）；
+  - (f) 财报日历传了 `country`（N-133：按注册地过滤，漏掉 ACN 这类公司）；
+  - (g) news 搜索（query 非空）带 `asset_type="tradfi"`（N-145：召回下降且挡不住加密噪音）。
+- 三条只认同一行写全的调用式，跨行拆写的调用拦不到。用 3 条坏写法 + 5 条正确写法（含趋势模式、带 ❌ 的反例）在 staged / worktree 两种模式下验证：坏的全拦、好的全过；现有全部 Skill 文本无误报。
+- caveats 通用红线第 10 条（经济日历）补上 `sort_by="hot"`，并注明财报日历相反、不传 `country`。
+
 ## 2026-10-05 — 社群 c1–c6 / 研报 r0–r4 规则审查 + 端到端实跑后修复
 
 **起因**：社群 6 个 Skill（c2 简繁两版）和研报 5 个 Skill 各派一个子 Agent，先审规则再按 Skill 原文实跑（约 200 次调用），再由同一个 Agent 把自己的发现改进文件。接口新行为登记为 caveats **N-140~N-155**。修复后未再复跑。
