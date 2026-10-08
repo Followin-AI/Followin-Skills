@@ -34,9 +34,9 @@
 
 ## 已知问题登记（含 Dev 修复后回滚指引）
 
-> ### 📊 状态总览（2026-08-17 · 每轮验收更新此块）
+> ### 📊 状态总览（2026-10-08 · 每轮验收更新此块）
 >
-> **118 个条目 = 正文 102 + 归档 16。**（09-07：+N-101~N-104） ⚠️ **计数已于 2026-08-29 重算并订正**——此前头部写的 105→110 是历轮 `+N` 累加出来的，从未重数，与实际表行差 4~10 条；「存根」这一档无法从文件机器判定（正文标 ⚪ 的只有 N-85 一条），故取消该分项。条目数是认知覆盖率，不是产品破损度——大多数条目是「读法纪律」（数据的脾气，永远不会"修好"），真正需要客户端设闸的硬问题见下。
+> **197 个条目 = 正文 180 + 归档 17。**（2026-10-08 按表格行脚本重算：含 N-59 各子条与 B 系列；编号到 N-178，N-73~N-77 为空号。上一次计数是 09-07 的 118） ⚠️ **计数已于 2026-08-29 重算并订正**——此前头部写的 105→110 是历轮 `+N` 累加出来的，从未重数，与实际表行差 4~10 条；「存根」这一档无法从文件机器判定（正文标 ⚪ 的只有 N-85 一条），故取消该分项。条目数是认知覆盖率，不是产品破损度——大多数条目是「读法纪律」（数据的脾气，永远不会"修好"），真正需要客户端设闸的硬问题见下。
 > 🆕 **10-08**：全仓复跑 + Premarket / Feed Manager / Trader Diligence / Crypto Watchlist 首次审计新增 N-157~N-173（盘中快照无 `_quote_session`、日线含未收盘一根、代码被静默改写、研报库回补改写历史窗口、signal 截断与新值、news 默认排序看不到第一篇报道等）；订正 N-99 / N-127 / N-139 / N-152。条目计数未重算。
 > 🆕 **10-05**：社群 c1–c6 / 研报 r0–r4 端到端实跑新增 N-140~N-156（研报库停更 / detail 嵌套数组截顶 / 双重上市按代码分桶 / news 搜索传 tradfi 召回大降 / signal limit 按类生效 / 13F 季度切换等）；N-110、N-120、N-133 部分被订正。条目计数未重算。
 > 🆕 **09-07**：链上 CA 解析前置实测新增 N-101~N-104（CA 在 news 默认模式字面兜底混他币·**必须 `quick`** / keywords 单项 30 字符 CA 必截断 / cashtag 实体匹配同名人名 / 衍生品四叶 dev 可用生产未触发）；**N-8 标注：dev 契约已修，生产"数组能用但 schema 仍无类型"（校验放宽非契约修复，P0-1 生产未销案）**；**N-13 结案**（上游窗口仅 24h）；N-51 补 CMC 长尾定价（"仅 Binance"作废）。
@@ -466,7 +466,7 @@
 | N-155 | **signal 字段语义不可直接引用**：kol_call 的 `target_price` 会把假设估值当目标价（"若给同倍数会到 $3,210"→3210），`direction` 会把"别追 IPO 但公司更强"标成 bearish；tradfi `trader_position` 的 trending 混入加密币（SUI、LIT 标成 `stock_perp`） | 引用 target_price / direction 前对照原文；入场价量级不像股价的按加密处理 | `a7a958b4…` / `212ea161…` |
 | N-156 🔴 | **行情上游整体 403 时照样扣额度**：2026-10-05 美东盘中，报价 / 批量报价 / 历史 K 线 / 三张涨跌榜 / 内部人 / 市场级财报日历同时返回 `status:"degraded"` + `severity:"source_dead"`（`fmp_quote_error` / `fmp_batch_quote_error` / `fmp_earnings_calendar_error` / `insider_trading_subsources_failed`，HTTP 403），正式端与 followdao-test 一致，重试无效；每次失败调用仍 `consumed:1`。趋势榜、新闻搜索、喊单、经济日历、关注池财报日不受影响。内部人空结果在这种时候会被误读成"没有交易" | 先发一次快照当探针，source_dead 就跳过同一上游的其余调用；source_dead 段落按"缺数据"写，不按"没有"写；报给 dev | `4788e3a7…` / `50cec001…` / `c6cd32e7…` / `5c7c8b00…` / `af9c3ca4…`（test）/ `f1bf021b…`（主会话复核） |
 
-### 2026-10-08 全仓复跑 + 四组新审计（N-157~N-174）
+### 2026-10-08 全仓复跑 + 四组新审计（N-157~N-178）
 
 > 背景：行情上游与研报库恢复后，对 Base 01–06、Earnings Screener、社群 c1–c6、研报 r0–r2/r4 复跑，并首次审计 + 实跑 Premarket Tracker、Feed Manager、Trader Diligence、Crypto Watchlist Tracker（约 20 个子 Agent，美东 10-08 盘中）。下表只收接口行为；各 Skill 的规则缺口已直接改进文件。
 
@@ -490,6 +490,10 @@
 | N-172 | **twitter 推文接口有 `verbosity`**（订正 N-99）：默认正文截在 600 字、detail 截在 2000 字，带 `content_truncated`；`include_replies=true` 时 `isReply` 是真值（N-91 只在不带回复时成立）；单页 9~17 万字符 | 拉 KOL 推文传 `verbosity="detail"` | `cbf320c9…` / `3ff0811e…`（followdao-test） |
 | N-173 | **外部数据源**：DeFiLlama 部分稳定币 `circulatingPrevMonth` 为空或 0（USDD、OUSD、USDX），且收录了代币化国债基金（BUIDL）；tftc ETF 日度合计来自 SoSoValue，bitbo 晚一天且缺行；SPDR 官网 GLD CSV 已 301，`https://api.spdrgoldshares.com/api/v1/historical-archive?product=gld&exchange=NYSE` 可取逐日吨数；thevaultreport 上海金溢价数据滞后约 9 天 | 稳定币只计两期都有值的币；ETF 两源对齐日期；溢价写明数据日期 | 见 04 / 05 Skill 10-08 修订 |
 | N-174 | **10-08 拍板后复跑的零碎新行为**：① DeFiLlama 部分稳定币 `price` 为 null（M、HUSD、USDA）；② FedWatch 二手来源的"一周前值"差异极大（同为 10-01 前后，CME 来源 28%、Yahoo 未注明来源 50.9%），检索还会把 09-23 的旧值当成"10 月初"返回；③ SPDR GLD 存档是 xlsx（第二个工作表、`Tonnes of Gold` 列、假日行为文字 `US Holiday`），WebFetch 解析不了，需下载后脚本读；④ 盘中 `market.history` 当天那行的 close 与同一次返回的快照价不一致（ACN 199.26 vs 195.51）；⑤ `analyst_grades` 传 `limit=21` 报"上限 20"却实际回 21 行；⑥ 快照 `volume` 出现小数、`yearHigh` 有未按合股调整的值（RPGL 现价 40.8、yearHigh 66432）；⑦ `mention_direction` 出现 `neutral`；⑧ tradfi 趋势榜混进 A 股、韩股新闻；⑨ 律所"集体诉讼调查"稿大量出现在个股新闻里 | ②：多来源冲突时按 04 / 05 现行写法取更接近 0 的档，各来源原始值写进明细；③④⑥：见 05 / r1 / c1 现行写法；⑨：不计入报道数 | 见 04 / 05 / 03 / c1 / r1 10-08 复跑记录 |
+| N-175 | **行情 / 日历 / 基本面零碎（10-08 第二轮复跑）**：① 1 小时线含延长时段、每天 16 根、时间戳为美东，`09:00` 那根跨盘前与盘中，`limit` 按每只计；② `^TNX` 未收盘那行 close 三位小数、已收盘两位；③ 经济日历 `sort_by="hot"` 按 High→Medium→Low 排，带预期值的 Medium 会落到第 2 页；未来日期的 EIA 库存、MBA 利率行没有 estimate；④ news `time_range="1d"` 是往回滚 24 小时，不按自然日；⑤ 财报当天基本面更新时点因票而异（PEP 盘前发、当天上午已更新；LW / RPM 两天后仍未更新），新季度初版数据缺项（折旧、利息为 0，资本开支符号反）；⑥ `dcf["Stock Price"]`、估值比率盘中仍按前收；⑦ 代码改写又见 `DX-Y.NYB`→`DXUSD`、`CL=F`→`CLUSD`；`stock_peers` 里 SKHY 是 SK 海力士美股 ADR（报表韩元、报价美元） | 日历翻到出现第一行 Low；财报 3 天内不引 EBITDA 与现金流；引用估值注明按前收 | 见 06 / 02 / 01 / c2 / Premarket 10-08 第二轮复跑记录 |
+| N-176 | **signal 零碎（10-08 第二轮复跑）**：① 外国私人发行人（ARGX 等 ADS）没有 Form 4，insider 只剩议员行；② 多标的同批时 `limit` 作用于合并后的整张列表（5 只合计 50 行，MU 被挤到 3 行）；③ 单票内部人行按交易日倒序，迟报的申报排回交易日位置；④ A-Award 行可带非零价格；⑤ 评级入库滞后（ARGX 当天 −14.8%，`analyst_grades` 最近一条仍是 9/8）；⑥ 反向 ETF（TZA）喊单被标 bullish；⑦ 喊单汇总新增整批 `neutral_count` 与 `_drilldown` 提示 | 内部人逐只查；外国发行人写"無 Form 4"不写"无买入"；反向 ETF 看多归空方 | 见 c4 / c6 / Premarket / 01 10-08 第二轮复跑记录 |
+| N-177 | **研报零碎（10-08 第二轮复跑）**：① `verbosity="concise"` 不返回 `detail`，`by_name` 无标记截到 5 行；② `time_std.type` 新值 `calendar_year` / `open_ended` / `after`，`quarter` 类财报事件的季是指标所属期而非发布时间；③ `rating_action` 新文本（"assume coverage"、"initiate"、"recent downgrade … prior rating not supplied"），`rating_current` 出现复合值（"Buy; Conviction List"）且 `stance_normalized` 为 null；④ `scenarios` 常只有 base 或为 null、`risks` 会返回过时模板句；⑤ relative 类"yesterday"的 sort 是报告日 −1；⑥ `mention_direction` 出现 `negative` / `neutral`；⑦ 流程备注出现不带 filename 字样的新形态；⑧ 刚好 10 篇时首页即 `has_more:false`；单标的翻到尽头时 subject+mention 篇数等于榜面点名次数 | r4 必用 detail；财报类季级事件按"季末 + 45 天"判过期（r3） | 见 r0 / r2 / r3 / r4 / c3 10-08 第二轮复跑记录 |
+| N-178 | **crypto 与 twitter 零碎（10-08 第二轮复跑）**：① crypto 技术指标附带的价格是小时收盘，停在当天 00:00 UTC，拿不到当日高低价；不带 `interval` 查日 K 仍返回小时 K；② `tweets_by_ids` 请求 7 个只回 6 个、无警告；同一条推文在不同调用里显示不同作者；③ 推特转推的 `type` 是 `"tweet"`，外层 text 是 X 自带的约 140 字截断，全文在 `retweeted_tweet.text`；外层 `content_truncated:true` 常由被引原文触发 | 振幅用 `interval="1hour", limit=24` 另取；推文 ID 请求后逐个比对；截断按本人正文长度区分 | 见 Crypto Watchlist / Feed Manager 10-08 第二轮复跑记录 |
 
 ### 🗄️ 已修 / 已作废归档（销案不删条，防回归自查用）
 

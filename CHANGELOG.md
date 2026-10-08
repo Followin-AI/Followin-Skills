@@ -4,6 +4,20 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-08 — 拍板后第二轮复跑（其余 14 个 Skill）+ 收尾
+
+第一轮拍板后没复跑过的 Skill 全部用新的子 Agent 复跑：c2 / c3 / c4 / c6、r0 / r2 / r4、Base 01 / 02 / 06、Earnings Screener、Premarket Tracker、Feed Manager、Crypto Watchlist Tracker。拍板改动都能照做，执行层缺口直接修，取舍类问题另列待拍板。主要修复：
+- **01**：PEG 在 4 个财年里有亏损年时标"不适用"（MU 照原写法会算出 0.028）；⑰ 研报去重改为 subject 层优先，免得丢掉目标价上调；同行只在美股代码里按市值排（外国代码市值是当地货币）。
+- **02**：财报日在 3 天内时补一次 1 天窗口的新闻（2 周窗口按相关度排抓不到"下调利润展望"）；补上 CHANGELOG 说过、文件里却没有的"盘中估值按前收"；财季长短不一时环比标"季长不同"。
+- **06**：日历带预期值的 Medium 会落到第 2 页，改为翻到出现第一行 Low；扩散指数与预算余额不套"预期存疑"。
+- **Earnings Screener**：只出现在财报预告里、发布时点已过的公司算"已发"（原写法会剔掉本轮唯一过闸的 APLD）；数据缺口写出两条腿之间的空档。
+- **c2 / c3 / c4 / c6、r0 / r2 / r4**：周中跑的新闻窗口、日历同一事件的认定、家数按券商合并、反向 ETF 看多归空方、外国发行人无 Form 4、律所诉讼稿不算叙事、"今天"按美东日期、mention 页数与日期覆盖声明等。
+- **r3**（据 r4 复跑）：补 `calendar_year` / `open_ended` / `after`；财报类季级事件按"季末 + 45 天"判过期。
+- **Premarket Tracker**：量比改用 1 小时线 `limit=340` 计算（分钟线凑不满 20 天）；多票同批时内部人逐只查；接入命令加 `--scope user`。
+- **Feed Manager**：收尾门禁在跨 0 点结束会话时会直接放行，已修；计数行写法变体不再误拦；筛推文脚本区分本人正文截断与被引原文截断。门禁在临时 vault 实测 24 个场景。英文指南补"计数行须保留中文字段名"。
+- **Crypto Watchlist Tracker**：振幅改用 1 小时线另取当日高低价（技术指标附带的价格停在 00:00 UTC）；交易员仓位加 `limit=50`。
+- caveats 新增 N-175~N-178；状态总览按表格行重算为 197 条。
+
 ## 2026-10-08 — 复跑后第二轮拍板（18 项）
 
 用户对复跑后列出的 18 条取舍"全按建议"：

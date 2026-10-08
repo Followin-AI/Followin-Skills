@@ -11,6 +11,8 @@
 #       只查标题文字的旧版拦不住任何事——模板自带"完整性审查"四个字，照抄就过
 #   (3) 日报含 <!-- sector-sync: 板块A, 板块B --> 声明（逗号分隔；兼容空格分隔），
 #       且声明的每个 Sectors/<X>.md mtime=今天
+#   (4) 跨 0 点收尾（23:xx 开跑、0 点后结束）：当天日报不存在时，改查 3 小时内改过的昨天日报，
+#       上面所有"mtime=今天"放宽为"昨天或今天"
 # 退出码 2 = 阻止 stop 并把 stderr 反馈给模型。非日报会话静默 exit 0。
 #
 # 配置：设环境变量 KOL_VAULT 指向你的 vault 根（含 Daily/ Sectors/ 等子目录）。
@@ -33,9 +35,19 @@ mday() {
   stat -f "%Sm" -t "%Y-%m-%d" "$1" 2>/dev/null
 }
 
+OK_DAYS=" $TODAY "
+fresh() { case "$OK_DAYS" in *" $(mday "$1") "*) return 0 ;; esac; return 1; }
+
 DAILY="$VAULT/Daily/$TODAY.md"
-[ -f "$DAILY" ] || exit 0
-[ "$(mday "$DAILY")" = "$TODAY" ] || exit 0
+if [ ! -f "$DAILY" ] || [ "$(mday "$DAILY")" != "$TODAY" ]; then
+  # 跨 0 点收尾：23:xx 开跑、0 点后才结束会话 → 当天日报还不存在，旧版在这里静默放行，
+  # 一份没补齐的日报照样过（2026-10-08 用 date 垫片模拟 0 点后收尾实测：Macro 过期也 rc=0）。
+  # 昨天的日报若在 3 小时内改过，就当它是这次运行的日报来查；昨天、今天两个日期都算"新"。
+  YDAY=$(date -d yesterday +%Y-%m-%d 2>/dev/null || date -v-1d +%Y-%m-%d 2>/dev/null)
+  YDAILY="$VAULT/Daily/$YDAY.md"
+  [ -n "$YDAY" ] && [ -f "$YDAILY" ] && [ -n "$(find "$YDAILY" -mmin -180 2>/dev/null)" ] || exit 0
+  DAILY="$YDAILY"; OK_DAYS=" $YDAY $TODAY "
+fi
 
 MISS=()
 
@@ -58,12 +70,12 @@ has_holdings() {
 
 # (1) 每次日报必更新的文件 mtime=今天
 for f in "Daily/Daily-Index.md" "Macro.md" "Sectors/_Sectors-Index.md"; do
-  [ "$(mday "$VAULT/$f")" = "$TODAY" ] || MISS+=("mtime过期: $f")
+  fresh "$VAULT/$f" || MISS+=("mtime过期: $f")
 done
 
 # Portfolio：有持仓才强制 mtime（Step 10.8 要求每批重算现价/浮盈）；无持仓只要求文件在
 if has_holdings "$VAULT/Portfolio.md"; then
-  [ "$(mday "$VAULT/Portfolio.md")" = "$TODAY" ] \
+  fresh "$VAULT/Portfolio.md" \
     || MISS+=("mtime过期: Portfolio.md（有持仓 → Step 10.8 必须重算现价/浮盈/Risk Budget）")
 elif [ ! -f "$VAULT/Portfolio.md" ]; then
   MISS+=("缺文件: Portfolio.md（Step 0.0 种子文件未建）")
@@ -84,15 +96,19 @@ else
 fi
 
 INT=$(grep -E "完整性审查(：|:).*遗漏" "$DAILY" 2>/dev/null | head -1)
-num_of() { printf '%s' "$INT" | grep -oE "$1 *[0-9]+" | head -1 | grep -oE '[0-9]+'; }
-LOST=$(num_of "遗漏"); DECL_T=$(num_of "落盘 ticker"); DECL_S=$(num_of "落盘 sector")
-if [ -z "$INT" ] || [ -z "$LOST" ] || [ -z "$DECL_T" ] || [ -z "$DECL_S" ]; then
+# 容忍模型常见的写法漂移：「遗漏：0」「落盘 Ticker 0」「落盘ticker 0」（2026-10-08 临时 vault 实测，
+# 旧写法把这几种都报成"缺字段"，字段明明在）。数字前允许空格 / 全半角冒号；ticker / sector 不分大小写。
+num_of() { printf '%s' "$INT" | grep -oiE "$1( |：|:)*[0-9]+" | head -1 | grep -oE '[0-9]+'; }
+LOST=$(num_of "遗漏"); DECL_T=$(num_of "落盘 *ticker"); DECL_S=$(num_of "落盘 *sector")
+if [ -z "$INT" ]; then
   MISS+=("缺字段: 日报无『完整性审查：遗漏 X · 落盘 ticker T · 落盘 sector S』(Step 10.95 未落)")
+elif [ -z "$LOST" ] || [ -z "$DECL_T" ] || [ -z "$DECL_S" ]; then
+  MISS+=("完整性审查那行读不出三个整数（遗漏=${LOST:-?} ticker=${DECL_T:-?} sector=${DECL_S:-?}）：照模板写成『遗漏 0 · 落盘 ticker T · 落盘 sector S』，字母换成整数")
 else
   [ "$LOST" -eq 0 ] || MISS+=("完整性审查报遗漏 $LOST 条 → 补落盘后把遗漏改回 0 再结束")
   TT=0
   for f in "$VAULT"/Tickers/*.md; do
-    [ -f "$f" ] && [ "$(mday "$f")" = "$TODAY" ] && TT=$((TT + 1))
+    [ -f "$f" ] && fresh "$f" && TT=$((TT + 1))
   done
   [ "$TT" -ge "$DECL_T" ] || MISS+=("声明落盘 ticker $DECL_T 个，但 Tickers/ 今天只动过 $TT 个文件")
 fi
@@ -119,7 +135,7 @@ else
     sf="$VAULT/Sectors/$s.md"
     if [ ! -f "$sf" ]; then
       MISS+=("sector-sync 声明的 $s.md 不存在")
-    elif [ "$(mday "$sf")" != "$TODAY" ]; then
+    elif ! fresh "$sf"; then
       MISS+=("sector-sync 声明了 $s 但 Sectors/$s.md 今天没更新（只改日期≠sweep）")
     fi
   done
@@ -129,7 +145,7 @@ else
 fi
 
 if [ ${#MISS[@]} -gt 0 ]; then
-  echo "🚪 stock-kol-watch 收尾门禁未通过：今天跑了日报（Daily/$TODAY.md），但：" >&2
+  echo "🚪 stock-kol-watch 收尾门禁未通过：今天跑了日报（Daily/$(basename "$DAILY")），但：" >&2
   for m in "${MISS[@]}"; do echo "  ❌ $m" >&2; done
   echo "请补齐再结束。详见 SKILL Step 10.9 / 10.95。" >&2
   exit 2

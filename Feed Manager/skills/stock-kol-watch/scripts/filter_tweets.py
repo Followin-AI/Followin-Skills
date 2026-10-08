@@ -19,7 +19,9 @@ filter_tweets.py — Stock KOL Watch Step 3 固化脚本（framework v1.6）
   - 每条输出: UTC + 本地双时间戳 + [RT @x]/[QT @x: 摘要]/[reply]/[⚠️截断] 标记 + 原推 URL + 正文
     （本地时区默认取本机；跨时区跑用 --tz-offset 8 --tz-label SGT 显式指定）
   - [⚠️截断]：推文带 content_truncated=true（2026-10-08 实测：user_tweets 默认 verbosity=standard
-    把正文截在 600 字，detail 截在 2000 字；嵌套 QT/RT 原文被截也会让外层带这个标）——见标即知不是全文
+    把正文截在 600 字，detail 截在 2000 字）——见标即知不是全文
+  - [⚠️被引原文截断]：外层也带 content_truncated=true，但本人正文远没到上限、是被引 / 被转的原文被截
+    （2026-10-08 正式端实测 4 例：本人正文 50 / 140 / 706 字，被引原文 2000 字）——本人这条是全的，重拉没用
   - 跳过 data.pin_tweet（置顶推常是几个月前的旧推，混进来会让"窗口未回溯"告警永远不响）
   - stderr 打印 digest 字符数（Step 3 外包阈值 15K 字符）+ 每账号 in-window 计数（直接喂 Step 2 覆盖表）；
     空 dump 单列，提示查账号状态；窗口跨本地 0 点时按本地日期分列条数（拆日报用）
@@ -121,7 +123,10 @@ def nested(t, *keys):
     return None
 
 
-def mark_of(t):
+CAPS = {"concise": 200, "standard": 600, "detail": 2000}   # 推文正文字数上限（N-172）
+
+
+def mark_of(t, cap=None):
     mark = ""
     rt = nested(t, "retweeted_tweet", "retweetedTweet", "retweeted_status")
     qt = nested(t, "quoted_tweet", "quotedTweet")
@@ -135,8 +140,20 @@ def mark_of(t):
     if t.get("isReply") or t.get("in_reply_to_status_id") or t.get("inReplyToId"):
         mark = "[reply]" + mark
     if t.get("content_truncated"):
-        mark += "[⚠️截断]"
+        inner = rt or qt or {}
+        own_len = len(t.get("text") or t.get("full_text") or "")
+        # 外层的标也会被"被引原文截断"点亮：本人正文明显没到上限 + 被引原文自己带标 → 只是原文被截
+        if inner.get("content_truncated") and cap and own_len < cap * 0.95:
+            mark += "[⚠️被引原文截断]"
+        else:
+            mark += "[⚠️截断]"
     return mark
+
+
+def dump_verbosity(data):
+    """dump 顶层 meta.verbosity（正式端 / followdao-test 都回显，2026-10-08 实测）；取不到返回 None。"""
+    meta = data.get("meta") if isinstance(data, dict) else None
+    return (meta or {}).get("verbosity")
 
 
 def process_file(path, cutoff, seen):
@@ -149,6 +166,8 @@ def process_file(path, cutoff, seen):
     except (OSError, json.JSONDecodeError) as e:
         print(f"  !! {path}: {e}", file=sys.stderr)
         return None, [], None
+    verb = dump_verbosity(data)
+    cap = CAPS.get(verb)
     tweets = []
     find_tweets(data, tweets)
     counts = Counter(a for a in (author_of(t) for t in tweets) if a)
@@ -174,9 +193,10 @@ def process_file(path, cutoff, seen):
         tid = t.get("id") or t.get("id_str") or t.get("rest_id") or t.get("tweet_id")
         url = t.get("url") or t.get("twitterUrl") or (
             f"x.com/{main}/status/{tid}" if tid else "(无 tweet id)")
-        rows.append((cd, text, mark_of(t), url))
+        rows.append((cd, text, mark_of(t, cap), url))
     rows.sort(key=lambda r: r[0])
     # 本文件里该账号最早一条（含窗口外）——调用方按账号跨文件取最小值判断回溯是否够
+    process_file.last_verbosity = verb
     return main, rows, (min(own_dts) if own_dts else None)
 
 
@@ -205,15 +225,18 @@ def main():
     truncated = {}        # 主账号 → in-window 里带 [⚠️截断] 的条数
     by_day = {}           # 本地日期 → {主账号: 条数}（跨本地 0 点时按它拆日报）
     empty = []            # 读不了 / 没有任何推文的 dump
+    not_detail = set()    # dump 回显的 verbosity 不是 detail 的主账号（正文截在 600 字，要重拉）
     for f in args.files:
         main_author, rows, first_dt = process_file(f, cutoff, seen)
         if main_author is None:
             empty.append(Path(f).name)
             continue
+        if getattr(process_file, "last_verbosity", None) not in (None, "detail"):
+            not_detail.add(main_author)
         if first_dt and (main_author not in earliest or first_dt < earliest[main_author]):
             earliest[main_author] = first_dt
         merged[main_author] = merged.get(main_author, 0) + len(rows)
-        truncated[main_author] = truncated.get(main_author, 0) + sum("[⚠️截断]" in r[2] for r in rows)
+        truncated[main_author] = truncated.get(main_author, 0) + sum("[⚠️截断]" in r[2] for r in rows)   # 只计本人正文被截
         chunks.append(f"\n\n########## @{main_author} ({len(rows)} in-window) ##########")
         for cd, text, mark, url in rows:
             day = by_day.setdefault(local_day(cd, args.tz_offset), {})
@@ -244,9 +267,12 @@ def main():
         print("\n⚪ 空 / 读不了的 dump：" + "、".join(empty) +
               "\n  → 按调用顺序对出是哪个账号。销号 / 封号也返回 success + 空数组（N-90），"
               "覆盖表别直接标 ⚪，先用 user_info 查账号状态", file=sys.stderr)
+    if not_detail:
+        print("\n✂️ 这些账号的 dump 不是 verbosity=\"detail\"（正文截在 600 字）→ 加 detail 重拉："
+              + "、".join(f"@{a}" for a in sorted(not_detail)), file=sys.stderr)
     if any(truncated.values()):
-        print("\n✂️ 有正文被截断的推文（标 [⚠️截断]）：拉取没传 verbosity=\"detail\" 的，重拉该账号；"
-              "detail 下仍截断（2000 字上限）→ 关键数字回原推 URL 核对", file=sys.stderr)
+        print("\n✂️ 有本人正文被截断的推文（标 [⚠️截断]）：已是 detail 的 = 2000 字上限，关键数字回原推 URL 核对；"
+              "[⚠️被引原文截断] 只是被引 / 被转的原文不全，本人正文是全的，不用重拉", file=sys.stderr)
     warns = sorted((n, d) for n, d in earliest.items() if d > cutoff)
     if warns:
         print("\n🚨 窗口未回溯到 cutoff —— 这些账号有推文被静默漏掉，必须翻页补拉"

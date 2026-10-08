@@ -77,10 +77,10 @@ metrics(query="earnings calendar", asset_type="tradfi",
 ```
 返回 `fundamentals.earnings_calendar[]`：symbol / date / epsActual / epsEstimated / revenueActual / revenueEstimated。
 - 客户端只留代码匹配 `^[A-Z]{1,5}$` 的行（去掉 `.KS` / `.T` / `.L` 这类外国代码和 `MKC-V` 这类重复股类），**再剔除 5 位且以 F / Y / W / R / U / Q 结尾的**（OTC 外国股、OTC ADR、权证、权利、单位、破产股）。2026-10-08 实测只用前一条正则时，SOIEF、CASIF、JDWPF、JDWPY、ATCHW、AACTF 都会混进来，SOIEF 还过了营收 +2% 一路送到 Step 2。
-- `revenueActual` 非 null = 已发布，可以直接算：`营收 surprise = revenueActual ÷ revenueEstimated − 1`，EPS 同理。
+- `revenueActual` 非 null = 已发布，可以直接算：`营收 surprise = revenueActual ÷ revenueEstimated − 1`，EPS 同理。`revenueEstimated` 为 null 的算不出 surprise，不在这里淘汰，跟其他候选拼批送 Step 2；那边的预期值也为 null 就记数据缺口（2026-10-08 实测 AIXI、DOGZ、NAMM 都是这种，AIXI 基本面块的预期值同样为 null）。
 - `revenueActual` 为 null = 还没发布，留给「📅 即将发财报」板块。
 - `has_more:true` 时用 `meta.pagination` 里的 `next_cursor` 翻页，**最多翻到第 2 页**。
-- ⚠️ **这条腿实际只覆盖窗口最早的一两天**（见调用约定里的排序一条）。2026-10-08 实测 `days=7`：两页 100 行只走到 10-05 的 "B…"，10-06~10-08 发财报的 STZ、LW、RPM、APLD、LEVI、PEP 一只都没出现。**记下末行的 `date`，输出里写"日历腿覆盖 [date_from]~[末行日期]"**，之后的日子全靠新闻腿。返回还可能带 `status:"partial"`（候选上限），中小盘会漏。
+- ⚠️ **这条腿实际只覆盖窗口最早的一两天**（见调用约定里的排序一条）。2026-10-08 实测 `days=7`：两页 100 行只走到 10-05 的 "B…"，10-06~10-08 发财报的 STZ、LW、RPM、APLD、LEVI、PEP 一只都没出现。**记下末行的 `date` 和 `symbol`，输出里写"日历腿覆盖 [date_from]~[末行日期]（末行当天只到 [末行代码]）"**——末行那天只盖住字母序靠前的一段，不能算覆盖完整（同日复跑：第 2 页末行是 10-05 的 "CORO.L"）。之后的日子全靠新闻腿。返回还可能带 `status:"partial"`（候选上限），中小盘会漏。
 - **淡季判定（按日期）**：运行当天落在 1 / 4 / 7 / 10 月的 1–10 日（财报季刚开头，大公司还没发），或落在 3 / 6 / 9 / 12 月（上一季财报季已结束），判为淡季，输出顶部加一行"本周处于财报淡季"；其余时间按旺季处理。窗口内已发财报、代码合规的公司数（日历腿 + 新闻腿去重，市值不限）只作辅助说明，写"已知至少 N 家"，**不再作判据**——日历腿只盖住一两天，这个数只是下限（2026-10-08 实测按计数得 14 家，漏掉的 STZ、LW、RPM 补上就有 17 家，判淡季与否全看哪几页被翻到）。
 
 **腿②：成交活跃榜（1 额度）——今天在动的票**
@@ -101,9 +101,10 @@ news(query="earnings beat raised guidance", time_range="<days>d", limit=10)
 - 用**陈述业绩事实**的句式。"earnings surprise stock surges" 这类情绪句式命中率很低。
 - 第二条不限来源：返回媒体和社交两桶（各 `limit` 条），社交桶里美股代码密度更高，两桶都解析。
 - 抽取 `NASDAQ:XXX` / `NYSE:XXX` / `$XXX` / 明确的美国上市公司名。
-- 剔除三类噪音：**非美股**（印度、港股、A 股、日韩欧、加密、纯宏观）；**财报预告**（`will release` / `set to announce` / `ahead of` / `stocks to watch this week` 这类语气——一篇"本周十大看点"能带进六七只还没发财报的票）；**非本季财报事件**（交付量超预期、评级首覆或变动、同业跟涨、旧季度回顾）。
-- 第二条 query 里的 "beat" 会被解析成加密实体（warning `asset_type_no_matching_keyword`），混进无关内容，逐条判断时剔掉。
+- 剔除三类噪音：**非美股**（印度、港股、A 股、日韩欧、加密、纯宏观）；**财报预告**（`will release` / `set to announce` / `ahead of` / `stocks to watch this week` 这类语气——一篇"本周十大看点"能带进六七只还没发财报的票。**但预告里写的发布时点已在窗口内过去的，算"已发"的证据，不剔**——2026-10-08 实测 APLD 在新闻腿里只出现一条 10-07 下午的 "reports earnings after the bell"，剔掉它，本周唯一过业绩闸的票连 Step 2 都进不去）；**非本季财报事件**（交付量超预期、评级首覆或变动、同业跟涨、旧季度回顾）。
+- 第二条 query 里的 "beat" 会被解析成加密实体（warning `asset_type_no_matching_keyword`），混进无关内容，逐条判断时剔掉（2026-10-08 复跑没出这条 warning，社交桶照样是游戏、政治里的 "beat"）。
 - 命中率波动很大，只用它补名单，不拿命中数做任何阈值。
+- **这条腿默认按时间倒序，只盖住最近几个小时**：2026-10-08 美东上午实测，第一条 10 篇媒体稿全在 3.4 小时内。记下两条返回里最早一条的 `published_ts`，输出里写"新闻腿覆盖 [最早时间]~现在"。日历末行到这个时间之间是两条腿都没盖住的空档（同日 10-06 发财报的 STZ、LW、RPM 都落在空档里，没进候选池），如实写进数据缺口。改用 `sort_by="relevance"` 能铺开到整个窗口，但同日实测第一条改相关度排序只带出日历腿已有的 ACN、PEP 和窗口外的 MU，另试 "quarterly results revenue estimates shares" 也只多出 APLD，STZ、LW、RPM 仍不在，所以不改。
 
 三条腿取并集去重 → 候选池，记录每只票的来源（日历 / 活跃榜 / 新闻，可多选）。日历腿里营收 surprise 已经 < +2% 的，直接淘汰，不必送 Step 2。
 
@@ -133,7 +134,7 @@ metrics(keywords=[<T1>…<T5>], categories=["market","fundamentals"], asset_type
 |---|------|------|
 | 1 | 有没有被挤出本批 | `meta.warnings` 里有没有该 ticker 的 `keyword_count_over_max`；`meta.filters_applied.keywords` 对照请求清单。被挤出的并入下一批补调（最多补 1 次）|
 | 2 | 有没有基本面条目 | `fundamentals.concise[].symbol` 里有没有它（有快照没基本面的情况存在）|
-| 3 | 有没有超预期数据 | `fiscal_quarters[0].earnings_surprise` 是否存在。**不存在时先看是不是"这期还没发"**：`financial_statement.period_end` 早于窗口、且 `next_earnings_estimate.date` 在未来的，归"窗口外"，不记数据缺口（实测 NU、NOK、AMOD 都是这种）。**但 `next_earnings_estimate.date − period_end` 超过 150 天时不能这么判**：那是这季已经发了、`next_earnings_estimate` 先滚到了下一季，`fiscal_quarters` 还停在上一季（2026-10-08 实测 APLD 10-07 发财报，次日仍是 `period_end` 05-31、下次财报日 2027-01-06，相隔 220 天；10-06 发的 STZ、LW、RPM 两天后同样如此）。按"窗口内已发"处理，转下面新鲜度表的第 2 / 3 行取数 |
+| 3 | 有没有超预期数据 | `fiscal_quarters[0].earnings_surprise` 是否存在。**不存在时先看是不是"这期还没发"**：`financial_statement.period_end` 早于窗口、且 `next_earnings_estimate.date` 在未来的，归"窗口外"，不记数据缺口（实测 NU、NOK、AMOD 都是这种）。**但 `next_earnings_estimate.date − period_end` 超过 150 天时不能这么判**：那是这季已经发了、`next_earnings_estimate` 先滚到了下一季，`fiscal_quarters` 还停在上一季（2026-10-08 实测 APLD 10-07 发财报，次日仍是 `period_end` 05-31、下次财报日 2027-01-06，相隔 220 天；10-06 发的 STZ、LW、RPM 两天后同样如此；同日美东上午复跑，APLD、STZ 已更新，LW、RPM 仍没有——更新时点因票而异）。按"窗口内已发"处理，转下面新鲜度表的第 2 / 3 行取数。**`next_earnings_estimate.date` 落在窗口内、且已经过去的，同样按"窗口内已发"处理**（2026-10-08 实测 LGCL：下次财报日 10-07，`fiscal_quarters` 还停在 2025-12-31，新闻里 10-08 已有上半年业绩稿）|
 | 4 | 字段是不是真有值 | `actual_revenue` 非 null。**`revenue_surprise_pct == -100` 一律当缺失**——`actual_revenue` 为 null 时服务端会算出 -100，那不是营收归零 |
 
 #### 新鲜度：先判这一季是不是刚发的
@@ -189,7 +190,7 @@ metrics(keywords=[<T1>…<T5>], categories=["market","fundamentals"], asset_type
 ```
 - 新闻稿通常只有几句 CEO 套话，扫不了 7 类关键词，只作补充，不能代替实录。
 - WebFetch 返回的是小模型加工过的文本：同一页抓两次给出的引语集合不同，还会有省略号和拼接错误。摘录标"WebFetch 摘取、未逐字核对"。
-- 每只票预算：WebFetch ≤ 2 次。
+- 每只票预算：WebFetch ≤ 2 次。gurufocus 的实录页 WebFetch 返回 403（2026-10-08 实测），搜到了也别花预算。
 
 **来源 B：MCP 逐字稿**
 ```
@@ -227,7 +228,7 @@ news(query="<公司名> <TICKER>", time_range="<days>d", limit=10)
 
 ### Step 4 — 前瞻板块
 
-前瞻窗口默认是未来 `days` 天；**淡季时（见 Step 1 腿①）扩到 14 天**——10 月第一周窗口内只有个位数财报，真正的财报季从中旬的银行开始，看 7 天会什么都看不到。
+前瞻窗口默认是未来 `days` 天；**淡季时（见 Step 1 腿①）扩到 14 天**——10 月第一周窗口内多是财年错开的公司（2026-10-08 已知 17 家，ACN、NKE、PEP、STZ 这类 8~9 月季末的公司），真正的财报季从中旬的银行开始，看 7 天会什么都看不到。
 
 **来自候选池**（0 额度）：Step 2 每只票都返回了 `next_earnings_estimate.date`。落在前瞻窗口内且市值 ≥ 20 亿美元的，列进「📅 即将发财报」。候选池里多是刚发完财报的票，下次财报日在一个季度后，这一路通常是空的（2026-10-08 实测 13 只取数，0 只落在 14 天内）。
 
@@ -246,7 +247,7 @@ metrics(query="earnings calendar", asset_type="tradfi",
 
 按下方口径打分排序。业绩闸分数在 Step 2 已算出，直接沿用。
 
-**成本参考**：日历 1~2 + 活跃榜 1 + 新闻 0 + 取数 ⌈候选数 ÷ 5⌉ + watchlist ⌈只数 ÷ 5⌉（前瞻日历默认不跑）。WebSearch 另计：新闻取不到预期值的票各 1 次，深扫每只 ≤1 次。上下文的大头是 Step 3 的网页原文，候选多时建议独立会话跑。
+**成本参考**：日历 1~2 + 活跃榜 1 + 新闻 0 + 取数 ⌈候选数 ÷ 5⌉ + 深扫来源 B 每只 1 + watchlist ⌈只数 ÷ 5⌉（前瞻日历默认不跑）。WebSearch 另计：新闻取不到预期值的票各 1 次，深扫每只 ≤1 次。上下文的大头是 Step 3 的网页原文，候选多时建议独立会话跑。
 
 ---
 
@@ -360,7 +361,8 @@ Step 2 淘汰的不进明细；其中**窗口内已发财报、只是业绩闸�
 > 名单来自本轮候选池 [+ 财报日历] [+ watchlist]。财报日历覆盖不完整，这不是全市场名单；日历来源的行没有公司名和市值，写"—"。
 
 ### 数据缺口
-- 财报日历腿只覆盖 [date_from]~[末行日期]，之后的日子靠新闻腿补（单页按日期从早到晚、同日按字母序排，见调用约定）
+- 财报日历腿只覆盖 [date_from]~[末行日期]（末行当天只到 [末行代码]），之后的日子靠新闻腿补（单页按日期从早到晚、同日按字母序排，见调用约定）
+- 新闻腿按时间倒序，只覆盖 [最早一条的时间]~现在；[末行日期]~[该时间] 之间两条腿都没盖住
 - 活跃榜为**当日快照**，非 [N] 天全窗口
 - 取不到数据的 ticker：[列出]
 - 基本面块未更新、改用日历行 / 新闻 / 网页预期值的：[列出]

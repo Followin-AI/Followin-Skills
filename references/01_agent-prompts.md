@@ -16,6 +16,7 @@
 > **2026-10-03 实跑补充的统一口径**（各分析师共用，与下文冲突时以这里为准）：
 > - **PEG** = TTM P/E ÷（最近财年 `financial_growth.epsgrowth` × 100），并附注服务端的 `priceToEarningsGrowthRatioTTM`。同一组数据按不同口径能算出 0.24 / 0.45 / 1.79，正好跨过 ⑥⑦⑲ 的阈值，所以必须统一。
 >   **基数效应例外**：最近财年 `epsgrowth` < 0 或 > 1（即 > 100%）时，分母改用 **3 年 EPS CAGR** =（最近 3 个财年 (1 + epsgrowth) 连乘）^(1/3) − 1，并写明"PEG 按 3 年 EPS CAGR"。不足 3 个财年、连乘结果 ≤ 0 或 CAGR ≤ 0 时标"**PEG 不适用**"，⑥⑦⑲ 里涉及 PEG 的判据跳过（既不算满足也不算不满足），其余判据照常。实测 AVGO：FY2024 −62.5%、FY2025 +287%，按最近财年算 PEG 0.16，按 3 年 CAGR（21.5%）算 2.18，服务端 0.46。
+>   **EPS 曾为负时同样不适用**：`financial_growth` 返回的 4 个财年里只要有一年 `epsgrowth` < −1（EPS 由正转负），也标"PEG 不适用"。接口在上一年 EPS 为负时按绝对值作分母，(1 + epsgrowth) 不再等于两年 EPS 之比，连乘结果恒为正，上面"连乘结果 ≤ 0"那条拦不住。实测 MU（2026-10-08）：FY2023 −168%（亏损）、FY2024 +113%、FY2025 +993%、FY2026 +885%，照算 3 年 CAGR 为 512%、PEG 0.028，实际 FY2023→FY2026 的 EPS 是由负转正，增速无从定义。
 > - **净现金** = `cashAndShortTermInvestments − shortTermDebt − longTermDebt`。不要用 `netDebt`：它只扣现金等价物、不算短期投资，实测 NVDA `netDebt` 为 +164 亿（看似净负债），实际净现金 +660 亿。
 > - **企业价值** 用 `key_metrics_ttm.enterpriseValueTTM`；`enterprise_values` 是上一个财年末的快照（NVDA 实测停在 2026-01-25），不要引用。`enterpriseValueTTM` 内部用的是 `netDebt` 口径，和上面的净现金口径差约 1% 以内，可忽略，但不要用它反推净现金。
 > - **非经营损益**：任一季 `|totalOtherIncomeExpensesNet| ÷ incomeBeforeTax > 10%` 时（取绝对值，收益和损失都算），涉及净利率、P/E、ROE、所有者盈余、FCF / 净利润、净利润 vs OCF 的分析师须注明"利润含大额非经营损益"。
@@ -513,9 +514,12 @@ Jhunjhunwala 核心: 市场恐慌 + 基本面强劲 + 增长可见 = 最佳买�
    - 下行 + 多数Sell → Bearish
 
 3. 研报动作 (20%，第 8 路，近 30 天):
-   - 只计本标的自己的动作，按机构去重（同一机构多篇取最新一篇）:
-     subject 层: rating_action 的 upgrade / downgrade；revision_summary.by_name 里 ticker == 本标的、且 old ≠ new 的目标价上调 / 下调
+   - 只计本标的自己的动作，按机构去重（同一机构多篇时 subject 层优先，同层取最新一篇；
+     实测 MU：高盛 09-30 的 subject 篇把目标价 1100 上调到 1250，10-02 的 mention 篇只有 1250、没有旧值，取最新会把这次上调丢掉）:
+     subject 层: rating_action 的 upgrade / downgrade；revision_summary.by_name 里 ticker == 本标的、且 old ≠ new 的目标价上调 / 下调；
+                 没有 old 的（如伯恩斯坦只给 new 1300）不计入上调 / 下调
      mention 层: 只看 matched_asset_target_price（本标的自己的目标价，null 不计）和 mention_direction；
+                 matched_asset_target_price 没有 old 值，不计入上调 / 下调家数，只列出目标价与方向（beneficiary / neutral / competitor）；
                  report_subject_target_price 是报告主体的价，不是本标的的，不引用
    - 上调（升级或上调目标价）家数 ≥ 2 且多于下调家数 → 偏多；反过来 → 偏空；其余 → 中性
    - subject 层为空、只有 mention 层时，这一维最多记"偏多 / 偏空"，不能单独决定方向，并写明"仅提及型研报"
@@ -537,7 +541,9 @@ Jhunjhunwala 核心: 市场恐慌 + 基本面强劲 + 增长可见 = 最佳买�
    - 提取关键主题和高频词
 
 2. 情绪聚合:
-   - 先剔除与公司经营无关的篇目（如代币化股票分红、泛市场稿）
+   - 先剔除与公司经营无关的篇目（如代币化股票分红、泛市场稿 / 收盘播报），以及不算报道的篇目：
+     `source_quality:"research"` 的 Zacks 行情模板稿、电话会逐字稿、律所"集体诉讼调查"稿（N-167 / N-174）。
+     2026-10-08 实测 MU：media 按相关度 limit=10 只回 5 篇，剔除后只剩 1 篇（Benzinga 长鑫进军 NAND），篇数不足按 Neutral
    - 再按事件去重：不同媒体报道同一事件（如同一笔融资 / 贷款消息的多家转载）合并为 1 篇，按该事件定正面 / 负面 / 中性
    - 正面率 = 正面 ÷ (正面 + 负面)，按去重后的篇数计，且正面 + 负面 ≥ 4 篇才计算
    - 正面率 > 60% → Bullish；< 40% → Bearish；其余或篇数不足 → Neutral

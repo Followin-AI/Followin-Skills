@@ -36,7 +36,7 @@ args: ticker
 ```
 
 > 🔗 **19 位分析师、风控经理、组合经理的完整框架**在 `~/.claude/references/01_agent-prompts.md`（仓库内 `references/01_agent-prompts.md`）。**执行 Step 3 前必须先 Read 该文件**，不要凭分析师的名字现编评分框架。
-> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`。本文的调用写法和字段名于 **2026-10-03 实跑验证**、2026-10-08 盘中复跑（AVGO）；与登记表或 agent-prompts 里的旧工具名冲突时，以本文为准。
+> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`。本文的调用写法和字段名于 **2026-10-03 实跑验证**、2026-10-08 盘中复跑（AVGO；拍板后 MU 再跑一次）；与登记表或 agent-prompts 里的旧工具名冲突时，以本文为准。
 
 ## 调用约定（2026-10-03 实测）
 
@@ -68,7 +68,10 @@ args: ticker
      incomeBeforeTax / totalOtherIncomeExpensesNet）
 3. 行业同行（必做）：第 1 路的 stock_peers 只有 companyName / mktCap / price，**没有行业字段，而且按代码字母序排列**
    （不是按规模，也不是按业务——实测 NVDA 的名单是 AAPL、ADI、AVGO、ENTG、GOOGL、IMOS、MSFT、TER、TSM）。
-   先按公司名排除明显的非同业（如 NVDA 名单里的 AAPL / GOOGL / MSFT），剩下的按 mktCap 从大到小取前 3 家，合并一次：
+   先按公司名排除明显的非同业（如 NVDA 名单里的 AAPL / GOOGL / MSFT），剩下的按 mktCap 从大到小取前 3 家，合并一次。
+   名单里混有外国代码时（2026-10-08 实测 MU 的 10 家里 6 家是 .TW / .T / .HK / .SS，GigaDevice 两地各一行），
+   外国代码的 mktCap 是**当地货币**（Kioxia 29.4 万亿日元排第一），不能跨币种比大小：先按公司名去重，
+   只在美股代码（`^[A-Z]{1,5}$`，含 ADR）里按 mktCap 排；美股代码不足 3 家时再用外国代码补位：
    metrics(keywords=[P1,P2,P3], categories=["market","fundamentals"], asset_type="tradfi", limit=1, verbosity="concise")
    不带 categories 时同行代码会被宏观日历劫持（实测 ADI 多返回一条日本领先指数）。
    返回后核对每家的 profile_block.industry 与目标一致，不一致的在数据缺口注明。
@@ -76,9 +79,11 @@ args: ticker
    同行的服务端 PEG 不可比（2026-10-08 实测 MRVL 为 0.03），不引用；行业对比只用 P/E、P/S、P/B、利润率。
    ADR 同行（如 TSM）的报表和 EPS 可能是本币，只引用比率
    **自定同业（可选，+1 路）**：接口同行与目标同属一个 industry、但主营细分明显不同时（实测 AVGO 的接口同行前 3 是
-   TXN / MRVL / ADI，其中 TXN、ADI 是模拟芯片，AVGO 主营 AI 定制芯片与网络芯片），可另选**最多 3 只**同细分行业的同业，
+   TXN / MRVL / ADI，其中 TXN、ADI 是模拟芯片，AVGO 主营 AI 定制芯片与网络芯片），或接口同行的 industry 与目标不一致时
+   （实测 MU 的前 3 是 SKHY / SNDK / STX，后两家 industry 为 Computer Hardware），可另选**最多 3 只**同细分行业的同业，
    按同样写法再调一次 metrics(keywords=[S1,S2,S3], categories=["market","fundamentals"], asset_type="tradfi", limit=1, verbosity="concise")。
-   返回后同样核对 profile_block.industry。输出里标"自定同业"并逐只写选择理由，与接口同行**分开展示、分开算中位数**，不混成一组
+   返回后同样核对 profile_block.industry。输出里标"自定同业"并逐只写选择理由，与接口同行**分开展示、分开算中位数**，不混成一组。
+   外国代码可以直接放进 keywords（2026-10-08 实测 005930.KS / 2408.TW / 285A.T 均未被改写），但报表与市值是当地货币，只引用比率
 4. metrics(keywords=["<T>"], query="历史走势", asset_type="tradfi", time_range="13m", limit=290)
    → 13 个月日线（必须传 limit；time_range="1y" 只返回 251 行，算不出 1Y 涨幅）。
      返回约 5 万字符，用代码解析 close 序列。盘中跑时最后一行是**当天未走完的 K 线**（date = 今天、close ≈ 实时价，
@@ -93,7 +98,7 @@ args: ticker
           asset_type="tradfi", limit=50)                                                   → 三类合计 1 次额度
 ```
 每次技术指标调用都返回全部 9 个指标，按 `indicator` 字段取需要的那个。`period` 参数对 9 个指标同时生效，所以 RSI(14) 取自不传 `period` 的第 5 路。SMA50 / SMA200 直接用第 4 路的日线收盘自算（实测与接口值完全一致），不必再调。
-第 7 路用 `limit=50`：内部人和议员交易共用名额，`limit=20` 实测只覆盖约 30 天，⑰ 要的是 90 天。这一路返回约 5.8 万字符（内部人 + 13F + KOL），和第 4 路一样用代码解析，不要整段读进上下文。
+第 7 路用 `limit=50`：内部人和议员交易共用名额，`limit=20` 实测只覆盖约 30 天，⑰ 要的是 90 天（50 行也可能不够，截断自检见下方"取数注意"）。这一路返回约 5.8 万字符（内部人 + 13F + KOL），和第 4 路一样用代码解析，不要整段读进上下文。
 
 **Batch C：研报 + 新闻**
 ```
@@ -118,6 +123,8 @@ args: ticker
 - KOL 喊单先按 `symbol == <T>` 筛行（返回里会混入别的标的的帖子），再按 `source_url` 去重。喊单只覆盖最近 24 小时，tradfi 方向字段近乎恒为看多，只报条数和话题。
 - 第 7 路返回里**没有 `kol_call` 这一类**（`status` 仍是 `ok`、无 warning）时，是近 24 小时没有本标的喊单，不是调用失败：写"近一日无喊单"，不要重试，也不记数据缺口（2026-10-08 实测 AVGO：合并调用缺这一类，单独调返回 `no_match`，全市场喊单池正常）。
 - 内部人只认 Form 4：卖出 = `S-Sale`，买入 = `P-Purchase`，按 `transactionDate ≥ 今天 − 90 天` 过滤；`F-InKind` / `G-Gift` / `A-Award` / `M-Exempt` 不计。带 `_chamber` 的议员交易单列。
+  `limit=50` 不保证覆盖 90 天：一笔卖出常按成交价拆成几十行（2026-10-08 实测 MU 的 CEO 两天申报占 46 行，公司内部人行只回到 07-24，90 天窗口起点是 07-10）。
+  公司内部人行（不含议员行）最早的 `transactionDate` 晚于"今天 − 90 天"时，写"可见窗口 X~Y（被截断）"，买卖金额按"至少"写。
 - 研报的 `subject_reports` 为空、只有 `mention_reports` 时，不能说"有机构专题覆盖"。
 
 ### Step 2: 数据预处理
@@ -154,7 +161,7 @@ SMA50 / SMA200 = 最近 50 / 200 个收盘的平均
 | DCF | ✅ `valuation_block.dcf`。与现价相差 5 倍以上判失效，不进任何输出（亏损期 DCF 会算崩）|
 | ROE / ROIC / EV/EBITDA / PE / PEG / 毛利率 / D/E / 流动比率 | ✅ `key_metrics_ttm` + `ratios_ttm` |
 | 分析师远期预期、Forward PE | ⚠️ `analyst_estimates` 可能缺当前财年、只有较远的财年，且远期数字不自洽（实测 NVDA FY2030 高于 FY2031，后者只有 9~10 位分析师）。Forward PE = 现价 ÷ 最近的、`numAnalystsEps ≥ 20` 的财年 epsAvg，并写明是哪个财年 |
-| PEG | ⚠️ 统一口径见 `01_agent-prompts.md` 开头：TTM P/E ÷（最近财年 epsgrowth × 100）；最近财年 epsgrowth < 0 或 > 100% 时改用 3 年 EPS CAGR 作分母，仍不可得标"PEG 不适用"、不进 ⑥⑦⑲ 的判据。附注服务端值 |
+| PEG | ⚠️ 统一口径见 `01_agent-prompts.md` 开头：TTM P/E ÷（最近财年 epsgrowth × 100）；最近财年 epsgrowth < 0 或 > 100% 时改用 3 年 EPS CAGR 作分母，仍不可得、或 4 个财年里有一年 epsgrowth < −1（EPS 转负，连乘失真）时标"PEG 不适用"、不进 ⑥⑦⑲ 的判据。附注服务端值 |
 | 行业相对估值 | ⚠️ 第 3 路只有同行的 `ratios_ttm`（P/E、P/S、P/B、利润率；服务端 PEG 不可比）；同行 EV/EBITDA 不返回，写"数据不足"。接口同行细分不符时可加"自定同业"（最多 3 只，写理由，分开展示）|
 | 维护性 CapEx | ❌ 只有总 CapEx，所有者盈余用总 CapEx 近似并注明 |
 | 净现金 / 净负债 | ⚠️ 不要用 `netDebt`（只扣现金等价物）。统一用 `cashAndShortTermInvestments − shortTermDebt − longTermDebt` |

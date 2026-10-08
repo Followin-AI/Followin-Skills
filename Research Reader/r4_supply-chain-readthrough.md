@@ -75,15 +75,18 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 > ⚠️ **不加时间窗**（产业链需要样本量），但**报告会很旧**：2026-10-05 实测 TSM 26 篇跨 06-30~09-22，22 篇早于 9 月。
 > 所以表头必须写报告日期跨度，每条边、每条修正都标 `report_date`，催化剂按步骤 4 分「未来 / 已过期」。
 
+> ⚠️ **`verbosity="detail"` 不能省**（2026-10-08 实测 NVDA）：`concise` 下整个 `detail` 块不返回（没有 `catalysts`），`revision_summary.by_name` 还会被截短（Bernstein《AI Value Chain》detail 7 行、concise 5 行，无截断标记）。每页约 83–96K 字符，会落盘，用脚本按字段解析。
+
 > ✅ **与 r1/r2/r3 同源**：本轮跑过任一支的话，**首页直接复用返回，0 额度**；翻页另计。
 
 **先看 `mention_report_returned_count` 与 `meta.pagination["fundamentals.research_reports"].has_more`**（⚠️ 键名本身含点，不是 `meta.pagination.has_more`——N-142；2026-10-08 实测 AVGO 同）：
 
 - **还有下一页**（`has_more: true`）→ 带 `cursor=<同一对象里的 next_cursor>` 原参数重查，**每页 1 额度**（实测 TSM 3 页到尽头 = 3 额度）。mention 为 0 时也先翻，不要直接降级
-- **停翻条件（按日期下限，先到者为准）**：① `has_more: false`（到尽头）；② 本页 mention 最旧一篇的 `report_date` **早于今天 − 30 天**；③ **已满 5 页**。只看 mention 的日期——subject 排在前面，不能拿它判断（N-142）
+- **停翻条件（按日期下限，先到者为准）**：① `has_more: false`（到尽头）；② 本页 mention 最旧一篇的 `report_date` **早于今天 − 30 天**；③ **已满 5 页**。只看 mention 的日期——subject 排在前面，不能拿它判断（N-142）；**本页没有 mention 时 ② 不适用，接着翻**（2026-10-08 实测 NVDA：前 2 页全是 subject、日期 08-27~07-08，拿 subject 日期判 ② 会在第 1 页就误停）
 - **翻到尽头（或到页数上限）后 mention 仍为 0** → 走**降级分支**（见步骤 5），只能从 subject 报告的 `detail.catalysts[]` 里捞跨标的节点，产出很少。照实说明。
 - **mention ≥ 1** → 正常流程。口径声明写「已翻 P 页 / 共 N 篇」；因 ② 停的写「已翻 P 页，mention 已覆盖近 30 天」，因 ③ 停的写「已翻 5 页，未到尽头」
 - ⚠️ **没翻到尽头时，缺的是更早的 mention**：分页是 subject 全部排完、再按日期倒序排 mention（N-142）。2026-10-08 实测 AVGO：首页 subject 6 + mention 4，3 页拿到 mention 24 篇、只覆盖 09-18~10-05，第 3 页仍 `has_more: true`——旧的 3 页上限对被大量提及的票只够两周半，所以改成按日期下限。口径声明写明 mention 的日期下限
+- ⚠️ **专题多的票，5 页里有两页是 subject**（2026-10-08 实测 NVDA）：subject 21 篇（07-07~09-28，19 篇早于 30 天前）占掉第 1、2 页和第 3 页第 1 张，mention 从第 3 页才出现；满 5 页拿到 mention 29 篇、只覆盖 09-28~10-07（10 天），② 一次都没触发，按 ③ 停。被大量提及的票照此写「已翻 5 页，未到尽头，mention 只覆盖 <日期> 之后」，**不要写成"近 30 天"**
 
 ### 步骤 1.5 · 自身别名集（SELF）
 
@@ -108,8 +111,8 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 | 形态 | 判定 | `by_name` 怎么用 |
 |---|---|---|
-| `subject_name` 或 `report_title` 是**汇编标题**：含 `morning news` / `portfolio` / `quant` / `weekly` / `daily` / `views` / `roundup` / `cross-sector` / `monitor` / `fund positioning` / `hedge fund positioning` / `conviction` / `selloff` / `newsletter` / `equity strategy` / `tech strategy` 等，**或跨行业的 `sector keys`**<br>**或** `by_name` 横跨 ≥3 个互不相关行业（如银行 + 制药 + 半导体；实测 BofA《European Equity Strategy》的保险 / 公用事业 / 化工 / 矿业）<br>实测样例：`"Asia Morning News and Research Views"`、`"Asia Quant + Fundamental Portfolio for 2H26"`、`"Global and Asian cross-sector research roundup"`、`"Hedge fund positioning and the AI trade"`、`"AI infrastructure selloff opportunities"`、`"APAC Tech Strategy: Sector Keys September 2026 v4"`（UBS，正文 200+ 页） | 🚫 **同框噪音** | **整个丢弃。** 同一份晨报 / 选股篮子里的名字之间没有产业链关系 |
-| **单一行业的定期汇编**——`subject_name` 是一个行业覆盖范围而不是研究命题：周报（如 `"North America Semiconductors Weekly"`）、单行业 `Sector Keys`（`"Asia Semiconductors: Sector Keys"`）、`Tearsheet`、`SemiBytes`、路演纪要（`"Notes from the road"`）| ⚠️ **部分保留** | 只保留 rationale / context_snippet 里点名的公司（实测 Amkor 封装边是真链；2026-10-08 AVGO：UBS 亚洲半导体 Sector Keys 的 16 行只留被点名的联发科），其余丢弃 |
+| `subject_name` 或 `report_title` 是**汇编标题**：含 `morning news` / `portfolio` / `quant` / `weekly` / `daily` / `views` / `roundup` / `cross-sector` / `monitor` / `fund positioning` / `hedge fund positioning` / `conviction` / `selloff` / `newsletter` / `equity strategy` / `tech strategy` / `end of week` / `market intelligence` 等，**或跨行业的 `sector keys`**<br>**或**标题是「系列名 - 议题 A; 议题 B」这种**多个互不相关议题拼成的一篇**（2026-10-08 实测 NVDA：J.P. Morgan《China Tech & APAC Internet - read-through from four China stimulus scenarios; cooling components update》，中国刺激政策与台湾散热件同篇；同系列 09-29 一篇同理）<br>**或** `by_name` 横跨 ≥3 个互不相关行业（如银行 + 制药 + 半导体；实测 BofA《European Equity Strategy》的保险 / 公用事业 / 化工 / 矿业）<br>实测样例：`"Asia Morning News and Research Views"`、`"Asia Quant + Fundamental Portfolio for 2H26"`、`"Global and Asian cross-sector research roundup"`、`"Hedge fund positioning and the AI trade"`、`"AI infrastructure selloff opportunities"`、`"APAC Tech Strategy: Sector Keys September 2026 v4"`（UBS，正文 200+ 页）、`"End of Week Market Intelligence: here comes AI..."`（高盛周度策略，2026-10-08 实测） | 🚫 **同框噪音** | **整个丢弃。** 同一份晨报 / 选股篮子里的名字之间没有产业链关系 |
+| **单一行业的定期汇编**——`subject_name` 是一个行业覆盖范围而不是研究命题：周报（如 `"North America Semiconductors Weekly"`）、单行业 `Sector Keys`（`"Asia Semiconductors: Sector Keys"`）、`Tearsheet`、`SemiBytes`、路演纪要（`"Notes from the road"`）、行业追踪 / 月度前瞻（`"Global Semicap Tracker"`、`"Taiwan ODM/Brands: 3-month preview"`）、整个板块重排评级（`"Re-assessing sector positioning … our preferred names"`）| ⚠️ **部分保留** | 只保留 rationale / context_snippet 里点名的公司（实测 Amkor 封装边是真链；2026-10-08 AVGO：UBS 亚洲半导体 Sector Keys 的 16 行只留被点名的联发科；2026-10-08 NVDA：伯恩斯坦 Semicap Tracker 12 行只留 Advantest），其余丢弃。rationale 只点名本标的时等于全丢 |
 | `subject_name` 是**具体公司或具体产业主题**<br>实测样例：`"Global AI memory strategic partnerships"`、`"Taiwan mature-node foundries and semiconductor design"`、`"Nokia"`、`"Apple Inc."` | ✅ **真产业链** | 全部可用 |
 
 > ⚠️ **主题具体、名单却是选股表的篇，人工判**（2026-10-08 AVGO）：伯恩斯坦《China Next Winners》主题是 NPO / SuperPod，rationale 点名 H3C、锐捷，`by_name` 却是大立光 / 舜宇 / 台达 / 广达——按"有没有统一研究主题"的原则降为 ⚠️ 部分保留。
@@ -121,7 +124,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 **不加闸，NVDA 的输出里 83% 是无关名字。**
 2026-10-05 TSM：旧关键词表只拦下 3 篇 / 14 行，**漏放 3 篇 / 39 行**（综合周报的 MUFG / 瑞幸 / 中银、抛售篮子的 HOOD / 肿瘤药 AKTS / CCJ）——上表的新增关键词与行业分布判据就是为这三篇补的。
 2026-10-08 AVGO：10-05 版关键词表命中 3 篇，三篇 `by_name` 都是空的——**一行都没拦到**；UBS《APAC Tech Strategy: Sector Keys》v2 / v3 / v4 与《Asia Semiconductors: Sector Keys》漏放 23 行（大立光 Buy→Sell 降级出现 3 次、信骅 / 矽力 / 家登……），`sector keys` / `strategy` 两类就是为这几篇补的。
-`positioning` 收窄为 `fund positioning` / `hedge fund positioning`：裸词会误伤 UBS《APAC Tech: Positioning for the AI and memory upcycle》这类主题报告（2026-10-08 实测），它的去留按"有没有统一研究主题"判断。
+`positioning` 收窄为 `fund positioning` / `hedge fund positioning`：裸词会误伤 UBS《APAC Tech: Positioning for the AI and memory upcycle》这类主题报告（2026-10-08 实测），它的去留按"有没有统一研究主题"判断。2026-10-08 NVDA 又见三篇：J.P. Morgan《Humanoid Robot: Re-assessing sector positioning…》（板块重排 → ⚠️，只留 Orbbec）、巴克莱《Positioning for AI Disruption》、UBS《APAC Tech: Positioning for the AI and memory upcycle》（主题报告 → ✅）——裸词会把三篇一起丢。
 
 > ⚠️ **同一系列的多个版本只算一篇**（2026-10-08 实测）：UBS《Sector Keys September 2026》**v2 / v3 / v4** 分别在 09-22 / 09-23 / 09-28 入库，rationale 几乎相同（v3、v4 都是"Google TPU CoWoS 1.62→2.82 万片/月"），`by_name` 里的大立光降级重复三次。
 > 按「机构 + 去掉版本号 / 日期后的标题」归并，**只留最新一版**——关系边、同链修正、催化剂都按归并后计数。
@@ -132,7 +135,8 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 > ✅ **无论闸判成什么，`mention_context.rationale` 永远保留**——见步骤 3。汇编报告的 rationale 照样是真信息，
 > 被丢弃的只是它的 `by_name` 名单。
 >
-> ⛔ **闸同样作用于这篇的 `detail.catalysts[]`**（2026-10-08 实测）：🚫 篇的跨标的催化剂只计数、不进③（与 r3 的"同框"桶同一口径）；⚠️ 篇只留点名公司的。
+> ⛔ **闸同样作用于这篇的 `detail.catalysts[]`**（2026-10-08 实测）：🚫 篇的跨标的催化剂只计数、不进③（与 r3 的"同框"桶同一口径）；⚠️ 篇只留点名公司的，**`security` 缺失的也算同框**（它没点名任何公司）。
+> 2026-10-08 NVDA：可见 mention 催化剂 58 条，同框 11 条（🚫 3 篇 6 条：中国五中全会、中央经济工作会议、FOMC 纪要……；⚠️ 篇 5 条：OpenAI 融资、东京电子财报、鸿海出货……）。
 > 不过闸的话，AVGO 可见 60 条催化剂里有 20 条同框（SK 海力士回购、世芯 Trainium、欧洲 AI 资本开支……）会混进"链上其他节点的时间"。
 
 ### 步骤 3 · 关系边：为什么这份报告提到我的标的
@@ -154,7 +158,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 > rationale 里出现 competitor / alternative / share gain 的，按方向值归桶，**读法里点明竞争关系**，【结构读法】按竞争线索汇总。
 > ⚠️ **关系边只从 `mention_context` 取**。`detail.affected_names` 是报告主题的名单（与 `by_name` 同性质），不是"与本标的的关系"——见「已知边界」。
 
-> ⚠️ **`mention_rating` 多数篇不存在**（2026-10-05 实测 TSM 26 篇里 20 篇缺这个键——是键缺失，不是 `None`；2026-10-08 AVGO 24 篇里 18 篇缺）。顺带提到不等于给评级。
+> ⚠️ **`mention_rating` 多数篇不存在**（2026-10-05 实测 TSM 26 篇里 20 篇缺这个键——是键缺失，不是 `None`；2026-10-08 AVGO 24 篇里 18 篇缺、NVDA 29 篇里 27 篇缺）。顺带提到不等于给评级。
 > **值为 `"Not rated"` 的视同缺失**（2026-10-08 实测 Nomura 2 篇）——那是"这家没覆盖"，不是一个评级，不进【本标的单家读数】。
 > **同一机构多篇给同一读数的只写最新一篇**（实测伯恩斯坦 09-21 / 09-22 / 10-05 三篇都是 Outperform $575），括注篇数。
 > **存在时**配合 `matched_asset_target_price`（N-79），是该机构在行业报告里顺带给本标的的**单家评级 / 目标价**（实测巴克莱 Overweight $650、伯恩斯坦 Outperform $430、高盛 Buy $600）——
@@ -169,7 +173,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 |---|---|---|
 | `ticker` | **不恒有**（2026-10-05 实测）| 无 `ticker` 的行多为行业 / 市场 / 因子名（`"Taiwan market"`、`"Asia price momentum factor"`、行业框架名），**丢弃**；只有 `name` + `ticker`、**既无 `rating_action` 也无 TP** 的行是"提及名单"（实测花旗一篇 15 行），**不进同链修正** |
 | `name` | 96/96 | 恒有 |
-| `rating_action` | 94/96 | 常有，但多为 `reiterate`。⚠️ **是自由文本不是枚举**（2026-10-08 实测：`"downgrade from Buy to Sell; page 207"`、`"upgrade to Buy recently; action date and prior rating unavailable"`、`"not covered"`、`"reaffirmed as Top Pick in the research view"`）——含 `upgrade` / `downgrade` 的在所在行**标出评级变动**（没有 old TP 也要标，它不是"维持"）；`not covered` 的行丢弃 |
+| `rating_action` | 94/96 | 常有，但多为 `reiterate`。⚠️ **是自由文本不是枚举**（2026-10-08 实测：`"downgrade from Buy to Sell; page 207"`、`"upgrade to Buy recently; action date and prior rating unavailable"`、`"not covered"`、`"reaffirmed as Top Pick in the research view"`）——含 `upgrade` / `downgrade` 的在所在行**标出评级变动**（没有 old TP 也要标，它不是"维持"；2026-10-08 NVDA 另见 `"recent downgrade to Neutral; prior rating and date not supplied"`，同样标）；含 `initiate` / `assume coverage` 的标"新覆盖"（实测 J.P. Morgan 接手散热件 3 家），同样不是"维持"；`not covered` 的行丢弃 |
 | `new_target_price` | 89/96 | 常有 |
 | **`old_target_price` + `change_pct`** | **25/96（26%）** | **只有四分之一带真修正**——有 old→new 的才叫"被改价"，只有 new 的是"当前目标价" |
 
@@ -180,6 +184,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 > ⚠️ **同一公司多地上市的行合并为一条**（ADR / 本地股 / H+A 股），展示主上市代码，其余括注——实测 UMC / `2303.TW`、中芯 H / A、华虹 H / A、Sony / `6758.T` 各出现两行，不合并会把"R 条修正"数虚高。
 > ⚠️ **同一机构对同一标的的同一读数只写一次**（取最新一篇，括注其余出处）：2026-10-08 实测伯恩斯坦大立光 5150 出现在两篇、UBS 联发科 7300 出现在两篇。不同机构的读数照常分列。
+> **同一机构前后读数不同的，只写最新一篇**（2026-10-08 实测 NVDA：高盛 09-29 SpaceX 220→220、10-05 220→230，写后者）。机构名先归并再比（`UBS` 与 `UBS Securities LLC` 是一家，N-164）。
 
 > ✅ **顺带白拿别人的目标价** 是本 Skill 的一个实用副产品：查一只票，拿到整条链上多只票的当前目标价——
 > **但它们来自 mention 层，是那家机构的单点读数，不是那些票的共识**。引用时必须标明出处报告。
@@ -295,4 +300,4 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 | `catalysts[].security` 非规范 ticker | 数据特性 | 步骤 4 的五步清洗（缺失 / 逗号多值 / 板块名 / 公司名回填 / 代码格式归一）|
 | detail 下嵌套列表被截断 | 接口行为（2026-10-05 实测）| 每篇 `affected_names` 5 条、`catalysts` 2 条、`key_points` 3 条；`detail_sections` 是全量计数。按抽样口径表述 |
 | 跨标的以亚太股为主 | 数据特性 | 实测 47 个跨标的 ticker 里大半是 `.KS`/`.T`/`.TW`/`.NS`/`.JK`。**对只做美股的用户，多数不可直接交易**——但作为供应链信号仍有效，须标明市场 |
-| 产出量不可预测 | 结构性 | 实测关系边 0–4 条、真链修正 0–16 条；2026-10-08 AVGO 3 页未到尽头即得关系边 22 条（归并后）、真修正 3 条。**不承诺产量**，跑完才知道 |
+| 产出量不可预测 | 结构性 | 实测关系边 0–4 条、真链修正 0–16 条；2026-10-08 AVGO 3 页未到尽头即得关系边 22 条（归并后）、真修正 3 条；同日 NVDA 5 页未到尽头得关系边 29 条、真修正 10 条。**不承诺产量**，跑完才知道 |

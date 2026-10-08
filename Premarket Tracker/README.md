@@ -26,10 +26,11 @@
 - 没有自动化能力的客户端：立即生成一次同结构报告，不假装任务已创建。
 - Followin MCP 不执行券商订单；本 Skill 只做研究与条件化计划。
 - 默认 08:30 ET 能否取到盘前报价（`extendedHoursQuote`）待盘前实测；取不到时报告写"最近收盘"，不用新闻百分比顶替。
+- 量比用 1 小时线算（含盘前盘后，每天 16 根），盘前量比可以按 04:00 起已走完的几根与前 20 日同时段比。
 
 ## 安装
 
-连接 Followin MCP 后，将 Skill 文件复制到命令目录：
+连接 Followin MCP 后（Claude Code 用 `claude mcp add --scope user …` 加到用户级，否则只在当前项目目录生效，完整命令见 Skill），将 Skill 文件复制到命令目录：
 
 ```bash
 cp "Premarket Tracker/premarket-watchlist-automation.md" ~/.claude/commands/

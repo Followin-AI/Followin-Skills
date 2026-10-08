@@ -11,7 +11,7 @@ args: ticker(必填), focus(可选：报告标题关键词，只审匹配的那�
 
 **研报库不做速度，做口径。**
 
-> **版本**：v1.1 ｜ 实测验证于 2026-07-29（NVDA 10 篇全量字段统计）｜ **2026-10-05 端到端复测**（NVDA，首页 + 第 2 页 + 30d 窗口）｜ **2026-10-08 换标的复测**（META，首页 + 第 2 页 + 30d 窗口，20 篇）
+> **版本**：v1.1 ｜ 实测验证于 2026-07-29（NVDA 10 篇全量字段统计）｜ **2026-10-05 端到端复测**（NVDA，首页 + 第 2 页 + 30d 窗口）｜ **2026-10-08 换标的复测**（META，首页 + 第 2 页 + 30d 窗口，20 篇）｜ **2026-10-08 拍板后复跑**（MSFT，按新翻页口径 2 页 2 额度，subject 13 + mention 7）
 >
 > **这支 Skill 存在的理由**（2026-07-22 实测定档）：研报端到端**落后公开新闻 1–4 天**，且卖方结论数日内即被媒体转述——同一篇伯恩斯坦韩国出口报告被 Investing.com 搬走，数字全对得上。
 > **速度赛道不可能赢。** 真正不可替代的是结论背后不会被转述的三样：**①基准是谁 ②口径边界 ③自陈与自相矛盾**。本 Skill 只做这三样。
@@ -82,12 +82,13 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 | 形态 | 实测原文 | 处置 |
 |---|---|---|
-| **抽取流程备注** | *"The supplied filename is rendered in English to comply with the output language requirement."*、*"Evidence comes from the supplied AI page-by-page digest; source references use its PDF page numbering."*（NVDA 30d 窗口 10 篇里占 6 篇）| 含 filename / output language / page-by-page digest / supplied 字样 → 归④轴、**不进打分**。该篇①②③改从 `coverage_flag.missing` / `consensus_diff` / `detail.estimates.adjustments` 推断，并注"key_caveat 被流程备注占位" |
+| **抽取流程备注** | *"The supplied filename is rendered in English to comply with the output language requirement."*、*"Evidence comes from the supplied AI page-by-page digest; source references use its PDF page numbering."*（NVDA 30d 窗口 10 篇里占 6 篇）；*"Historical recommendations on page 4 are part of the non-research appendix and are excluded from revision and rating_history."*（2026-10-08 实测 DB 09-25，**不含上述字样**）| 含 filename / output language / page-by-page digest / supplied 字样，**或说的是抽取器怎么处理（提到 revision / rating_history 等字段名、"excluded from"）** → 归④轴、**不进打分**。该篇①②③改从标题 / `novelty` / `thesis` / `consensus_diff` / `detail.estimates.adjustments` 推断（实测 GS 09-20 的"管理层路演"基准只在标题《NDR Meetings…》和 novelty "NDR feedback indicates…" 里），并注"key_caveat 被流程备注占位"；`coverage_flag.missing` 只作线索、不计分（见已知边界） |
 | **书目信息缺失** | *"The report does not provide a prior target price, prior report date…"*（GS 08-26 First Take ×2、BofA 07-07）；*"The research body does not state an explicit current equity rating or rating change…"*（2026-10-08 实测 UBS 10-01）| 只说缺前次 TP / 前次日期 / 评级或评级变动的 → 归④轴、**不计分**。别读成"地基薄" |
 | **报告类型声明** | *"This is a cross-asset strategy study without company ratings, target prices…"*（Barclays 09-30）、*"The presentation is a multi-stock strategy review, not an explicit initiation or rating-change announcement."*（UBS 09-29）（2026-10-08 实测）| 不计分；①基准写"非个股研究，本标的只是论据之一" |
 | **字段缺失** | 整篇没有 `key_caveat`，`detail.caveats` 与 `detail_sections.caveats` 也都不存在（2026-10-08 实测 META 20 篇中 1 篇：JPM 07-02）| ①③没有信源 → 写"key_caveat 未返回"进④轴，**不写"未自陈"**；该篇最高 🟡 |
 
 > 2026-10-08 META 20 篇里 `key_caveat` 是流程备注的 **0 篇**；流程备注改出现在 `coverage_flag.missing` 尾部（*"The filename is rendered in English to comply with the English-only output requirement"*，2/20）——那本来就归④轴，不用另剔。
+> **但 0 号分流不能省**：2026-10-08 MSFT 20 篇里 `key_caveat` 又有 3 篇是流程备注（GS 09-20、UBS 10-01 的 filename 句 + DB 09-25 的新形态），出现与否随批次变。
 
 > 🔴 **mention 篇先认"这条 caveat 说的是谁"（2026-10-08 实测）**：mention 报告的 `key_caveat`、`rating_current`、`report_subject_target_price` 都属于**报告自己的主标的**，不是本标的——META 查询里 Nomura 的 Buy 是给 3406.TW 的、JPM 的 Overweight 是给 TSMC 的、GS 的 Buy 是给 SPCX 的；BofA 两份周报、Bernstein 数据中心报告的③b（指数回报、2030 年 IT-GW 两处对不上）都和 META 无关。本标的的东西只有 `mention_context`（一句话 + `mention_direction`）和 `matched_asset_target_price`（多数为 null，偶有值：Bernstein 10-01 给 META 800）。所以：
 > ① mention 篇先判 `key_caveat` 是否涉及本标的；**不涉及 → 不进本标的打分**，④轴记"N 篇 caveat 指向报告主标的"
@@ -98,7 +99,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 |---|---|---|
 | **① 基准是谁** | `key_caveat` + `thesis`（`detail.caveats[]` 见下方截顶说明）| 这个结论建立在什么之上？管理层口径 / 独立调研 / 建模估算 / 二手新闻 / 根本不是研究 |
 | **② 口径边界** | `key_caveat` + `consensus_diff` + **`detail.estimates.adjustments`**（倍数 / 假设变动）+ `detail.data_points[]` | 数字覆盖到哪、没覆盖到哪？"强"是强在哪个口径上？和谁比的？ |
-| **③ 自陈与自相矛盾** | `key_caveat` + `consensus_diff` 里的自我否定表述 | 拆两项：**③a 报告自陈的局限**（报告自己写的）／**③b 报告内部数字对不上**（抽取器检出、未经人核——措辞写"抽取时发现报告内…"，**不许写"报告自己承认"**）|
+| **③ 自陈与自相矛盾** | `key_caveat` + `consensus_diff` 里的自我否定表述 + `detail.scenarios` 里抽取器的对不上标注（2026-10-08 实测 MS 09-16 熊市情景 *"labels valuation approximately 11x in the heading and approximately 12x in the narrative"*，只出现在这里）| 拆两项：**③a 报告自陈的局限**（报告自己写的）／**③b 报告内部数字对不上**（抽取器检出、未经人核——措辞写"抽取时发现报告内…"，**不许写"报告自己承认"**）|
 | **④ 抽取侧缺口** | `coverage_flag.completeness` + `coverage_flag.missing` + `content_truncated` + `detail_sections` 截顶比 + 0 号分流剔出的两类 | ⚠️ **这一轴是关于「我们看到了多少」，不是关于报告质量。单列，不进可信度打分。** |
 
 > 🔴 **`detail` 数组固定截顶（2026-10-05 实测）**：`detail.caveats` **只返回 1 条，且与 `key_caveat` 逐字相同**（实测 20/20）；真实条数在 `detail_sections.caveats`（实测 2–4；2026-10-08 META 3–8，20 篇里 19 篇仍是 1 条 = `key_caveat`）。`risks` / `key_points` / `data_points` / `catalysts` / `chart_takeaways` 同样截顶（2 / 3 / 3 / 2 / 2，对 `detail_sections` 的 5–8 / 8 / 12–15 / 5–6 / 3–7）。**改 `limit`、query 加 caveats/risks 字样都取不全**。因此：
@@ -107,6 +108,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 > ③ 步骤 3 的扫描覆盖率（如 "key_points 3/8、data_points 3/12"）写进④轴。
 > 另：`detail.estimates` 是对象 `{adjustments, eps, growth, revenue}` 不是数组；**`adjustments` 是②轴最有用的一格**（实测 BofA 倍数 27x→22x、MS 22x→20x 只出现在这里；2026-10-08 META：JPM 09-24 TP 820→920 只靠倍数 23x→26x、"no explicit earnings or revenue estimate revisions" 也只在这里）。
 > ⚠️ **`detail_sections` 计数 ≥1 不保证字段返回（2026-10-08 实测 META 20 篇）**：`consensus_diff` 8 篇整个缺失（`detail_sections.consensus_diff` 却都是 1）、`detail.scenarios` 5 篇缺失（sections 都是 3）。缺失时写"consensus_diff 未返回"进④轴，**不写"报告没和共识比"**。
+> 2026-10-08 MSFT 20 篇同形态更重：`consensus_diff` 9 篇缺失；`detail.estimates` **整个缺失** 2 篇（DB 09-25、UBS 10-02，sections 都是 4）、有 `estimates` 但没有 `adjustments` 2 篇（GS 09-20、MS 09-16）——**最新 3 篇 subject 的②轴都拿不到 `adjustments`**；`scenarios` 缺失 4 篇、只回一部分 2 篇（GS 09-20 只有 base）。缺哪格写哪格"未返回"。
 
 > ⛔ **这四轴不能用关键词规则做，必须由模型读 `key_caveat` 原文语义判断。**
 > **2026-07-29 实测**：把上表写成正则规则跑 INTC 7 篇，**7 篇里错了 4 篇**——
@@ -175,7 +177,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 ```
 🔍 <TICKER> 研报口径审计 · <日期>
-可见 N 篇（去重后 M 家）｜报告日期 subject <最早>~<最新> ／ mention <最早>~<最新>｜time_scope=<值>｜额度 <1–3>｜subject 已翻至尽头（共 K 页）｜mention 只取 1 页，has_more=<true/false>（mention 侧为下界）
+可见 N 篇（去重后 M 家）｜报告日期 subject <最早>~<最新> ／ mention <最早>~<最新>｜time_scope=<值>｜额度 <实际次数>｜subject 已翻至尽头（共 K 页）｜mention 只取 1 页，has_more=<true/false>（mention 侧为下界）
 <最新 subject 距今 >21 天时加一行：⚠️ 本批地基审计的是 <日期> 前的报告>
 
 【🔎 领读】（先写这段）
@@ -238,6 +240,9 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 | 🟡 引用须带限定 | 基准是管理层口径或建模估算；**或**口径边界不清；**或** ③b 只涉及辅助表格（注"引用该表前核对正文"）| 
 | 🔴 别引结论 | ③b 涉及**目标价、上行幅度或核心预测**；**或**核心论点建立在未验证的代理指标上 |
 
+> 📌 可见那条 caveat 本身是**②轴口径限定**的（"beat 部分来自投资收益""分部调整只是重分类"这类），按校准样本库 ② 全部 🟡 给 🟡、引用时带上那条限定——**不给 🟢（可见范围内）**（2026-10-08 实测 MSFT：Barclays / MS / Bernstein 共 4 篇属此类）。
+> 📌 代理指标只撑起核心论点**其中一条腿**、其余腿有披露数据时给 🟡，并注"单引那条腿就是 🔴"（实测 Bernstein 08-10：容量增速那条用总物业面积代理，租约起租期 / 采购承诺两条是披露数据）。
+
 **⛔ 硬要求**：
 
 **1. 每条 caveat 都要配「读法」，不许只贴原文。** 原文是证据，读法才是产品。
@@ -266,7 +271,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 | `content_truncated` 实测**累计 49/49 全为 True** | 数据特性（2026-10-05、2026-10-08 复测仍成立）| 恒为真 ⇒ **零判别力**，只能单列进④轴。若拿它扣分，每份报告都会被判不完整 |
 | `detail` 数组固定截顶 | **2026-10-05 实测**：caveats 恒 1 条（= `key_caveat`）、risks 2、key_points 3、data_points 3；改 `limit` / query 无效 | 见步骤 2 截顶说明；①③轴只有一条信源，"未自陈"写成"仅见 1/N 条"，🟢 只能给到「🟢（可见范围内）」 |
 | `key_caveat` 被流程备注 / 书目缺失占位 | **2026-10-05 实测**：30d 窗口 10 篇里 6 篇是流程备注 | 步骤 2 的 0 号分流先剔出，归④轴 |
-| 不传窗口时 subject 整层在前 | **2026-10-05 实测**：首页全是 subject，最新可能已是一个多月前；**2026-10-08 实测** subject 不足一页（META 6 篇）时首页尾部即接最新 mention | 头部写日期区间 + `time_scope`；>21 天领读首句声明；首页全是 subject 时才考虑补 30d |
+| 不传窗口时 subject 整层在前 | **2026-10-05 实测**：首页全是 subject，最新可能已是一个多月前；**2026-10-08 实测** subject 不足一页（META 6 篇）时首页尾部即接最新 mention | 头部写日期区间 + `time_scope`；>21 天领读首句声明；不再补 30d——首页全是 subject 时按翻页口径翻到出现 mention 为止（2026-10-08 实测 MSFT：首页 subject 10，第 2 页 subject 3 + mention 7） |
 | mention 篇字段的归属 | **2026-10-08 实测**：`key_caveat` / `rating_current` / `report_subject_target_price` 属报告主标的（META 14 篇 mention 里多数如此）| 见步骤 2 mention 规则：只审 `mention_context`，不涉及本标的的 caveat 不计分 |
 | 内部校验器抓不到报告自身的推断错误 | 已知（外部核验首轮 3/6 命中全属此类）| 靠步骤 3 三类规则 + 步骤 4 外部核验，**不承诺自动化能兜住** |
 | 单页只有 10 篇，且不一定给满 | 上游单页硬顶（N-38）| **subject 翻到尽头、mention 只取 1 页**（N-81 + 2026-10-08 翻页口径）。mention 侧结论标下界。实测 F 首页只返回 3 篇且全是 mention |
