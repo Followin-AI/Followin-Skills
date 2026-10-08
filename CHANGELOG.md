@@ -4,6 +4,10 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-08 — r4 撤销汇编闸的交集判据
+
+- 用户决定撤销清单 D9（`by_name` 与 rationale 交集为空即降级）：AVGO 回算显示它会丢掉伯恩斯坦 Apple Tracker、UBS《Global I/O Semiconductors》这类真名单，真修正从 3 条降到 2 条。恢复为按"有没有统一研究主题"人工判，《China Next Winners》这类主题具体、名单却是选股表的篇降为部分保留。
+
 ## 2026-10-08 — 按用户拍板落地约 60 项设计调整
 
 用户对复跑后列出的待拍板清单（A–E 五组）"全按建议"。主要变化：
