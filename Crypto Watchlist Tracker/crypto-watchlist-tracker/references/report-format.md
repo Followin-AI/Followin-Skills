@@ -53,15 +53,42 @@ Start with `自选概览`, using one natural line per asset:
 
 Expand only high-attention assets under `重点币种`. Do not force a large table or a full card for every symbol.
 
+Full multi-asset shape (morning; the evening version swaps the labels as above):
+
+```text
+# 自选早报｜<DATE>
+更新：<END TIME AND TIMEZONE>｜覆盖：<WINDOW>｜<INITIAL OR DELTA>
+
+一句话：<the one thing across the list that matters most>
+
+## 自选概览
+- <ASSET>：<price/move>｜<state>｜<main new event or signal>
+
+## 重点币种
+### <ASSET>
+<one to three event bullets, then one line of 盘面与资金>
+
+## KOL 怎么看
+- <ASSET> · <@handle and direct link>：<thesis plus its key evidence or condition>
+
+## 今天关注
+- <validation condition>
+
+数据来源：Followin MCP（<tools used>）<short material data gap if any>
+仅供研究参考，不构成投资建议。
+```
+
+`KOL 怎么看` stays one list for the whole report, two or three posts per high-attention asset at most.
+
 ## Compression rules
 
 - Lead with one plain-language conclusion.
 - Keep no more than three event bullets per asset and merge duplicate coverage of the same event.
 - Write technical analysis as one sentence. Mention no more than one or two numbers, and only when an indicator is exceptional or marks a meaningful change. Never list every RSI, EMA, SMA, MACD, ATR, and Bollinger value.
 - Keep `KOL 怎么看` to two or three selected X posts. Summarize the thesis and its evidence or condition rather than quoting the post at length. Link the handle or original post because the user's purpose is to inspect the KOL view. Prefer one fundamental/flow view, one conditional technical view, and one risk/positioning view when strong examples exist; never manufacture balance from weak posts.
-- Keep structured KOL consensus and trader positions in `盘面与资金`. If those leaves have no reliable exact-symbol sample, state the gap briefly without narrating the full filtering process; curated X analysis can still appear separately.
+- Keep structured KOL consensus and trader positions in `盘面与资金`, and label the consensus as `近 24 小时` because it uses a fixed 24-hour window separate from the report window. When long averages are unavailable, write `长期均线历史不足，不可用` once rather than omitting it silently. If those leaves have no reliable exact-symbol sample, state the gap briefly without narrating the full filtering process; curated X analysis can still appear separately.
 - State `数据来源：Followin MCP` once in the footer. Write the body naturally and never repeat “Followin MCP显示/收录” before each fact. Add an inline source label only for official-versus-secondary distinctions, supplemental non-Followin data, or a material data gap. Do not append downstream media links or outlet-by-outlet citations by default.
-- Put material limitations in the `数据` footer as one short clause. Hide request IDs and implementation diagnostics unless the user asks or a failure needs investigation.
+- Put material limitations in the `数据来源` footer as one short clause. Hide request IDs and implementation diagnostics unless the user asks or a failure needs investigation.
 - Keep next-step language observational. Do not provide orders or promised price targets.
 
 ## Technical exceptions worth surfacing
@@ -69,10 +96,12 @@ Expand only high-attention assets under `重点币种`. Do not force a large tab
 Examples include:
 
 - RSI entering or leaving an extreme zone;
-- price crossing a major long-term moving average;
+- price crossing a major long-term moving average (only when that average passed the sanity check in SKILL.md; never for an asset whose 50/200-day values equal its 20-day band);
 - MACD direction reversing rather than merely remaining positive or negative;
 - ATR or realized range expanding sharply;
 - price breaking or rejecting a Bollinger boundary.
+
+A change that appears only in today's value is intraday (the UTC daily candle is still open); word it as `盘中跌破` / `盘中转负`, not as a confirmed close.
 
 If none of these is material, write only a conclusion such as `趋势仍偏强，暂未出现明显技术面拐点`.
 
@@ -80,7 +109,7 @@ If none of these is material, write only a conclusion such as `趋势仍偏强�
 
 Use a compact footer such as:
 
-`数据来源：Followin MCP（metrics / news / signal），覆盖 21:00–09:00；交易员仓位暂无覆盖。`
+`数据来源：Followin MCP（metrics / news / signal），覆盖 21:00–09:00，喊单为近 24 小时；交易员仓位暂无覆盖。`
 
 Always end with:
 

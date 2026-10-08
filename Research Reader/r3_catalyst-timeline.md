@@ -125,7 +125,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 **`time_std.type` 实测 22 种取值**（不是初版写的 12 种），且**同义异写严重**：
 `relative`(9) `year`(8) `quarter`(6) `month`(4) `datetime`(4) `date`(3) `event_relative`(3) `null`(2) `range`(2) `relative_period`(2) `rolling_window`(2) `deadline`(2) `recurring`(2) `relative_event`(2) `fiscal_quarter`(2) `half-year`(1) `half_year_range`(1) `relative_year`(1) `date_range`(1) `quarter_range`(1) `half_year`(1) `period`(1)
-**2026-10-05 起又见到 12 种**：`relative_window` `quarter_end` `fiscal_year`（MU/AVGO 实跑）· `relative_range` `half` `month_range` `reporting_period`（r4 查 TSM 实跑）· `fiscal_period`（NVDA 首页）· `approximate_date` `deadline_month` `earnings_event` `conditional`（NVDA 30d / MU 第 2 页）。取值集合**仍在增长**，见下方自检②。
+**2026-10-05 起又见到 12 种**：`relative_window` `quarter_end` `fiscal_year`（MU/AVGO 实跑）· `relative_range` `half` `month_range` `reporting_period`（r4 查 TSM 实跑）· `fiscal_period`（NVDA 首页）· `approximate_date` `deadline_month` `earnings_event` `conditional`（NVDA 30d / MU 第 2 页）· 2026-10-08 r4 查 AVGO 又见 `year_range` `approximate`；`sort` 为 `9999` 的条目 `time_std` 里没有 `type` 键。取值集合**仍在增长**，见下方自检②。
 
 **⚠️ 四组同义异写必须先合并**：`half-year` / `half_year` / `half_year_range` / `half` ｜ `event_relative` / `relative_event` ｜ `quarter` / `quarter_range`（`fiscal_quarter` / `fiscal_period` 单走财季，不并进自然季）｜ `deadline` / `deadline_month`
 
@@ -160,11 +160,11 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
    | `half-year` / `half_year` / `half_year_range` / `half` | 半年 | `sort="2026-07-01"` → 实为"2026 下半年" |
    | `month` / `month_range` / `reporting_period` | 月 | `sort="2026-10-01"` → 实为"10 月某时" |
    | `deadline` / `deadline_month` | 月（标"**截止**"）| 2026-10-05 实测 UBS "By November 2026" → `sort="2026-11-30"`，另一篇写同一件事给的是 `"2026-11"`；渲染成"11 月 30 日"是假精度，也会让两篇对不上 |
-   | `date_range` / `range` | **区间**（取 `anchor` 的 `A/B` 或 `time` 原文）| 2026-10-05 实测 JPM "2026-2030" → `sort="2026"`，字面渲染成"2026 年"且落进窗口内；GS "late 2026" → `sort="2026-10"`，渲染成"10 月" |
+   | `date_range` / `range` / `year_range` | **区间**（取 `anchor` 的 `A/B` 或 `time` 原文）| 2026-10-05 实测 JPM "2026-2030" → `sort="2026"`，字面渲染成"2026 年"且落进窗口内；GS "late 2026" → `sort="2026-10"`，渲染成"10 月" |
    | `relative*` 族 | 区间 / **模糊** | 见规则 1b |
    | `event_relative` / `relative_event` | 日（anchor 带日期时）／ 同 1b | 见规则 1c |
    | `quarter_end` | 日（标"**季末**"，不降级）| 2026-10-05 实测 Bernstein "from the end of 3Q26" → `sort="2026-09-30"`，季末日本身就是事件日 |
-   | `approximate_date` | 日（标"**约**"）| 2026-10-05 实测 UBS "approximate catalyst date" → `sort="2026-10-22"`，报告自己说日期是估的 |
+   | `approximate_date` / `approximate` | 日（标"**约**"；`sort` 只到月或年时按其精度）| 2026-10-05 实测 UBS "approximate catalyst date" → `sort="2026-10-22"`，报告自己说日期是估的 |
    | `earnings_event` / `conditional` | 同 `9999` 处理（规则 1）| 2026-10-05 实测 JPM "at 4Q26 results" → `sort="9999"`、anchor `"2026-Q4 results"`；Bernstein "in case GW growth in Europe inflects" → `sort="9999"`。`earnings_event` 走规则 1 的财报例外 |
    > **初版规则只防了 `type=year` 这一种，实跑立刻被 `quarter` 打穿**——INTC 有 4 条季度类催化剂被误升级成日级。**2026-10-05 又被 `fiscal_year` / `deadline` / `date_range` / `range` / `relative*` 打穿**——这张表必须全跑，遇到表外的 type 先查自检②。
 7. 排序：同精度按日期，跨精度**粗的排在该区间末尾**（`2026-07` 排在 `2026-07-31` 位置）；区间按终点排；"模糊"不上时间轴，单列在本桶末尾，按 `time` 原文展示

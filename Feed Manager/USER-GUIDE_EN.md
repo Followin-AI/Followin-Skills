@@ -44,7 +44,7 @@ Add to `~/.claude/settings.json`:
 |-------|-------|
 | `Daily-Index.md` / `Macro.md` / `_Sectors-Index.md` touched today | the three files that change every batch |
 | `Portfolio.md` touched today | **only enforced when you actually hold something**; no positions reported → no block |
-| The brief contains a coverage table + completeness review | proves the pull and verification steps weren't skipped |
+| Two count lines at the end of the brief: `账号覆盖：N/M（✅a ⚪b ❌c）` (account coverage) and `完整性审查：遗漏 X · 落盘 ticker T · 落盘 sector S` (completeness review: missed / tickers written / sectors written) | the coverage arithmetic must add up, missed must be 0, and the declared ticker / sector files must really have been touched today — a bare heading no longer passes |
 | Sector files named in the brief's `sector-sync` line really were updated | prevents "bumped the index date but never touched the sector note" |
 
 **Verify your install once**: deliberately backdate `Macro.md` (`touch -t 202601010900 $KOL_VAULT/Macro.md`), then end a session in which you ran the daily — **getting blocked means it works**. If you're not blocked, the hook isn't firing; check the path.
@@ -66,7 +66,7 @@ It will:
 
 After that it's one sentence a day.
 
-> 💡 You can run it with no positions at all — you still get the daily brief and sector notes, just with the holdings sections empty. Watching for a while before buying anything is a perfectly reasonable way to use it.
+> 💡 You can run it with no positions at all — you still get the daily brief and sector notes, but the holdings snapshot and the decision summary (posture / rotation ideas) are left out entirely; names worth watching only appear in the watchlist, with reasons. Watching for a while before buying anything is a perfectly reasonable way to use it.
 
 ---
 
@@ -77,7 +77,7 @@ After that it's one sentence a day.
 | You say | It does |
 |---------|---------|
 | "run KOL watch" / "pull the latest" | Full pull → daily brief → update ticker/sector notes → recalibrate prices → pass the gate → report the top 3 |
-| "catch up on last night" | Incremental pull from the last checkpoint, **merged into the same day's brief** (never two files contradicting each other) |
+| "catch up on last night" | Incremental pull from the last checkpoint, **merged into the brief for each tweet's own date** — a batch that crosses local midnight is split across the two days, and each day still has exactly one file (never two files contradicting each other) |
 | "pull 12h" / "pull the last week" | Uses your window instead of the default natural-day split |
 | "today just @XX and @YY" | Pulls only those two — the coverage table marks the rest as not pulled rather than pretending they were |
 

@@ -36,7 +36,7 @@ args: ticker
 ```
 
 > 🔗 **19 位分析师、风控经理、组合经理的完整框架**在 `~/.claude/references/01_agent-prompts.md`（仓库内 `references/01_agent-prompts.md`）。**执行 Step 3 前必须先 Read 该文件**，不要凭分析师的名字现编评分框架。
-> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`。本文的调用写法和字段名于 **2026-10-03 实跑验证**；与登记表或 agent-prompts 里的旧工具名冲突时，以本文为准。
+> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`。本文的调用写法和字段名于 **2026-10-03 实跑验证**、2026-10-08 盘中复跑（AVGO）；与登记表或 agent-prompts 里的旧工具名冲突时，以本文为准。
 
 ## 调用约定（2026-10-03 实测）
 
@@ -48,10 +48,11 @@ args: ticker
 - `signal()` **必须显式传 `categories`**——只传 ticker 返回空。
 - 如果客户端不接受数组入参（报 `-32602`），把 ticker 并进 query 串（`query="<T> 分析师评级 同行 DCF"`）。
 - 非交易时段，行情快照是上一个常规收盘（`_quote_session:"regular_inactive"`），不是盘后价；标"常规收盘"。
+- 盘中跑时快照是实时价，但可能没有 `_quote_session`（2026-10-08 实测 AVGO 盘中无此字段），按 `as_of` 判断并标"实时"。`ratios_ttm` / `key_metrics_ttm` / `dcf` 仍按**前收**计算（实测 `dcf["Stock Price"]` = `previousClose`），盘中引用 P/E、P/S、DCF 安全边际时写明"按前收"，或用实时价自算。
 
 ## 执行步骤
 
-### Step 1: 数据采集（4 批，每批 ≤4 路并行，共 13 路）
+### Step 1: 数据采集（4 批，每批 ≤4 路并行，共 13 路；"自定同业"可选 +1 路）
 
 **Batch A：基本面 + 历史**
 ```
@@ -71,11 +72,17 @@ args: ticker
    metrics(keywords=[P1,P2,P3], categories=["market","fundamentals"], asset_type="tradfi", limit=1, verbosity="concise")
    不带 categories 时同行代码会被宏观日历劫持（实测 ADI 多返回一条日本领先指数）。
    返回后核对每家的 profile_block.industry 与目标一致，不一致的在数据缺口注明。
-   这一路只返回 ratios_ttm（P/E、P/S、P/B、PEG、利润率），同行的 EV/EBITDA 拿不到。
+   这一路的估值只有 ratios_ttm（P/E、P/S、P/B、利润率），没有 key_metrics_ttm，同行的 EV/EBITDA 拿不到。
+   同行的服务端 PEG 不可比（2026-10-08 实测 MRVL 为 0.03），不引用；行业对比只用 P/E、P/S、P/B、利润率。
    ADR 同行（如 TSM）的报表和 EPS 可能是本币，只引用比率
+   **自定同业（可选，+1 路）**：接口同行与目标同属一个 industry、但主营细分明显不同时（实测 AVGO 的接口同行前 3 是
+   TXN / MRVL / ADI，其中 TXN、ADI 是模拟芯片，AVGO 主营 AI 定制芯片与网络芯片），可另选**最多 3 只**同细分行业的同业，
+   按同样写法再调一次 metrics(keywords=[S1,S2,S3], categories=["market","fundamentals"], asset_type="tradfi", limit=1, verbosity="concise")。
+   返回后同样核对 profile_block.industry。输出里标"自定同业"并逐只写选择理由，与接口同行**分开展示、分开算中位数**，不混成一组
 4. metrics(keywords=["<T>"], query="历史走势", asset_type="tradfi", time_range="13m", limit=290)
    → 13 个月日线（必须传 limit；time_range="1y" 只返回 251 行，算不出 1Y 涨幅）。
-     返回约 5 万字符，用代码解析 close 序列
+     返回约 5 万字符，用代码解析 close 序列。盘中跑时最后一行是**当天未走完的 K 线**（date = 今天、close ≈ 实时价，
+     2026-10-08 实测），处理方法见 Step 2
 ```
 
 **Batch B：技术指标 + 信号**
@@ -96,7 +103,7 @@ args: ticker
 10. news(query="<CompanyName> <TICKER>", sources=["twitter"], time_range="1w", limit=10)
 11. news(query="<CompanyName> <TICKER>", sources=["research"], time_range="2w", limit=10)
 ```
-研报窗口用 30 天、`concise`：研报库比公开新闻晚 1~4 天，7 天窗口常为空；`detail` 一次约 2.8 万字符且多为提及型，含金量低。第 9~11 路分别供 ⑱ 使用（媒体、推特、研报原文）；第 7 路的 KOL 和 13F 供 ⑰ 使用。
+研报窗口用 30 天、`concise`：研报库比公开新闻晚 1~4 天，7 天窗口常为空；`detail` 一次约 2.8 万字符且多为提及型，含金量低。第 9~11 路分别供 ⑱ 使用（媒体、推特、research 源文章）；第 7 路的 KOL 和 13F、第 8 路的研报（评级动作 / 目标价变动）供 ⑰ 使用，读法与权重见附件 ⑰。
 
 **Batch D：宏观**
 ```
@@ -109,6 +116,7 @@ args: ticker
 - `news()` 查不到相关内容时不返回空，而是返回一批不相关的热门内容。返回里一条都不含目标公司名或代码就是没查到，该路记数据缺口，不要拿这些内容做情绪判断，也不要重试。
 - 13F 的 `*_change_percent` 字段恒为 0、不可用；`shares_change == shares` 的行不要当成新建仓；同一机构可能有两行。只引用持仓绝对值和结构，写明"截至 report_period"。
 - KOL 喊单先按 `symbol == <T>` 筛行（返回里会混入别的标的的帖子），再按 `source_url` 去重。喊单只覆盖最近 24 小时，tradfi 方向字段近乎恒为看多，只报条数和话题。
+- 第 7 路返回里**没有 `kol_call` 这一类**（`status` 仍是 `ok`、无 warning）时，是近 24 小时没有本标的喊单，不是调用失败：写"近一日无喊单"，不要重试，也不记数据缺口（2026-10-08 实测 AVGO：合并调用缺这一类，单独调返回 `no_match`，全市场喊单池正常）。
 - 内部人只认 Form 4：卖出 = `S-Sale`，买入 = `P-Purchase`，按 `transactionDate ≥ 今天 − 90 天` 过滤；`F-InKind` / `G-Gift` / `A-Award` / `M-Exempt` 不计。带 `_chamber` 的议员交易单列。
 - 研报的 `subject_reports` 为空、只有 `mention_reports` 时，不能说"有机构专题覆盖"。
 
@@ -121,6 +129,8 @@ args: ticker
   1D / 5D / 1M / 3M / 6M / 1Y = 最新收盘 ÷ 1 / 5 / 21 / 63 / 126 / 252 个交易日前的收盘 − 1
   YTD = 最新收盘 ÷ 上一年最后一个交易日的收盘 − 1
   不足 252 行时 1Y 取最早一行，标"≈1Y（N 个交易日）"
+  盘中跑（最后一行 date = 今天）：多周期涨跌可以用这一行，标"盘中"；SMA、波动率、最大回撤去掉这一行，
+  按最后一个完整交易日算（未走完的一天会被当成一个完整日收益）
 
 SMA50 / SMA200 = 最近 50 / 200 个收盘的平均
 
@@ -144,20 +154,21 @@ SMA50 / SMA200 = 最近 50 / 200 个收盘的平均
 | DCF | ✅ `valuation_block.dcf`。与现价相差 5 倍以上判失效，不进任何输出（亏损期 DCF 会算崩）|
 | ROE / ROIC / EV/EBITDA / PE / PEG / 毛利率 / D/E / 流动比率 | ✅ `key_metrics_ttm` + `ratios_ttm` |
 | 分析师远期预期、Forward PE | ⚠️ `analyst_estimates` 可能缺当前财年、只有较远的财年，且远期数字不自洽（实测 NVDA FY2030 高于 FY2031，后者只有 9~10 位分析师）。Forward PE = 现价 ÷ 最近的、`numAnalystsEps ≥ 20` 的财年 epsAvg，并写明是哪个财年 |
-| PEG | ⚠️ 统一口径见 `01_agent-prompts.md` 开头：TTM P/E ÷（最近财年 epsgrowth × 100），附注服务端值 |
-| 行业相对估值 | ⚠️ 第 3 路只有同行的 `ratios_ttm`（P/E、P/S、P/B、PEG、利润率）；同行 EV/EBITDA 不返回，写"数据不足" |
+| PEG | ⚠️ 统一口径见 `01_agent-prompts.md` 开头：TTM P/E ÷（最近财年 epsgrowth × 100）；最近财年 epsgrowth < 0 或 > 100% 时改用 3 年 EPS CAGR 作分母，仍不可得标"PEG 不适用"、不进 ⑥⑦⑲ 的判据。附注服务端值 |
+| 行业相对估值 | ⚠️ 第 3 路只有同行的 `ratios_ttm`（P/E、P/S、P/B、利润率；服务端 PEG 不可比）；同行 EV/EBITDA 不返回，写"数据不足"。接口同行细分不符时可加"自定同业"（最多 3 只，写理由，分开展示）|
 | 维护性 CapEx | ❌ 只有总 CapEx，所有者盈余用总 CapEx 近似并注明 |
 | 净现金 / 净负债 | ⚠️ 不要用 `netDebt`（只扣现金等价物）。统一用 `cashAndShortTermInvestments − shortTermDebt − longTermDebt` |
 | 企业价值 | ✅ `key_metrics_ttm.enterpriseValueTTM`。不要用 `enterprise_values`：它是上一个财年末的快照，实测比当前低 20% |
 | SBC / 商誉 / 应收 / 递延收入 / 有形账面 / WACC / 分红历史 / 客户集中度 / 预期修正 | ❌ 接口不提供，写"数据不足"；ROIC 对 WACC 只能写"ROIC = X%（WACC 不可得）" |
 | Beta、行业、公司简介 | ✅ `profile_block` |
-| 内部人交易、13F、KOL、研报、新闻 | ✅ 见 Batch B / C |
+| 内部人交易、13F、KOL、新闻 | ✅ 见 Batch B / C |
+| 研报评级动作 / 目标价变动（⑰ 用）| ⚠️ 第 8 路：subject 层有 `rating_action` / `revision_summary`；只有 mention 层时，只能用 `matched_asset_target_price`（本标的自己的目标价，可能为 null）和 `mention_direction`。研报库比公开新闻晚 1~4 天，嵌套列表截顶（N-141）|
 | RSI / EMA50 | ✅ 见 Batch B |
 | SMA50 / SMA200 | ✅ 第 4 路日线自算 |
 
 **两个 EPS 口径不同**：`earnings_surprise.actual_eps` 是分析师口径（通常是调整后），财报口径取 `financial_statement.epsDiluted`（GAAP 稀释），实测同一季可以差 10% 以上。引用"超预期"时注明是分析师口径；两者符号相反时必须点明"GAAP 为亏损"。`actual_revenue` 为 null 时 `revenue_surprise_pct` 会显示 -100，那是缺数据。
 
-**非经营收益**：任一季 `totalOtherIncomeExpensesNet ÷ incomeBeforeTax > 10%` 时，在数据池里标"利润含大额非经营收益"（实测 NVDA 某季占税前利润 23%，GAAP EPS 反而高于分析师口径）。涉及净利率、P/E、ROE 的分析师须注明口径。
+**非经营损益**：任一季 `|totalOtherIncomeExpensesNet| ÷ incomeBeforeTax > 10%` 时（取绝对值，收益和损失都算），在数据池里标"利润含大额非经营损益"（实测 NVDA 某季非经营收益占税前利润 23%，GAAP EPS 反而高于分析师口径；AVGO 各季是 −4.7 亿 ~ −7.8 亿的非经营损失，占税前利润 5.1%~9.3%，未触发）。涉及净利率、P/E、ROE 的分析师须注明口径。
 
 ### Step 3: 19 位分析师独立研判
 
@@ -195,6 +206,8 @@ SMA50 / SMA200 = 最近 50 / 200 个收盘的平均
 
 ### 基本信息
 行业: [sector] / [industry] | 市值: $[marketCap] | 价格: $[price]（[自算涨跌%]，[实时 / 常规收盘]）| Beta: [beta]
+同行（接口）: [P1/P2/P3 的 P/E、P/S、P/B、利润率及中位数]
+自定同业: [S1/S2/S3 同上 + 每只的选择理由；没加就删掉这一行]
 
 ### 📊 19 位分析师投票分布
 | Agent | 信号 | 置信度 | 核心理由 |
