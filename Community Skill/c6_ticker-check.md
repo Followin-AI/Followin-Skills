@@ -25,9 +25,11 @@ args: ticker(必填)
 |---|---|---|
 | 1 | `metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_type="tradfi", limit=20)` 快照 + 分析师共识（中位/最高/最低目标价；家数由 `analyst_grades` 近 180 天去重估算，N-16，口径见第 2 节） | 1 |
 | 2 | `news(query="<TICKER> <公司名>", time_range="7d", limit=5)` 近期新闻要点（公司名取步骤 1 快照 `name`） | 0（实测） |
-| 3 | （可选，热议标的才加）`signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","trader_position"], asset_type="tradfi")` 内部人/喊单/实盘温度 | 1 |
+| 3 | （可选，热议标的才加）`signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","trader_position"], asset_type="tradfi", limit=50, verbosity="concise")` 内部人/喊单/实盘温度 | 1 |
 
 步骤 3 只在标的是"热议标的"时才加跑，判定是客观的，**满足任一即跑**：① 场景①（触发本次速查正是因为群里在热聊它）；② 步骤 2 的 social 桶里，48 小时内含 `$<TICKER>` 的条目 ≥3 条；③ 步骤 1 的 `analyst_grades` 在 7 天内有 `upgrade` / `downgrade`。三条都不满足（多见于场景②的常规摸底）就只跑两步（≈1 点），信号面整段省略。（2026-10-05 实测：MU 命中②；HUBG 命中③——10/1 Stifel Sell→Hold。）
+
+本文件里所有"7 天内"按日期计、含第 7 天：`date ≥ 今天 − 7`。`analyst_grades.date`、`earnings_surprise.report_date` 只有日期没有时刻，不定端点会两可（2026-10-08 实测 HUBG：Stifel 上调与 `report_date` 都是 10-01，恰好落在端点上，算进与不算进分别得出"📌 并入 c3"和"🚫 資料缺口"两种结论）。
 
 调用形态（本序列全程通用）：
 
@@ -47,13 +49,16 @@ args: ticker(必填)
    # limit=5 实际返回 2N 条（5 篇 articles + 5 条 social，N-25），近期叙事段落只需挑 1 条最具代表性的
    # ⚠️ 红线 11/N-35：news 无匹配时不返空，而是返语义兜底的不相关内容——判"该标的无报道"必须按 LLM 逐条判相关后的计数；返回里一条都不含目标公司名/ticker = 召回失败记缺口，不是"无叙事"
    # 相关性判定须匹配**完整公司名**或 $TICKER /（TICKER），不能只匹配名字里的单个普通词（2026-10-05 实测 HUBG：返回全是含 "hub" 字样的无关新闻，Hub Group 本身 0 条）；`entity_filter_applied:true` 不保证相关
-   # meta.warnings 出现 asset_type_no_matching_keyword（"all keywords resolved to other families (crypto)"）时直接按召回失败处理，不必换写法重试（2026-10-05 实测 HUBG 换 5 种写法、7d/30d 均失败）
+   # 公司名去后缀后就是 ticker 本身或一串缩写（如 "PTC Inc." → "PTC"）时，"完整公司名"会误配同名缩写的别家公司——2026-10-08 实测 PTC：5 篇 articles 里 PTC Therapeutics（PTCT）、PTC Industries（印度）各 1 篇，名字里都有完整的 "PTC"。这类标的只认 $TICKER、（NASDAQ: TICKER）这类带交易所的写法，或带后缀的全称 "PTC Inc."
+   # meta.warnings 出现 asset_type_no_matching_keyword（"all keywords resolved to other families (crypto)"）时直接按召回失败处理，不必换写法重试（2026-10-05 实测 HUBG 换 5 种写法、7d/30d 均失败）。这条 warning 只是充分条件：2026-10-08 实测 HUBG 两次搜索（含 `sort_by="relevance"` 加行业词）都没带任何 warning，10 条仍 0 条相关——不出 warning 也要逐条判相关
 
-3. signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","trader_position"], asset_type="tradfi")
+3. signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","trader_position"], asset_type="tradfi", limit=50, verbosity="concise")
    # 可选，仅热议标的才加：内部人/喊单/实盘三维钻取，做法同 c4 步骤 2、c5 步骤 5
+   # limit=50 必带（N-151，同 c4 步骤 2）：limit 按类分别生效、默认 10 行，加大仍只计 1 点。2026-10-08 实测 MU：默认 10 行里 kol_call 只有 3 行 MU（另 6 行是一条不提 MU 的多票帖拆出来的），数成"3 帖／1 位 KOL"；limit=50 是"6 帖／3 位 KOL"。内部人默认 10 行只到 8/21，漏掉 8/18 高管卖出与 7/24 CEO 一串卖出——90 天内若有 P-Purchase 也可能被挤掉，🔥 ② 的内部人一条就判不准
    # 不拉 institutional（2026-10-05 起）：备忘信号面不用 13F，且 13F 是返回里体积最大的一块；实测还有两种脏数据——HUBG 选到尚未申报的 report_period 2026-09-30、holders 为空但 status 仍是 ok；MU 同一 CIK（Susquehanna）出现两行、股数不同。去掉后仍只计 1 点
    # 不带 time_range（喊单上游本来就只覆盖最近 24 小时；多类合并带窗口会让整类消失，N-118）；kol_call 行按 symbol == <TICKER> 自行筛（实测会混入别的标的）
    # trader_position 无活跃仓时在多类合并返回里**整类静默缺席**、status 仍为 ok（单独调用才返 degraded + no_match，N-124）——缺席 = 无活跃仓，不是调用失败，不重试
+   # kol_call 同样：近 24 小时没有该标的喊单时整类缺席、status 仍为 ok（2026-10-08 实测 HUBG、PTC 均只返回 insider_trading 一类）——缺席 = 无喊单，不重试
 ```
 
 ## 2. 备忘模板：内部速查（≤300 字）
@@ -62,14 +67,14 @@ args: ticker(必填)
 
 落地结构，五段固定顺序，不套 S-3 贴文骨架：
 
-1. **行情位置**：现价 + 相对 52 周区间的位置（上緣/中段/下緣），取自步骤 1 快照，不额外调用。位置按公式算，不凭感觉：`(price − yearLow) ÷ (yearHigh − yearLow)`，≥67% 为上緣、≤33% 为下緣、其余为中段，并写距 52 週高或低的百分比。价格一律取快照的 `price` 并标 `as_of` 日期（如"10/2 收盤"）；`_quote_session` 为 `regular_inactive` 或缺失时写"最近收盤"，不写"現價"。`extendedHoursQuote` 只有买卖价、没有成交价，可在括号里附"盤前買賣價約 $X"，不能顶替 `price`（2026-10-05 实测 MU；小盘股如 HUBG 没有这个字段）。
+1. **行情位置**：现价 + 相对 52 周区间的位置（上緣/中段/下緣），取自步骤 1 快照，不额外调用。位置按公式算，不凭感觉：`(price − yearLow) ÷ (yearHigh − yearLow)`，≥67% 为上緣、≤33% 为下緣、其余为中段，并写距 52 週高或低的百分比。价格一律取快照的 `price` 并标 `as_of` 日期（如"10/2 收盤"）；`_quote_session` 为 `regular_inactive` 时写"最近收盤"，不写"現價"；缺失时看 `as_of`（同 c5 步骤 2、N-139）：落在美东交易日 9:30–16:00 内写"盤中 HH:MM ET"，不在就写"最近收盤"（2026-10-08 实测 MU / HUBG / PTC 三只盘中快照都没有 `_quote_session`，`as_of` 为 14:09–14:10Z 即美东 10:09——按"缺失即收盤"会把盘中价标成收盘价）。`extendedHoursQuote` 只有买卖价、没有成交价，可在括号里附"盤前買賣價約 $X"，不能顶替 `price`（2026-10-05 实测 MU；小盘股如 HUBG 没有这个字段）。
 2. **机构共识**：参与家数 + 目标价中位数 + 分歧幅度（最高价–最低价区间）。家数来源按 N-16：`consensus_price` 本身无家数字段，家数 = 步骤 1 的 `analyst_grades`（`limit=20`，服务端上限 20 行）中 `date` 在近 180 天内的记录按 `gradingCompany` 去重计数，写作「N 家（估算，近 180 天評級動作）」；20 行全部落在窗口内时写「≥N 家（估算，受 20 筆上限截斷）」；窗口内为 0 时标「家數未提供」，只给中位+区间，不许编数。（2026-10-05 实测：MU 20 行全在窗口内、14 家 → "≥14 家"；HUBG 窗口内 4 家，若不设窗口会把 1 月的评级也算进去，数成 6 家。）**禁止只给单一均值**——这条规则不是 c6 独有，是约束 bundle 内所有对外模块的总则，c3 機構怎麼看段落"目标价必带家数+分歧幅度"是同一条规则的对外版（见 c3 第 2 节，原文标注"约束所有对外模块的总则，c6 同条镜像"），c6 只是率先在内部备忘里执行。
 3. **近期叙事**：从步骤 2 的新闻里挑最具代表性的一条，一句话说完是什么、为什么最近被讨论。确认 news 召回失败时（判法见步骤 2 注释），若步骤 1 返回里有 7 天内的结构化事件——`analyst_grades` 的 `upgrade` / `downgrade`，或 `earnings_surprise.report_date`（先按步骤 1 的 fiscal_quarters 防坑核对）——就用它作近期叙事，并标「（結構化數據，無新聞佐證）」；连结构化事件也没有就写「資料缺口（news 召回失敗）」，不写"無敘事"。
-4. **信号面**（可选，只在跑了步骤 3 时出现）：内部人/喊单/实盘任一维度有明显读数就写一句；没有钻取步骤 3 就整段省略，不写"无数据"占位。喊单写成「N 帖／M 位 KOL」（去重口径见第 3 节）；实盘类在返回里缺席即写"實盤無活躍倉"；不写 13F（步骤 3 已不拉）。
+4. **信号面**（可选，只在跑了步骤 3 时出现）：内部人/喊单/实盘任一维度有明显读数就写一句；没有钻取步骤 3 就整段省略，不写"无数据"占位。喊单写成「N 帖／M 位 KOL」（去重口径见第 3 节）；实盘类在返回里缺席即写"實盤無活躍倉"，喊单类缺席即写"喊單無"；不写 13F（步骤 3 已不拉）。
 5. **出内容建议**（收尾，三选一，必须表态，不能只列数据不给立场）：
    - **🔥 值得速报**：以下两条**同时满足**才够格（2026-10-05 起改为可客观判定的判据；原"分歧幅度罕见收窄"一条已删除——c6 不取历史共识，没有基线判断什么叫"罕见"）：
      ① **叙事新鲜且标的明确**：近期叙事条目来自步骤 2 的新闻/推特，发布于 7 天内，且直接讲该标的（结构化数据兜底的叙事不算，最高只能给 📌）；
-     ② **至少一项异动**：近 7 天 `analyst_grades` 有 ≥2 家同向 `upgrade` / `downgrade`；或现价越出目标价区间（低于 `targetLow` 或高于 `targetHigh`）；或喊单去重后 ≥3 位不同 KOL 同向且无反向；或近 90 天内部人有 ≥1 笔 P-Purchase。
+     ② **至少一项异动**：近 7 天 `analyst_grades` 有 ≥2 家同向 `upgrade` / `downgrade`；或现价越出目标价区间（低于 `targetLow` 或高于 `targetHigh`）；或喊单去重后 ≥3 位不同 KOL 同向且无反向、且单一 KOL 占比 ≤50%（第 3 节 N-5 条，2026-10-08 实测 MU：6 帖／3 位 KOL 全多，但 4 帖出自同一人，这一项不成立）；或近 90 天内部人有 ≥1 笔 P-Purchase。
      备忘写出"🔥 值得速报"后即衔接 c5：运营可直接说"就 XX 出一篇"，跳过 c5 第一步扫描直接进第二步成稿（c5 正文已注明"运营是从 c6 标的速查的'🔥 值得速报'建议衔接过来"这条路由；若该标的当日恰好有财报，c5 会进一步路由到财报速读子型）。
    - **📌 并入下期温度计或研究笔记**：叙事存在但不够急迫，不必单独抢出一篇——够格进 c4 温度计下一轮的喊单榜候选（情绪/喊单热度够但没有独立速报的催化事件），或 c3 研究笔记的候选标的（机构共识扎实但没有"现在必须写"的紧迫性）。备忘必须写明具体并入 c4 还是 c3，不能只写"并入"不说去哪。去向按读数类别定：有评级/目标价类读数（评级动作、现价相对目标价区间）→ c3；只有喊单/情绪类读数 → c4；两类都有 → c3。近期叙事是结构化数据兜底时，只能给"📌 并入 c3"，并注明「待人工補新聞」。
    - **🚫 不值得写** + 一句原因：判「无叙事层」前须先按红线 11/N-35 核实不是 news 召回失败（兜底返回的全不相关内容不是"没有叙事"的证据，是数据缺口）。四种原因——**无叙事层**（近期叙事段落挑不出像样的新闻/推特由头，纯粹是数字波动）、**纯情绪**（推特/喊单热但机构共识与信号面都没有实质印证，情绪本身撑不起一篇内容）、**陈货**（近期叙事段落唯一能找到的素材是超过 7 天的旧新闻，没有新鲜由头）、**資料缺口**（确认 news 召回失败，步骤 1 也没有 7 天内的结构化事件可兜底；spec 原文只列前三种，这一种是 2026-10-05 实跑补的——召回失败时不得判"无叙事层"，三档里又必须表态，冷门票需要这个出口）。四选一写一句说明具体命中哪种。
@@ -149,7 +154,7 @@ spec 逐字 4 条：
 
   > N-6：insider/congress 行无视 time_range（7d 返回 2020 年记录）；客户端按 transactionDate 过滤强制（实测 2026-07-22）。
 
-  步骤 3 若命中内部人数据，必须客户端按 transactionDate 过滤（不能相信 time_range 参数已经帮忙筛过），**只取近 90 天**，且只认 S-Sale（卖出）、P-Purchase（买入）两种类型，F-InKind/M-Exempt/A-Award 及 `transactionType` 为空的 Form 3 行剔除——做法同 c1/c4 对应条目。议员交易行（带 `_chamber` 字段）的类型字段是 `type: "Purchase"/"Sale"`，不是 S-Sale/P-Purchase，按上面的类型过滤会被静默丢掉：这类行按 `disclosureDate` 取近 90 天，单列一句或略去，不并入内部人计数（2026-10-05 实测 MU 返回里混有 2 条议员行）。
+  步骤 3 若命中内部人数据，必须客户端按 transactionDate 过滤（不能相信 time_range 参数已经帮忙筛过），**只取近 90 天**，且只认 S-Sale（卖出）、P-Purchase（买入）两种类型，F-InKind/M-Exempt/A-Award 及 `transactionType` 为空的 Form 3 行剔除——做法同 c1/c4 对应条目。议员交易行（带 `_chamber` 字段）的类型字段是 `type`，取值以 "Purchase" / "Sale" 开头（2026-10-08 实测 PTC 有 `"Sale (Full)"`），不是 S-Sale/P-Purchase，按上面的类型过滤会被静默丢掉：这类行按 `disclosureDate` 取近 90 天，单列一句或略去，不并入内部人计数（2026-10-05 实测 MU 返回里混有 2 条议员行）。
 
 ## 4. 发前自检 + 额度哨兵
 

@@ -86,7 +86,7 @@ cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 
 **升级到 🅰️**：`export KOL_VAULT="/你的笔记库/Stock-Watch"`，然后说「初始化 vault 并跑一下 KOL」。
 
-**花费**：一次日报 ≈ **名单账号数 + 翻页数** 个 `twitter` 额度 + 每个标的 1 个 `metrics` 额度。⚠️ `twitter` 有月度配额（返回里 `meta.quota` 可查），名单越大烧得越快。
+**花费**：一次日报 ≈ **名单账号数 + 翻页数** 个 `twitter` 额度 + 报价每 5 个标的 1 个 `metrics` 额度（按调用计，不按标的计）+ 每个外部对照标的 1 个 `signal` 额度。⚠️ 两类都有月度配额（返回里 `meta.quota` 可查；`metrics` 和 `signal` 共用一个池），名单越大 `twitter` 烧得越快。
 
 **输出长这样**（真实产出片段，账号已匿名）：
 

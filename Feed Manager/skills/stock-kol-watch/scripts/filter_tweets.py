@@ -16,9 +16,12 @@ filter_tweets.py — Stock KOL Watch Step 3 固化脚本（framework v1.6）
   - 每个文件按 author.userName 多数票识别主账号（并行调用顺序可能错位）
   - 只保留: 主账号本人 + createdAt >= cutoff + 去重（**跨文件共享 seen**，同账号被重试/
     分页成多个 dump 时不重复；无 tweet id 的源退回 作者+时间+正文 指纹，不会静默丢推）
-  - 每条输出: UTC + 本地双时间戳 + [RT @x]/[QT @x: 摘要]/[reply] 标记 + 原推 URL + 全文
+  - 每条输出: UTC + 本地双时间戳 + [RT @x]/[QT @x: 摘要]/[reply]/[⚠️截断] 标记 + 原推 URL + 正文
     （本地时区默认取本机；跨时区跑用 --tz-offset 8 --tz-label SGT 显式指定）
-  - stderr 打印每账号 in-window 计数（直接喂 Step 2 覆盖表）
+  - [⚠️截断]：推文带 content_truncated=true（2026-10-08 实测：user_tweets 默认 verbosity=standard
+    把正文截在 600 字，detail 截在 2000 字；嵌套 QT/RT 原文被截也会让外层带这个标）——见标即知不是全文
+  - 跳过 data.pin_tweet（置顶推常是几个月前的旧推，混进来会让"窗口未回溯"告警永远不响）
+  - stderr 打印每账号 in-window 计数（直接喂 Step 2 覆盖表）；空 dump 单列，提示查账号状态
 
 schema 变了 → 改这个脚本，不要回退到内联重写。
 """
@@ -70,7 +73,9 @@ def find_tweets(obj, out, in_tweet=False):
             obj["_nested"] = in_tweet
             out.append(obj)
             in_tweet = True
-        for v in obj.values():
+        for k, v in obj.items():
+            if k == "pin_tweet":
+                continue      # 置顶推不是时间线条目（见文件头）
             find_tweets(v, out, in_tweet)
     elif isinstance(obj, list):
         for v in obj:
@@ -122,22 +127,26 @@ def mark_of(t):
         mark = f"[{self_mark}QT @{qa}: {qtext}]"
     if t.get("isReply") or t.get("in_reply_to_status_id") or t.get("inReplyToId"):
         mark = "[reply]" + mark
+    if t.get("content_truncated"):
+        mark += "[⚠️截断]"
     return mark
 
 
 def process_file(path, cutoff, seen):
-    """返回 (main_author, rows)；rows = [(dt, text, mark, url), ...] 时间正序。
+    """返回 (main_author, rows, earliest_dt)；rows = [(dt, text, mark, url), ...] 时间正序。
+    读不了 / 没有任何推文的 dump 返回 (None, [], None)——⚠️ 三个出口必须同形，
+    否则一个空 dump（销号/封号也是 success + 空数组，N-90）就让整批脚本崩掉。
     seen 由调用方跨文件共享——同一账号被重试/分页成多个 dump 时不重复计。"""
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         print(f"  !! {path}: {e}", file=sys.stderr)
-        return None, []
+        return None, [], None
     tweets = []
     find_tweets(data, tweets)
     counts = Counter(a for a in (author_of(t) for t in tweets) if a)
     if not counts:
-        return None, []
+        return None, [], None
     main = counts.most_common(1)[0][0]
     rows, own_dts = [], []
     for t in tweets:
@@ -186,14 +195,17 @@ def main():
     seen = set()          # 跨文件共享：同账号被重试/分页成多个 dump 时不重复
     merged = {}           # 主账号 → 累计条数（同账号多文件合并成一行覆盖表）
     earliest = {}         # 主账号 → 跨全部 dump 的最早一条（判断回溯够不够，翻页后自动消警）
+    truncated = {}        # 主账号 → in-window 里带 [⚠️截断] 的条数
+    empty = []            # 读不了 / 没有任何推文的 dump
     for f in args.files:
         main_author, rows, first_dt = process_file(f, cutoff, seen)
         if main_author is None:
-            summary.append((f"?({Path(f).name})", 0))
+            empty.append(Path(f).name)
             continue
         if first_dt and (main_author not in earliest or first_dt < earliest[main_author]):
             earliest[main_author] = first_dt
         merged[main_author] = merged.get(main_author, 0) + len(rows)
+        truncated[main_author] = truncated.get(main_author, 0) + sum("[⚠️截断]" in r[2] for r in rows)
         chunks.append(f"\n\n########## @{main_author} ({len(rows)} in-window) ##########")
         for cd, text, mark, url in rows:
             chunks.append(
@@ -202,19 +214,32 @@ def main():
                 f"\n--- {cd.strftime('%m-%d %H:%MZ')} / {local_ts(cd, args.tz_offset, label)} {mark} {url}\n{text}"
             )
     summary.extend(merged.items())
+    summary.extend((f"?({name})", 0) for name in empty)
 
-    Path(args.out).write_text("\n".join(chunks) + "\n", encoding="utf-8")
+    digest = "\n".join(chunks) + "\n"
+    Path(args.out).write_text(digest, encoding="utf-8")
     print(args.out)
+    # Step 3 外包阈值按「字符」算，不是 wc -c 的字节（中文一字 3 字节，会把 13K 字符报成 23K）
+    print(f"--- digest {len(digest):,} 字符（>20,000 → 派 reader 子代理，SKILL Step 3）---", file=sys.stderr)
     print("--- in-window counts（喂覆盖表）---", file=sys.stderr)
     for name, n in sorted(summary, key=lambda x: -x[1]):
-        print(f"  {name}: {n}", file=sys.stderr)
+        t = truncated.get(name, 0)
+        print(f"  {name}: {n}" + (f"（其中 {t} 条 ⚠️截断）" if t else ""), file=sys.stderr)
+    if empty:
+        print("\n⚪ 空 / 读不了的 dump：" + "、".join(empty) +
+              "\n  → 按调用顺序对出是哪个账号。销号 / 封号也返回 success + 空数组（N-90），"
+              "覆盖表别直接标 ⚪，先用 user_info 查账号状态", file=sys.stderr)
+    if any(truncated.values()):
+        print("\n✂️ 有正文被截断的推文（标 [⚠️截断]）：拉取没传 verbosity=\"detail\" 的，重拉该账号；"
+              "detail 下仍截断（2000 字上限）→ 关键数字回原推 URL 核对", file=sys.stderr)
     warns = sorted((n, d) for n, d in earliest.items() if d > cutoff)
     if warns:
         print("\n🚨 窗口未回溯到 cutoff —— 这些账号有推文被静默漏掉，必须翻页补拉"
               f"（cutoff={cutoff.strftime('%Y-%m-%dT%H:%M:%SZ')}）：", file=sys.stderr)
         for name, first_dt in warns:
             print(f"  ⚠️ @{name}: 已拉到的最早一条 {first_dt.strftime('%Y-%m-%dT%H:%M:%SZ')} 仍晚于 cutoff"
-                  f" → 用 next_cursor 再拉一页，连同已有 dump 一起重跑本脚本", file=sys.stderr)
+                  f" → 用 next_cursor 再拉一页，连同已有 dump 一起重跑本脚本"
+                  f"（翻页返回空数组 = 已到底，这条告警可忽略；N-91：has_next_page 不可信）", file=sys.stderr)
 
 
 if __name__ == "__main__":

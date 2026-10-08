@@ -35,7 +35,7 @@ Use the previous successful report in this task as the comparison baseline. If n
 
 Refresh every asset's Followin-covered project/news events, live price and 24-hour market data, technical indicators, KOL calls, current trader positions, and new trader actions. Deduplicate events and posts, keep event time separate from publication time, and distinguish current long/short posture from open/add/reduce/close actions.
 
-Output the report using the skill's report-format reference. Include effective window, timezone, data timestamps, sample sizes, missing leaves, and Followin request IDs. Followin failure must be disclosed; never invent current data. Do not place orders or provide unconditional buy/sell instructions.
+Output the report using the skill's report-format reference. Include the effective window and timezone; surface data timestamps, sample sizes, and missing leaves only when they affect a conclusion. Keep Followin request IDs out of the report unless a call failed and needs diagnosis. Followin failure must be disclosed; never invent current data. Do not place orders or provide unconditional buy/sell instructions.
 ```
 
 ## Completion confirmation

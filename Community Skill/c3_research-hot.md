@@ -40,8 +40,9 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 > ✅ **传 `time_range="7d"`**（N-37 已于 2026-08-03 修复）。返回会带 `date_from`/`date_to`/`time_scope`——**对外文案的日期区间必须引用这两个返回值，不要自己算**。
 > ⚠️ 若某次返回 `time_scope` 不是 `report_date_window`，说明窗口没生效，此时**退回累计表述**，不要硬写「本週」。
 
-> ⛔ **样本闸（2026-10-05 实测）**：发稿前另核三项——① `eligible_event_count` ≥ 30；② Top 5 中至少 3 行 `distinct_institution_count` ≥ 2；③ 榜面最大 `latest_report_date` 距 `date_to` ≤ 3 天。任一不过 → 不发「本週」榜，改传 `time_range="30d"` 重拉（+1 额度），抬头写「近一個月研報點名榜｜date_from–date_to」，并在产出末尾附内部提醒「⚠️ 研报库最新入库停在 MM/DD，本周窗口仅 N 篇」（不进对外贴文）。
+> ⛔ **样本闸（2026-10-05 立、2026-10-08 按 07-06 起 13 个完整周的分布校准，与 r0 层 1.5 同一口径）**：发稿前另核三项——① `eligible_event_count` ≥ 50；② Top 5 中至少 4 行 `distinct_institution_count` ≥ 3；③ 榜面最大 `latest_report_date` 距 `date_to` ≤ 3 天。依据：正常周入榜最少 105 篇（P10 约 125）、Top 5 每行都 ≥5 家、最新报告日距周末 0~2 天；10-05 停更现场是 6 篇 / 每行 1 家 / 7 天，两边都隔一个数量级。入榜 <105 篇时照常发榜，只在内部提醒里注明「本週樣本偏少」。任一不过 → 不发「本週」榜，改传 `time_range="30d"` 重拉（+1 额度），抬头写「近一個月研報點名榜｜date_from–date_to」，并在产出末尾附内部提醒「⚠️ 研报库最新入库停在 MM/DD，本周窗口仅 N 篇」（不进对外贴文）。
 > 实测背景：2026-10-05 的 `7d`（09-28→10-05）只有 **6 篇**、Top 10 每行都是 **1 家机构**（全是瑞银 09-28 同一批），`date_from=09-29` 起 `eligible_event_count:0`——研报库 09-29 后未再入库；等长的上一周（09-21~09-27）有 140 篇（r0 同日实跑）。不加闸会把"瑞银一天的报告"写成「本週研報點名榜」。
+> 2026-10-08 复跑（研报库已恢复）：`7d`（10-01→10-08）`eligible_event_count:69`、重排后 Top 5 机构家数 7 / 6 / 6 / 6 / 5、最新 `latest_report_date` 10-07（距 `date_to` 1 天），三项全过，正常发「本週」榜，未触发 30d 重拉。
 
 输出内容：**该窗口内**被点名最密集的标的（提及篇数/机构家数/目标价覆盖）。
 
@@ -49,10 +50,11 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 - **排名**：排序键依次为 `distinct_institution_count` 降序 → `mentioned_report_count` 降序 → 服务端 `rank`（以机构家数为先，避免同一机构多篇报告刷高排名；后两键用于打平手——2026-10-05 实测 7d 前 3 名同为 3 篇/1 家）。层 2 的"榜序"即指这个重排后的顺序。
 - **提及篇数**：该标的**在窗口内**被研报提及的总篇数——含 `subject_reports` 与 `mention_reports` 两层混算，见第 3 节分层说明。
 - **机构家数**：榜面覆盖该标的的独立机构数量。⚠️ **是上界**——钻取去重后常大幅缩水（实测榜面 23 家 → 钻取只见 3 家，N-38）。
-- **目标价覆盖**：`with_target_price` = 带目标价的**报告篇数**（同一机构多篇会重复计），对外只能写『N 篇報告附目標價』，不可写成家数。2026-10-05 实测：2330.TW 7d `with_target_price:2` 而 `distinct_institution_count:1`（两篇都是瑞银 TWD3650）；30d 为 17 篇 / 11 家。
+- **目标价覆盖**：`with_target_price` = 带目标价的**报告篇数**（同一机构多篇会重复计），对外只能写『N 篇報告附目標價』，不可写成家数；为 0 时写『本週無報告附目標價』。2026-10-05 实测：2330.TW 7d `with_target_price:2` 而 `distinct_institution_count:1`（两篇都是瑞银 TWD3650）；30d 为 17 篇 / 11 家。
+  ⚠️ **这个数也计入行业报告里顺带给的目标价**（2026-10-08 实测）：NVDA 7d（10-01→10-08）`with_target_price:1`，那 1 篇是花旗 10-06 的半导体行业报告（mention 层），花旗 09-28 的 NVDA 专题在窗口外。所以榜面"附目標價"≠ 层 2 能拿到专题目标价，层 2 照第 2 节只用 `subject_reports`。
 - **最近点名日期**：`latest_report_date`。✅ 与 `date_from`/`date_to` 一起用：前者是窗口边界，后者是这只票在窗口内最后一次被点名。
 - ⛔ **多空方向：不输出**。`mention_impact.dominant`（2026-08-04 前叫 `direction_counts`/`net_direction`）是 mention 层连带混算的假共识（N-39），不可当"机构看多"引用。要方向去层 2 用 `subject_reports[].rating_current` 重算。
-  ⚠️ **不要改用 `mention_reports[].rating_current` 顶替**——那是**该报告自己主角的评级，不是你查的票的**（实测查 NVDA，Goldman 的 `Neutral` 是给 ON 的、Nomura 的 `Buy` 是给 2454.TW 的）。`target_price.security` 字段写明了是谁的价，核对它。
+  ⚠️ **不要改用 `mention_reports[].rating_current` 顶替**——那是**该报告自己主角的评级，不是你查的票的**（实测查 NVDA，Goldman 的 `Neutral` 是给 ON 的、Nomura 的 `Buy` 是给 2454.TW 的；2026-10-08 复现：Nomura 10-05 报告 `rating_current:"Buy"` 是给 3406.TW 的，同篇对 NVDA 的 `mention_context.mention_rating` 是 `"Not rated"`）。目标价看 `matched_asset_target_price`（本标的）与 `report_subject_target_price`（报告主角）两个字段：subject 层的 `matched_asset_target_price.security` 写明是谁的价，核对它；mention 层的 `matched_asset_target_price` **不带 `security` 键**（2026-10-08 实测），无从核对。
 
 非美股 ticker（如 2330.TW、005930.KS）默认保留但标注市场（如"2330.TW（台股）"），运营可自行删除——榜单混入非美股不代表数据错误，只是新手社群以美股为主，交给运营取舍是否收录。
 
@@ -74,7 +76,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
 **选标的规则（2026-10-05 实测补）**：层 2 标的按层 1 榜序依次钻取——
 ① **`subject_report_returned_count`=0 的跳过、不计入篇数**，顺延到下一名；**最多钻取 5 次**。
-② 若两个标的返回的 `event_id` 重合 ≥2/3，只保留 subject 多的那个，另一个在其笔记的"最新動態"里带一句。
+② 若两个标的返回的 `event_id` 重合 ≥2/3（以两者中返回篇数较少的一方为分母），只保留 subject 多的那个，另一个在其笔记的"最新動態"里带一句。2026-10-08 实测：NVDA / META / INTC 两两最高重合 5/10（NVDA 与 META，同一批 AI 产业报告），未触发。
 ③ 最终一篇都凑不出时，本周不出层 2，并在内部提醒说明原因（不进对外贴文）。
 > 实测背景：2026-10-05 `7d` 榜 Top 3 = 2330.TW / INTC / NVDA，INTC 与 NVDA 的 subject 均为 0，三者返回的 event_id 集合几乎一样（{002,005,006} / {002,005,006} / {002,003,005}，同一批瑞银报告）——不加这条会把同一批报告改写成三篇"不同"的笔记。
 
@@ -112,9 +114,12 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 2. **一句話先懂**（≤40 字）：提及篇数+机构家数+目标价区间 vs 现价涨幅，一句话说完
 3. **最新動態**：近期催化新闻/事件；渲染时可拆成"最新動態"（事件本身）+「推特風向」（社群怎么说，2-4 条 🐦 bullet，对应 T-1 样例的实际排版）两个视觉段落——**最新動態**固定调 1 次 `news(query="<公司英文名>", sources=["media"], sort_by="relevance", time_range="7d")`（0 额度）；**推特風向**只在本周已跑过 c4 温度计时复用其推特层结论，**没跑就整段省略，不另调 signal / 推特**（2026-10-05 实测：未跑 c4 时此段无任何素材来源）
 4. **機構怎麼看**：多机构目标价区间标准化（如"$288–350"）+ 参与家数 + 分歧幅度 + 对现价的上行/回撤幅度——**现价直接用层 2 调用里（query 带"行情"）一并返回的 `market.snapshot` 就地计算，不再额外调用 metrics 查现价**（见第 3 节）。
-   现价须注明时点：快照 `_quote_session` 为 `regular_inactive` 时写「MM/DD 收盤」（实测 2026-10-05 周一盘前，INTC 快照为 10/02 收盘 119.33，盘前 `extendedHoursQuote` 已在 114 附近）。非美股按 `matched_asset_target_price.currency` 标币别（如 NT$），**不用 $**——台股快照本身不带 `currency` 字段
+   现价须注明时点：快照 `_quote_session` 为 `regular_inactive` 时写「MM/DD 收盤」（实测 2026-10-05 周一盘前，INTC 快照为 10/02 收盘 119.33，盘前 `extendedHoursQuote` 已在 114 附近）。**没有 `_quote_session` 时看 `as_of`**（N-139）：落在美东 9:30–16:00 内写「截至 MM/DD HH:MM 美東（台北 HH:MM）」，否则写「MM/DD 收盤」——2026-10-08 美东 10:09 盘中实测，NVDA / META / GOOGL / INTC 四只快照**都没有** `_quote_session`。非美股按 `matched_asset_target_price.currency` 标币别（如 NT$），**不用 $**——台股快照本身不带 `currency` 字段。
+   每条机构观点标**报告日期**（如「花旗 9/28」）；最新一篇 subject 距 `date_to` 超过 21 天时，段落抬头改写「機構怎麼看（最近一篇專題報告是 MM/DD）」（N-142；2026-10-08 实测 INTC 30d 唯一 subject 是花旗 09-16，已 22 天）
 5. **空方在擔心什麼**：研报 risks + bear scenario
-6. **接下來看什麼**：catalysts 时间线。`time_std.sort=="9999"` 的催化剂（N-41 哨兵值，实测 2026-10-05 台积电"Q326 财报"即是）**不进时间线排序**，按 `time` 原文写「日期待公司公告」
+6. **接下來看什麼**：catalysts 时间线。`time_std.sort=="9999"` 的催化剂（N-41 哨兵值，实测 2026-10-05 台积电"Q326 财报"即是）**不进时间线排序**，按 `time` 原文写「日期待公司公告」。另两类同样不按 `sort` 写日期（2026-10-08 实测）：
+   - `time_std.type` 以 `relative` 开头（`relative` / `relative_window` / `relative_range`）：`sort` 填的是**报告日**不是事件日（N-154 ③）——实测 META 摩根大通 09-24 报告的 Watermelon 模型 `time:"in the coming weeks"`、`sort:"2026-09-24"`。写成「X 9/24 報告稱『未來幾週』」＋「日期待公司公告」。
+   - `sort` 早于 `date_to` 的（事件已发生）：不进"接下來看什麼"，要用就挪到"最新動態"。实测 INTC 花旗 09-16 报告的两条催化剂（09-15 管理层讲话、09-16 路透报道）到 10-08 都已过去，"接下來看什麼"只能改从新闻里找后续节点。
 7. 今日名詞卡 + 免责声明
 
 **目标价必带家数+分歧幅度（约束所有对外模块的总则，c6 同条镜像）**：機構怎麼看段落的目标价必须标注参与家数与分歧幅度，禁止只给单一均值——单均值误导性大（公开研究页的常见毛病），这条规则同样约束 bundle 内所有对外模块。T-1 样例的"三家大行目標價落在 $288–350"就是标准写法。**仅 1 家机构时**写「目前僅 X 一家給出目標價，無法比較分歧」，不硬凑区间（2026-10-05 实测：2330.TW `7d` 只有瑞银一家）。
@@ -123,7 +128,7 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 
 以下是 T-1 样例（2026-07-22 已核可，逐字收录作为层 2 基准示例。实际产出照此排版：纯文字＋emoji，不套 markdown 加粗/标题/表格，层级靠 emoji ＋ 空行 ＋「｜」——S-9 镜像）：
 
-> ⚠️ **本样例的数字是 2026-07-22 跑的累计口径**，所以首句保留「累計」——**改标签而不重跑数据等于编造**（`references/community-post-style.md` T-1 同条）。2026-10-05 只把抬头改成层 2 的「研究筆記」。**新稿**首句写「本週（date_from–date_to）被點名 N 篇、M 家機構」（样本闸不过时写「近一個月」），机构观点段标「近 30 天」，现价标「MM/DD 收盤」。排版、语气、七段结构仍是逐字基准。
+> ⚠️ **本样例的数字是 2026-07-22 跑的累计口径**，所以首句保留「累計」——**改标签而不重跑数据等于编造**（`references/community-post-style.md` T-1 同条）。2026-10-05 只把抬头改成层 2 的「研究筆記」。**新稿**首句写「本週（date_from–date_to）被點名 N 篇、M 家機構」（样本闸不过时写「近一個月」）——N / M 与这里的日期取**层 1 榜面**的返回值，目标价取层 2 的 `30d` 钻取，两个窗口不同，首句里分开说（例：「本週（10/01–10/08）被研報點名 14 篇、榜面 7 家機構；近 30 天只有花旗一家給目標價 $315」）；机构观点段标「近 30 天」，现价按第 4 段注明时点。排版、语气、七段结构仍是逐字基准。
 
 ```
 📌 研究筆記｜NVDA 輝達
@@ -196,7 +201,8 @@ args: ticker(可选，指定则跳过榜单直接出笔记)
 - **meta.warnings 与成败判定（2026-10-05 实测改写）**：每次调用（层 1 聚合榜、层 2 detail 钻取）后读一次 `meta.warnings`，但**成败不看 warning**：
   - 层 1 榜单调用**必带** info 级 `ticker_unresolved`（`"No ticker was resolved from query …"`）——这是无 ticker 的聚合模式，属正常，忽略。成败看 `results.fundamentals.research_report_most_mentioned[0].items` 是否非空（注意：榜单**不在** `research_reports` 下）。
   - 层 2 成败看 `results.fundamentals.research_reports` 中 `query_ticker`==本标的的块是否存在（N-86 认块）。
-  - 截断看 `meta.pagination.fundamentals.research_reports.has_more`，不靠 warning。此前预期的 `research_report_limit_capped` 键实测从未出现。
+  - 截断看 `meta.pagination["fundamentals.research_reports"].has_more`（键名本身含点，N-142），不靠 warning。此前预期的 `research_report_limit_capped` 键实测从未出现。
+  - `has_more:true` **不等于还有 subject 没拿到**：分页按 subject 优先排序（N-142），首页只要出现 `mention_reports`，subject 就已见尽，**不要为找 subject 翻页**（翻页每次 1 额度）。2026-10-08 实测 NVDA / META / GOOGL / INTC 30d 首页都是 `has_more:true`，subject 分别 2 / 1 / 0 / 1、其余全是 mention。
   - ⚠️ N-21 仍适用：研报调用若出现 `default_fanout_fallback` warning 是**假阴性**，不要据此判定失败或重试——重试白烧额度。
 
 - **S-5 多空平衡**：

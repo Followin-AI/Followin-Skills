@@ -54,21 +54,31 @@ Do not block setup for missing optional accounts. Start with symbol-level Follow
 - **Evening run**: at or near 21:00, use the same delta rule. Emphasize the day's developments and overnight risks.
 - **On-demand run**: use a user-specified window; otherwise use 12 hours and label it an immediate snapshot.
 
+If the user explicitly asks for a 早报 or 晚报 away from its slot (for example “早报” at 22:00), use that template with the 12-hour on-demand window and label it an immediate snapshot rather than “overnight”.
+
 If automation is unavailable, run one report immediately and say that no recurring task was created.
+
+**Time zones.** Followin times are UTC: `news.published_ts` is epoch milliseconds, `trader_position.event_time` ends in `Z`, hourly candle `date` strings and daily indicator dates are UTC without a suffix. Convert to the user's timezone before comparing with the report window or printing a time; a daily indicator dated today covers the UTC day, i.e. from 08:00 Asia/Shanghai.
 
 ## Followin data workflow
 
-Followin is the primary evidence layer. Explicitly use `asset_type="crypto"` for `metrics` and `signal`. `news` entity searches also accept `asset_type="crypto"` (re-tested against production on 2026-10-01; the earlier zero-result behaviour no longer reproduces), so pass it to keep same-name equities out. Batch no more than five symbols per structured call and compare returned symbols with the requested batch.
+Followin is the primary evidence layer. Explicitly use `asset_type="crypto"` for `metrics` and `signal`. `news` entity searches also accept `asset_type="crypto"` (re-tested against production on 2026-10-01; the earlier zero-result behaviour no longer reproduces), so pass it to keep same-name equities out — but it does not remove plain-word matches (2026-10-08 实测：`HYPE Hyperliquid` still returned a Seeking Alpha “AI drug discovery hype” stock article with `entity_filter_applied:true`), so the relevance check in step 2 still applies. Batch no more than five symbols per structured call and compare returned symbols with the requested batch: a watchlist symbol missing from a batch response is usually silent (`status:"ok"`, no warning).
 
 ### 1. Market and technical state
 
 For each batch of up to five watchlist assets:
 
-1. Call `metrics` for the live market snapshot: price, 24-hour change, 24-hour volume, and source timestamp.
+1. Call `metrics` for the live market snapshot with `verbosity="detail"` (for example `keywords=["BTC","ETH","SOL","HYPE","SUI"], query="行情", asset_type="crypto", verbosity="detail"`). 2026-10-08 实测：the crypto snapshot carries `change_percent_24h` only at `detail`; at the default `standard` it has just `price` and `volume_24h`. `as_of` is `null` in both, so record the call time as the snapshot time. `volume_24h` is in base-asset units (BTC 16,331 = coins, not USD); convert with `price` before quoting a dollar volume. Keep `query` to a plain intent word: an English query such as “price quote 24h change” also pulled ten hourly candles per asset plus a `default_fanout_fallback` warning.
 2. Call `metrics` for at least 30 days of price/technical context. Inspect trend, momentum, heat, and volatility indicators such as RSI, moving averages, MACD, ATR, and Bollinger Bands when available.
-3. Use the latest dated value for each indicator. Never combine values from different dates without saying so.
+3. Use the latest dated value for each indicator. Never combine values from different dates without saying so. The latest daily value is computed on the still-open UTC candle, so a “cross” or “reversal” seen only in today's value is intraday and should be worded that way.
 
-Put the symbols in `keywords` and only the intent in `query` (for example `keywords=["BTC","SOL"], query="技术指标"`, `asset_type="crypto"`). The technical response carries about 30 daily observations per indicator per asset — roughly 45 KB per asset as tested on 2026-10-01 — so request two or three assets per technical call, or process the result with a script instead of reading it into context.
+Put the symbols in `keywords` and only the intent in `query` (for example `keywords=["BTC","SOL"], query="技术指标"`, `asset_type="crypto"`). Pass `limit=2`: 2026-10-08 实测 `limit` now trims each indicator series to the latest N observations (it did not on 2026-10-01), and two points are enough to see a direction change. Each asset still carries a ~40 KB `price_data` string (about 721 hourly rows) that `limit` does not trim — five assets in one call returned ~200 K characters — so request two or three assets per technical call, or process the result with a script instead of reading it into context.
+
+Sanity-check the indicator set before using it (2026-10-08 实测):
+
+- If `close_50_sma`, `close_200_sma`, and `boll` (the 20-day middle band) are identical or nearly so, the long averages were computed on too short a history (HYPE returned 90.0413 for all three). Mark the 50/200-day averages unavailable for that asset and do not write any long-term moving-average break.
+- `mfi` is returned on a 0–1 scale although its description uses 80/20 thresholds; multiply by 100 before comparing.
+- The `price_data` header shows the source (“Binance kline data … Interval: 1d” vs hourly “Crypto price data”); it can differ from the snapshot's `provenance`, so do not mix its prices with the snapshot price.
 
 If a requested snapshot field such as 24-hour change or source timestamp is absent, mark that field unavailable. Do not substitute a daily-close calculation unless the returned candle timestamps define an exact 24-hour interval.
 
@@ -76,15 +86,19 @@ Do not use `metrics time_range` shorter than one day to infer a rolling intraday
 
 Translate indicators into three separate labels rather than one opaque score:
 
-- **Trend**: strong / improving / range / weakening, based on price relative to available moving averages plus MACD direction.
-- **Heat**: cool / neutral / hot / extreme. Treat RSI 70 as hot and 80 as extreme, but note that strong crypto trends can remain overbought.
-- **Volatility**: normal / elevated / extreme, using ATR and recent range only when available.
+- **Trend**: strong / improving / range / weakening, based on price relative to available moving averages plus MACD direction. Default reading: price above both the 50- and 200-day averages with `macdh` positive and rising = strong; `macdh` negative and falling, or price newly below the 50-day = weakening; price back above the 50-day with `macdh` rising = improving; price oscillating around the 50-day or the 20-day middle band = range. When the long averages are unavailable, judge from the 20-day band and MACD only and say so.
+- **Heat**: cool / neutral / hot / extreme. Treat RSI 70 as hot and 80 as extreme, but note that strong crypto trends can remain overbought. On the downside treat RSI ≤30 as oversold and ≤20 as extreme, and say “oversold” rather than “cool” when it matters.
+- **Volatility**: normal / elevated / extreme, using ATR and recent range only when available. Default reading when a day's high–low range is at hand: above 1.5× ATR = elevated, above 2.5× ATR = extreme; otherwise normal.
 
 These labels are primarily for internal synthesis. In the visible brief, summarize the technical state in one natural sentence. Mention at most one or two indicator values only when they are exceptional or decision-relevant, such as overbought/oversold RSI, a major moving-average break, a MACD reversal, an ATR spike, or a Bollinger breakout. Never print a mechanical indicator inventory.
 
 ### 2. News, events, and project developments
 
-Run one `news` search per asset using its canonical symbol and project name, with the report window, `sort_by="time"`, and a bounded result count. The mixed-source result may include media, X, Telegram, and indexed project material.
+Run one `news` search per asset using its canonical symbol and project name, with the report window, `sort_by="relevance"`, and a bounded result count (for example `query="HYPE Hyperliquid", asset_type="crypto", time_range="12h", sort_by="relevance", limit=15`). The mixed-source result may include media, X, Telegram, and indexed project material; `limit` applies separately to `articles` and `social`.
+
+Do not use `sort_by="time"` with a small `limit` for the window scan. 2026-10-08 实测：`sort_by="time", limit=10` over a 12-hour window returned BTC and ETH articles from only the last ~50 minutes (13:21–14:08 UTC), so every earlier event in the window was missed; `sort_by="relevance"` over the same window (tested with `sources=["twitter"]` for BTC and HYPE) spread across the full 12 hours. Use `time` only for a short “what just happened” check. If a quiet asset's results all fall inside the window and below the limit, the window was covered; if a busy asset fills the limit, say coverage may be partial.
+
+Keep only items about the asset itself: the title or body must name the project or `$TICKER` as the subject. Drop plain-word and passing mentions (HYPE matched “AI hype” stock articles; a SOL search returned an unrelated privacy-startup funding item).
 
 Classify each retained item as one of:
 
@@ -106,11 +120,19 @@ Call `signal` with category `kol_call`, query `consensus`, the watchlist batch, 
 - bullish, bearish, and neutral counts;
 - distinct source/post count after deduplication by `source_url`;
 - representative reasoning from higher-quality sources when returned;
-- whether the sample is balanced, one-sided, or too small.
+- whether the sample is balanced, one-sided, or too small (fewer than five distinct posts for the asset = too small; say so instead of naming a direction).
+
+Read the crypto aggregate carefully (2026-10-08 实测):
+
+- The consensus response is one aggregate for the whole batch. Per-asset numbers live only in `top_calls` rows (`symbol`, `bullish_count`, `bearish_count`, `mention_count`; no neutral field, so neutral = mention − bullish − bearish). `top_calls` holds at most five rows and non-watchlist symbols can take slots (`XAUt` appeared for a BTC/ETH/SOL/HYPE/SUI batch). A watchlist asset missing from `top_calls` has zero calls only when fewer than five rows came back; otherwise its count is unknown.
+- Crypto detail rows (`query="detail"`, `concise` and `standard` alike) carry `content`, `symbol`, `username`, `published_ts` but no `direction` and no `source_url`; the post URL sometimes appears at the end of `content`. Take direction only from `top_calls`, and deduplicate by `username` + `published_ts`.
+- Volume is thin outside BTC: a 12-hour window returned 3 posts for the five-asset batch, and 24 hours returned 5 (BTC 3, ETH 1, XAUt 1; none for SOL, HYPE, SUI).
 
 One post can fan out into multiple symbol rows, and short aliases can retrieve longer symbols such as `ETHFI` for `ETH`. Verify every returned row's canonical `symbol` against the requested asset and discard non-matches. If an aggregate contains non-matching symbols and cannot be recomputed safely, call the detail view, filter exact-symbol rows, and aggregate those rows; otherwise mark the asset-specific KOL sample unavailable. Deduplicate retained posts by `source_url`, or by author plus timestamp plus normalized content when no URL is returned. Do not call a one-sided sample “market consensus” without its sample size.
 
-Also search `news` with `sources=["twitter"]` over the report window for broader KOL analysis that may not be classified as a structured call. Search both the exact ticker and project name, then use `twitter` with `tweets_by_ids` to verify the full text, author, timestamp, engagement, and direct link for the final candidates.
+Also search `news` with `sources=["twitter"]` over the report window for broader KOL analysis that may not be classified as a structured call. Search both the exact ticker and project name — one query such as `"$HYPE Hyperliquid"` with `sort_by="relevance"` covers both — then use `twitter` with `tweets_by_ids` to verify the full text, author, timestamp, engagement, and direct link for the final candidates.
+
+Take the handle and link from the `tweets_by_ids` result (`author.userName`, `url`), never from the `news` row. 2026-10-08 实测：a `news` row showed `kol_info.name:"calebfranzen"` and a `twitter.com/CalebFranzen/status/…` URL, but the tweet's real author was `milkroaddaily` promoting a video about Caleb Franzen. Both `news` content and `tweets_by_ids` text can render a cashtag as a chain reference (`hyperliquid:native`, `solana:<address>`, `ethereum:0x…`); write it back as the ticker when summarizing. `tweets_by_ids` draws on a separate, much smaller Twitter quota (`limit` 10,000 vs the main pool), so verify only the final candidates in one batched call.
 
 Select two or three posts per high-attention asset when useful. Prefer original posts that contain a thesis plus data, reasoning, a time horizon, or a falsifiable condition. Aim for viewpoint diversity: fundamental/flow, technical/conditional, and risk/positioning where available. Exclude referral or exchange promotions, copied ATH commentary, pure price targets, self-congratulation, unrelated word matches, and claims whose supporting detail is not present. Do not rank a post solely by follower count or engagement. Preserve disclosures such as “holding HYPE” and distinguish a KOL opinion from verified market data.
 
@@ -119,6 +141,8 @@ Keep structured `kol_call` consensus and curated X analysis separate. A missing 
 ### 4. Trader positions and new actions
 
 Call `signal` with category `trader_position` for the watchlist batch. Retrieve the current active posture without forcing a short time filter, then use each position leg's `event_time` to identify actions inside the report window.
+
+An asset with no active legs is simply absent from the batch response — no group, no warning, `status:"ok"` (2026-10-08 实测：SOL and SUI dropped out of a five-asset batch). Write “当前榜上没有交易员仓位”, not “交易员没有仓位”.
 
 For each asset, keep these concepts separate:
 
@@ -131,7 +155,11 @@ For each asset, keep these concepts separate:
 
 A trader may hold simultaneous long and short legs. Count position legs for exposure, but count that person once for agreement and treat a two-sided trader as hedged/abstaining from the directional vote. Exclude null notional from dollar sums while retaining the leg count. All notional is bot-reported, not inferred margin.
 
-Do not equate “currently long” with “newly bought”. A long position with a `reduce` action is explicitly “still long but reducing”.
+Lead with distinct-trader agreement. Quote the notional ratio or `net_direction` only when no leg in the group has null notional and no single leg exceeds half of gross notional; otherwise say the dollar split is dominated by one position or incomplete. 2026-10-08 实测 ETH：three of four traders short, yet `net_direction:"long"` / long ratio 0.83 because one $1.0 M long outweighed the rest and two of the four legs had null notional. With fewer than three distinct traders, or a trivially small gross notional (HYPE returned one $100 leg as “100% long”), report the sample as too small rather than as a direction.
+
+Before quoting trader quality, apply the profile checks in the caveat register (N-59 group): treat `pnl_ratio_infinite=true` or `pnl_ratio` above 100 as unverifiable rather than strong (one tier-A profile showed a last-30-day ratio of 985,510), quote `n_trades` with any win rate, flag `current_symbol_caution=true`, and flag leverage ≥10x.
+
+Do not equate “currently long” with “newly bought”. `action` is the leg's latest action at `event_time`, which can be days old. Write “still long but reducing” only when that `reduce` falls inside the report window; an older one is “still long; last action was a reduce on <date>”, not a new development.
 
 ### 5. Optional watchlist inbox
 

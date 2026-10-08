@@ -2,7 +2,7 @@
 
 > **三份模板**：日报（按日期）+ 每标的笔记（累积，Tickers/）+ 每板块笔记（累积，Sectors/）。
 > 实际内容由 LLM 根据当日数据填充，模板只锁结构和命名。
-> ⚠️ 日报实际采用**两区骨架**（状态区 OVERWRITE + 事件流区 APPEND，见 SKILL Step 9.6）。下面的 Part 结构嵌进状态区。
+> ⚠️ 日报实际采用**三区骨架**（状态区 OVERWRITE + 事件流区 APPEND + 底部元信息区 OVERWRITE，见 SKILL Step 9.6）。下面的 Part 编号是内容块的名字，不是标题序号——模板 A 的标题直接写 Part 名。
 
 ## 日报固定 Part
 
@@ -30,28 +30,32 @@ batches: 1
 
 # YYYY-MM-DD 日报
 
-## 📍 拉取批次（每次拉取追加一行）
-| 批次 | 本地时间 | 窗口(UTC) | 覆盖 | 关键新增 |
-
 === 🟦 状态区（OVERWRITE 到最新）===
 
-## 0 TLDR（1-3 条本窗口最重要的）
+## TLDR（1-3 条本窗口最重要的）
 
-## 1 持仓快照（如有持仓）
+## 持仓快照（Part 0.5，如有持仓）
 | 标的 | 数量 | 成本 | 现价 | 浮盈/亏 | 本窗口信号 | thesis 健康度 |
 
-## 2 板块汇总
-| 板块 | 强度 | 本窗口催化 | 持仓连带 |
+## 板块汇总（Part 7）
+| 板块 | 强度 | 本窗口催化 | 持仓连带 | 反方信号 |
 
-## 5 决策摘要（含 Risk Budget，见 Part 6 结构）
+## 决策摘要（Part 6，含 Risk Budget）
+
+## 外部对照（Step 6.6，持仓 + 重点关注标的；0 帖写"外部池无样本"）
+| 标的 | roster 内 | 外部池 多/空/帖数 |
 
 === 🟨 事件流区（APPEND 批次块）===
 
 ## 📜 信号事件流
 ### 批次#1 — HH:MM（窗口 ...）
 #### 🔧 校准（如有修正：X 从 A→B）
-#### <按主题/板块分组的信号，每条带 @账号 + UTC + URL + verbatim 要点>
+#### <Part 1 共识主题 / Part 2 每账号深度，每条带 @账号 + UTC + URL + verbatim 要点>
 
+=== 📋 元信息区（OVERWRITE）===
+
+## 📍 拉取批次（每次拉取追加一行）
+| 批次 | 本地时间 | 窗口(UTC) | 覆盖 | 关键新增 |
 ## 📎 数据来源
 ## ✅ 收尾门禁
 - 账号覆盖表：N/N（逐个列 ✅/⚪/❌）
@@ -66,7 +70,7 @@ batches: 1
 ```
 A. 持仓策略表
 | 标的 | 浮盈/亏 | 多空源数 | Posture | 触发升级 | 触发降级 | 关键价位 |
-Posture：🟢 ADD/HOLD-conviction｜🟡 HOLD-attention/TAKE-PROFIT-watch/HOLD-meme｜🟠 TRIM/RE-EVALUATE｜🔴 EXIT-watch
+Posture（7 选 1，与 SKILL Step 10.5 同一套）：🟢 ADD/HOLD-conviction｜🟡 HOLD-attention/TAKE-PROFIT-watch｜🟠 TRIM/RE-EVALUATE｜🔴 EXIT-watch
 ⚠️ 每个 trigger/触发价/数量必须带 [数据] 或 [原则] 来源。
 
 B. 重点关注标的（未持仓）：2-3 个排序 + 理由 + 触发买入条件 + 与持仓关系。

@@ -4,6 +4,35 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-08 — 全仓复跑、四组首次审计、两套看盘阈值回测
+
+**起因**：10-05 后行情上游与研报库恢复。按用户要求一次做完三件事：① 首次审计 + 实跑 Premarket Tracker、Feed Manager、Trader Diligence、Crypto Watchlist Tracker；② 回测 04 / 05 看盘阈值、校准研报样本闸；③ 复跑所有"修完没再跑"的 Skill（Base 01–06、Earnings Screener、c1–c6、r0–r2、r4）。约 23 个子 Agent，美东 10-08 盘中实跑，每个 Agent 只改自己负责的文件，设计层面的取舍一律列为待拍板、不改。接口新行为登记为 caveats **N-157~N-173**。
+
+**跨 Skill 的共性修复**：
+1. 盘中快照普遍没有 `_quote_session`（N-157）：各 Skill 改为一律看 `as_of`，盘中标"盘中 美东 HH:MM"。
+2. 盘中日线含当天未收盘的一根（N-158）：SMA、波动率、周变动剔除这一根。
+3. 代码会被静默改写成别的资产（N-159）：补"请求代码 vs 返回 symbol"逐个比对。
+4. signal 单票钻取一律 `limit=50`（N-166）：默认 10 行会挤掉目标票的喊单、内部人只覆盖几周。
+5. 判事件时间用 news `sort_by="relevance"`（N-167）：默认按时间排看不到第一篇报道，c5 的时效闸因此会放过过期题。
+
+**新审计的四组**：
+- **Premarket Tracker**：原文从没教怎么取盘前价，定时任务的提示词模板里也没带任何调用规则；已补价格时点三级判定、调用纪律、`source_dead` 降级。
+- **Feed Manager**：推文正文默认截在 600 字（N-172）；`filter_tweets.py` 遇空 dump 会崩；收尾门禁的日期命令在 Linux 上可能静默放行；置顶旧推让"没拉全"告警永远不响。脚本已修并在临时 vault 里实测 8 个场景。
+- **Trader Diligence**（v1.7，测试端实测、待正式端复核）：不传 `limit` 时组汇总按截断后的行重算，方向会被算反；跨标的敞口改写"榜内可见下界"。
+- **Crypto Watchlist Tracker**：快照默认没有 24h 涨跌幅；新闻按时间排只覆盖最近约 50 分钟；交易员仓位按金额读会把方向读反（ETH 4 人里 3 人做空却显示净多）。
+
+**复跑后的主要修复**：
+- **c1**：ETF 过滤正则按 90 行真实榜单定稿（旧版漏 FBTC / DBA / BNO / USL / PSLV）；"代码不以 F/Y/W/U/R 结尾"只对 5 位代码生效（原写法误杀 F、UBER、EBAY）。
+- **03 / 06**：同步 c1 的发行商名单与合股预筛；06 补运行时段标注与 `source_dead` 降级。
+- **04**：稳定币 30 日变化只计两期都有值的币（原写法把缺上月值的币整笔算成新增，本次 54→51 分）。
+- **02 / 01**：盘后发布的财报后反应基准日；同行估值不比 PEG；盘中估值注明"按前收"。
+- **Earnings Screener v1.8**：财报日历单页只覆盖窗口最早一两天，补翻页、覆盖日期声明与新闻腿兜底；"已发但基本面块未更新"不再判成"这期还没发"（否则本周唯一过闸的 APLD 会被丢）。
+- **c2–c6 / r0–r4**：截断与覆盖声明、mention 卡评级不算到本标的头上、目标价按带 TP 的机构计家数、汇编闸补关键词与系列版本归并等，详见各文件。
+
+**阈值与校准**：
+- **研报样本闸**（r0 / c3 / README）：按 07-06 起 13 个完整周校准为入榜 ≥50 篇、榜首机构 ≥4 家（c3：Top 5 中至少 4 行 ≥3 家）、最新入库日距今 <3 天；失效时按原因分流（停更 → 最近 7 个有数据日；只是篇数少 → 30d）。
+- **04 / 05 看盘阈值**：回测 2023-01 起约 196 周。两套综合分对未来 4 / 12 周收益都没有预测力（BTC 秩相关 −0.15 / −0.22，黄金 0.13 / 0.10，均不显著），改阈值也换不来预测力，只能修正档位分布偏差。**阈值未改**，建议值待用户拍板。
+
 ## 2026-10-08 — sweep 门禁补三条日历 / 新闻写法
 
 - `tools/sweep-check.sh` 新增三条拦截（只看 staged 新增行，带 ❌ / 实测 / 旧写法 等标记的行放行）：

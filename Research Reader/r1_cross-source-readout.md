@@ -11,7 +11,7 @@ args: ticker(必填), window(可选，默认 30d，只作用于研报 report_dat
 
 **研报库单独不产信号，只产候选。信号是候选被跨源印证或证伪的那一刻才铸成的。**
 
-> **版本**：v1.1 ｜ **实测验证于 2026-07-29**（NVDA 全链路实跑）｜ **调用形态与字段名 2026-10-01 按生产端复测更新**（逐调用复测，未重跑全链路）｜ **2026-10-05 MU 全链路实跑后修订**（候选层窗口分支、闸 1 判据、内部人窗口、背离判据、口径声明）
+> **版本**：v1.1 ｜ **实测验证于 2026-07-29**（NVDA 全链路实跑）｜ **调用形态与字段名 2026-10-01 按生产端复测更新**（逐调用复测，未重跑全链路）｜ **2026-10-05 MU 全链路实跑后修订**（候选层窗口分支、闸 1 判据、内部人窗口、背离判据、口径声明）｜ **2026-10-08 NVDA / ACN 全链路复跑后修订**（signal 带 `limit=50`、单家候选按带 TP 家数计、同日不同 TP 去重、窗口内见尽判据、降级分支不跑步骤 2–4）
 >
 > ⚠️ 本文所有 ⚠️ 与阈值都是实测结果或明确标注的拍脑袋值，不是推断。MCP 行为会变。
 > 通用红线见 [`references/followin-mcp-caveats.md`](../references/followin-mcp-caveats.md)，本文内联的是镜像，冲突以该文件为准。
@@ -67,6 +67,7 @@ metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detai
 > ⚠️ **`time_range` 已于 2026-08-03 修复生效，可传**（`date_from`/`date_to`/`time_scope` 字段透明）。
 > ⚠️ `limit` 单页仍被 10 硬顶，但 **2026-08-12 起返回体带 `meta.pagination.next_cursor`，可翻页枚举完**（N-81 销案）——**没翻页才需要把家数标下界**。翻完了就可以直接写家数，不必再标下界。
 > ⚠️ **subject 排在 mention 前面**（2026-10-05 实测 MU）：首页 4 subject + 6 mention，subject 按日期倒序排完才轮到 mention（mention 里有比 subject 更新的日期）；带 cursor 的第 2 页 0 subject + 10 mention、仍 `has_more`。所以**首页 `mention_report_returned_count>0` 时，subject 大概率已全部给出**，家数统计可省翻页（单样本，口径声明里写「subject 已见尽、mention 未翻完」）。翻页页不带 `market.snapshot`。
+> 　**首页全是 subject 时**（2026-10-08 实测 NVDA：首页 10 subject + 0 mention，第 2 页仍 10 subject + 0 mention、日期 08-20~07-08 接着倒序）：只要首页**最旧一篇 subject 已早于窗口起点**，窗口内的 subject 就已见尽，**窗口内家数不必翻页**；翻页只会多出窗口外背景（NVDA 第 2 页多出 HSBC 08-20 TP 325→360）。口径声明写「窗口内 subject 已见尽、窗口外未翻完」。
 > ⚠️ **`meta.warnings` 会误报 `default_fanout_fallback`**（N-21）——**这是假阴性，不要据此重试**，重试白烧 1 额度。以 `results.fundamentals.research_reports` 是否存在为准。
 
 **返回结构**：`subject_reports`（主题报告，核心研究对象就是这支股）+ `mention_reports`（提及报告，主题是别的，只是点了名）。**至多 10 篇**——`report_returned_count` 不保证等于 10，有货才给（N-64，实测 F 只返回 3 篇）。
@@ -83,13 +84,15 @@ metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detai
    **判据：同机构 + 同日 + 同 TP，即使标题不同也须合并**（保留信息更全的一篇）。
    实测 INTC：Goldman Sachs 2026-07-23 两篇同为 TP 150——《…First Take: Strong quarter across the board…》与《…Strong quarter across the board, with margin upside…》，前者是盘后快评、后者是完整版。不合并会把 GS 算成两家。
    **跨日变体也要看**：Citi 07-23《2Q26 Earnings Quick Take》与 07-24《Transformation in Progress》同为 TP 130，是同一事件的快评+深度。跨日时不强制合并，但**按机构取最新一篇**即可自然消解。
+   ⚠️ **同机构同日、TP 不同**（2026-10-08 实测 NVDA）：Goldman Sachs 08-26《First Take: Solid quarter…》TP 285，同日完整版《Strong 2027 outlook…》TP 300、`matched_asset_target_price.old`=285——快评之后当天就改了价。上面的判据（同 TP）合并不了它，「取最新一篇」又因同日分不出先后。**取 `old` 等于另一篇 `new` 的那篇（后发版）**，另一篇丢弃；两篇都没有 `old`、分不出先后时，仍只算 1 家，TP 写成「$A / $B（同日两版）」，口径声明里注明。
 4. **按 `report_date` 过滤到 window 内**，并记下被滤掉几篇。窗口外的 subject **按机构取最新一篇**，列为「窗口外背景（日期）」，不进区间 / 中位 / 离散比计算。
 5. **分层**：只有 `subject_reports` 能用于评级/目标价统计（N-19）。`mention_reports` 只能当叙事背景，**其 `mention_context.rationale` 可引用为"某行业报告里被点名的理由"，但绝不能标成"机构评级"**。
    ⚠️ **`subject_reports=0` 是真实分支，必须处理**：实测 F(Ford) 返回 `report_returned_count=3`，**全部是 mention，subject 为 0**。
-   此时**不出读数卡**——候选层不成立。降级输出："本标的近期无专题研究，只在 N 份行业报告里被点名"，附 `mention_context.rationale`。
+   此时**不出读数卡**——候选层不成立。降级输出："本标的近期无专题研究，只在 N 份行业报告里被点名"，附 `mention_context.rationale`。**降级时步骤 2–4 不跑**（省 3 额度；四维对撞没有候选可撞）。
+   📌 降级输出可用的两个字段（2026-10-08 实测 ACN：9 篇全 mention、`has_more:false`）：`mention_context.mention_direction`（`beneficiary` / `negative` / `competitor`）按篇计数，写「n 篇看作受益、m 篇看作受损」；`mention_context.mention_rating`（如 GS 10-02 行业报告里标 ACN `"Buy"`、MS 07-16 标 `"Equal-weight"`）只写成「该行业报告顺带标注的评级」，**不进评级统计**——它是行业组的转引，不是这只票的专题结论。⚠️ 别和 `rating_current` 混：后者是报告主角的评级（实测 Bernstein 09-14 的 `rating_current:"Outperform"` 是给 Capgemini 的）。
    ⚠️ 但 **N-19 的「GOOGL subject=0」是时点现象不是恒定特性**：2026-07-23 实测 GOOGL subject=0，**2026-07-29 复测 subject=6**（Barclays/MS/Bernstein/Citi×2/GS）。**每次当场看返回，不要照抄历史结论。**
 
-> ⚠️ **窗口内可见 <2 家时**（2026-10-05 实测 MU：首页 4 篇 subject，30d 窗口内只剩 UBS 09-23 一篇）：候选层标「**单家候选**」，离散比写「不适用」，【候选层】只填这一家，窗口外背景照第 4 步列出。窗口内 0 家、窗口外有 subject 时同样出卡，但【领读】第一句写明「窗口内无专题研究」——这和第 5 步的 `subject=0`（全库都没有）不是一回事。
+> ⚠️ **窗口内可见 <2 家时**（2026-10-05 实测 MU：首页 4 篇 subject，30d 窗口内只剩 UBS 09-23 一篇）——**家数按带 `matched_asset_target_price.new` 的机构计**，没有 TP 的 subject 只列名、不算（2026-10-08 实测 NVDA：窗口内 Citi 09-28 TP 315 + UBS 09-28 回购快评，后者无 TP、无评级、`stance_normalized:null`，按机构数是 2 家，按 TP 只有 1 家）：候选层标「**单家候选**」，离散比写「不适用」，【候选层】只填这一家，窗口外背景照第 4 步列出。窗口内 0 家、窗口外有 subject 时同样出卡，但【领读】第一句写明「窗口内无专题研究」——这和第 5 步的 `subject=0`（全库都没有）不是一回事。
 > ⚠️ **TP 落在全街区间外 = 大概率已过时**：任一研报 TP 落在步骤 2 `consensus_price` 的 `[targetLow, targetHigh]` 之外，标「该 TP 大概率已被后续修正（研报库滞后）」，不作锚。实测 MU：Citi Research 08-07 TP 1,150 < 全街最低 1,200，而 `analyst_grades` 里 Citigroup 09-23 又有一次维持评级。
 > ⚠️ **财报前研究**：`report_date` 早于步骤 2 `earnings_surprise.report_date` 的报告一律标「**财报前研究，论点未经本季财报检验**」，并写进【领读】。实测 MU 9/30 发财报，10/5 研报库窗口内唯一一篇是 UBS 09-23 的财报前瞻——财报刚发的几天里这是常态，此时财报后的真动作只能从 `analyst_grades` 看。
 
@@ -101,10 +104,10 @@ metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detai
 | 目标价区间 | subject 卡的 `matched_asset_target_price.new` 集合（N-79：旧 `target_price` 已移除；mention 卡的 `report_subject_target_price` 是别家主体的价，禁用）| 必带家数；单均值禁用 |
 | **TP 离散比** | `max(TP) / min(TP)` | **>1.8x 告警**（水分族阈值，沿用库内口径）；窗口内 <2 家写「不适用」|
 | 评级动作分布 | `rating_action` 按前缀词归类后计数 | 区分 `reiterate`（维持）与真上调/下调。⚠️ 值是自由文本复合串（实测 `"reiterate Buy"`、`"reiterate Buy; remove Upside 90-Day Catalyst Watch"`），按开头的 reiterate / upgrade / downgrade / initiate 归类，分号后的名单动作单独读 `list_changes` |
-| 修正明细 | `revision_summary.by_name[]` | 带 `old_target_price` → `new_target_price` + `change_pct` 才算真修正 |
-| 研报侧假设 | subject 卡的 `consensus_diff` | 原文摘「该行 EPS / 营收假设较共识 ±X%」，供维度 4 用（实测 MU：UBS CY27/28 EPS 比共识高 28.8% / 63.7%，Citi FY27/28 比共识低 12.7% / 15.5%）|
+| 修正明细 | `revision_summary.by_name[]` | 带 `old_target_price` → `new_target_price` + `change_pct` 才算真修正。⚠️ 没有 `old` 时看同机构更早一篇：实测 NVDA Citi 09-28 TP 315 无 `old`，同机构 08-26 那篇是 300——写「较该行 08-26 的 $300 上调 5%（跨篇推算）」，不写成「无修正」 |
+| 研报侧假设 | subject 卡的 `consensus_diff` | 原文摘「该行 EPS / 营收假设较共识 ±X%」，供维度 4 用（实测 MU：UBS CY27/28 EPS 比共识高 28.8% / 63.7%，Citi FY27/28 比共识低 12.7% / 15.5%）。⚠️ 该键可能整个缺席（2026-10-08 实测 NVDA Citi / UBS 09-28 两篇公司快评都没有，`coverage_flag.missing` 写明「no explicit consensus comparison」）：写「该行未给共识对比」，不要拿窗口外的旧卡顶替 |
 
-> ⚠️ **评级用 `stance_normalized`**（实测见过 `positive` / `neutral`，行业报告为 null）计数，不再手工映射 `rating_current`——后者不归一（实测同时出现 `"Buy"` / `"BUY"` / `"Attractive"` / `"Overweight; Top Pick"`），只在 `stance_normalized` 缺失时才映射成多/中/空三档。
+> ⚠️ **评级用 `stance_normalized`**（实测见过 `positive` / `neutral`，行业报告为 null；**无评级的公司快评也是 null，且 `rating_action` / `rating_current` 两个键整个缺席**——2026-10-08 实测 NVDA UBS 09-28，这类篇不计入评级动作分布）计数，不再手工映射 `rating_current`——后者不归一（实测同时出现 `"Buy"` / `"BUY"` / `"Attractive"` / `"Overweight; Top Pick"`），只在 `stance_normalized` 缺失时才映射成多/中/空三档。
 >
 > ✅ **顺带拿**：query 带"行情"时，本步返回里有 `market.snapshot`（price / previousClose / change / marketCap / yearHigh / yearLow）。⚠️ **快照字段随 `verbosity` 变**（2026-10-05 实测）：本步是 `detail`，快照**另带** `changePercentage` / `priceAvg50` / `priceAvg200`；步骤 2（默认 standard）**不带**，需自算 `change ÷ previousClose × 100`。上行空间就地算，**不要再花额度查现价**。非交易时段返回的是上一常规收盘（`_quote_session:"regular_inactive"`）；盘前盘后另有 `extendedHoursQuote{bidPrice, askPrice, timestamp}`，引用时注明「盘前 / 盘后报价」，不与收盘价混写。
 >
@@ -185,10 +188,11 @@ metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_t
 ### 步骤 3 · 维度 3：谁在反着做（1 额度）
 
 ```
-signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional","trader_position"], asset_type="tradfi")
+signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional","trader_position"], asset_type="tradfi", limit=50)
 ```
 
-> ⚠️ **必须显式传 `categories`**（2026-10-01 实测，N-113）：只传 ticker 不传 categories 现在返回空（`status:"degraded"` + `no_match`），旧的"不传即 fanout 四类"（N-4）已失效。显式列出四类一次调用**仍只计 1 额度**。**不要假定四类恒在**——按实际返回的 key 判断（`trader_position` 在多数美股上没有数据，实测 MU / SNDK 均缺席）。
+> 🔴 **必须带 `limit=50`**（2026-10-08 实测，N-151 在本 Skill 的后果）：`limit` 按类别分别生效、默认 10。不带时 NVDA 的 `insider_trading` 10 行只覆盖 09-16~09-21 六天，**国会交易一行都没有**；带 50 后覆盖到 06-26，近 90 天里有 7 行国会交易、25 笔 S-Sale。照默认跑，「内部人近 90 天」「国会近 90 天 0 人」都是错的。仍只计 1 额度，返回约 5.5 万字符（超出工具输出上限会落盘，用脚本解析）。
+> ⚠️ **必须显式传 `categories`**（2026-10-01 实测，N-113）：只传 ticker 不传 categories 现在返回空（`status:"degraded"` + `no_match`），旧的"不传即 fanout 四类"（N-4）已失效。显式列出四类一次调用**仍只计 1 额度**。**不要假定四类恒在**——按实际返回的 key 判断（`trader_position` 在多数美股上没有数据，实测 MU / SNDK / ACN 均缺席；`kol_call` 也会整个缺席，实测 ACN）。`trader_position` 有数据时只作旁证：它是 `stock_perp` 永续合约仓位、不是正股，`profile.tier` 与喊单同一门槛（A 级含 `A+` 才进卡）（实测 NVDA 只有 1 个 D 级账户、$2.4 万多单）。
 > ⚠️ **不要带 `time_range`**：13F 是季度数据，带窗口会被整类拒绝；喊单上游只覆盖最近 24 小时，传 7d 也只有 24h 的帖子。
 
 **三类各自的读法与陷阱**：
@@ -196,8 +200,8 @@ signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institut
 | 类别 | 读什么 | ⚠️ 陷阱 |
 |---|---|---|
 | `kol_call` | 方向 + `kol_info.tier`/`signal_level`（A 级（含 `A+`）/ L1-L2 才进人眼）。方向计数在 `source_url` 去重后**再按 `username` 去重**，写「n 人 m 帖」——实测 MU 5 帖里 4 帖出自同一人，按帖数算会把一个人的观点放大成 4 条 | **N-40 死穴：目标 ticker 自己的行可能整个不在返回里。** 实测查 NVDA 返 8 行，**无一行 `symbol=="NVDA"`**，而原帖 `"BUY: - $NVDA …"` 明明把它列在首位（2026-10-01 复测：查 MU 的返回里混着 NBIS / NOW / CTKB 的行，keywords 不会把喊单过滤干净）。**必须回读 `content`，不能只信 `symbol` 字段**；再按 `source_url` 去重（N-5：一帖按提及裂多行）|
-| `insider_trading` | 只认 `formType=="4"` 的 `P-Purchase`（买）与 `S-Sale`（卖）| `A-Award` / `G-Gift` / `F-InKind` / `M-Exempt` **不是主动交易**（授予、赠与、缴税代扣），剔除（实测 MU 财报日 9/30 有三笔董事 `A-Award`，`price:0`）。`formType=="3"` 是首次申报，非交易。<br>**国会交易与公司内部人混在同一个 key 下**：有 `_chamber` 字段（`house` / `senate`）、没有 `formType` 的行是国会交易，方向看 `type`（`Purchase` / `Sale`），日期用 `transactionDate`，披露滞后看 `disclosureDate`。⚠️ 不能按 `provenance` 分——2026-10-05 实测两类都是 `"fmp"`。<br>⚠️ 不传 `time_range`，客户端按 `transactionDate` 强制过滤（N-6）。**内部人与国会默认 90 天窗口**（与研报 window 解耦），模板写「近 90 天」。实测 MU：30 天内 0 买 0 卖，90 天内 3 人 4 笔卖出——窗口不定，结论就跟着变。<br>⚠️ **同一份 PTR 披露会裂成多行**：实测 Cleo Fields 一份 PDF 出 3 行（`assetDescription` 为 `"NVIDIA Corporation"` / `"(1)"` / `"(2)"`，link 与日期完全相同）。**按 (姓名, 日期) 去重算人数，按行算笔数**，否则 1 位议员会被报成 3 位 |
-| `institutional` | 绝对持仓（`holders[].shares` / `ownership_percent`）| ⛔ **申报季内禁引任何环比**（N-7）。实测 NVDA `investorsHolding` 2497 vs 上期 6234、`ownershipPercentChange −63.77%`、`putCallRatioChange +178%`——**全是回补未完成造成的残缺假信号**，不是真的机构跑了（这些是旧字段名，现已不存在）。<br>⚠️ **2026-10-05 实测现行结构**：`*_change_percent` 字段恒为 0，不可用；环比只用 `shares_change` 绝对值，且**仅当 `report_period` + 45 天（13F 申报截止）已过**——按 `report_period` 判，不按日历判「是不是申报季」。<br>⚠️ **同一 `cik` 可出多行**（实测 MU 里 SUSQUEHANNA 两行、股数不同），先按 `cik` 合并再排名 |
+| `insider_trading` | 只认 `formType=="4"` 的 `P-Purchase`（买）与 `S-Sale`（卖）| `A-Award` / `G-Gift` / `F-InKind` / `M-Exempt` **不是主动交易**（授予、赠与、缴税代扣），剔除（实测 MU 财报日 9/30 有三笔董事 `A-Award`，`price:0`）。`formType=="3"` 是首次申报，非交易。<br>**国会交易与公司内部人混在同一个 key 下**：有 `_chamber` 字段（`house` / `senate`）、没有 `formType` 的行是国会交易，方向看 `type`（`Purchase` / `Sale`），日期用 `transactionDate`，披露滞后看 `disclosureDate`。⚠️ 不能按 `provenance` 分——2026-10-05 实测两类都是 `"fmp"`。<br>⚠️ 不传 `time_range`，客户端按 `transactionDate` 强制过滤（N-6）。**内部人与国会默认 90 天窗口**（与研报 window 解耦），模板写「近 90 天」。实测 MU：30 天内 0 买 0 卖，90 天内 3 人 4 笔卖出——窗口不定，结论就跟着变。<br>⚠️ **先核覆盖再下「近 90 天」**：返回按申报日倒序、受 `limit` 截断，取最早一行的 `transactionDate`，晚于 90 天起点就改写「近 N 天（返回只覆盖到 <日期>）」。实测 ACN（2026-10-08）：默认 10 行全是 10-05 / 09-05 两批 `A-Award`、一行国会都没有；带 50 后 50 行仍只覆盖到 08-01（月度授予 `A-Award` 占掉大半），近 68 天里内部人 1 笔 68 股 `S-Sale`，国会 3 人（2 买 1 卖）——写「近 68 天（返回只覆盖到 08-01）」，不写「近 90 天」。<br>⚠️ **同一份 PTR 披露会裂成多行**：实测 Cleo Fields 一份 PDF 出 3 行（`assetDescription` 为 `"NVIDIA Corporation"` / `"(1)"` / `"(2)"`，link 与日期完全相同）。**按 (姓名, 日期) 去重算人数，按行算笔数**，否则 1 位议员会被报成 3 位 |
+| `institutional` | 绝对持仓（`holders[].shares` / `ownership_percent`）| ⛔ **申报季内禁引任何环比**（N-7）。实测 NVDA `investorsHolding` 2497 vs 上期 6234、`ownershipPercentChange −63.77%`、`putCallRatioChange +178%`——**全是回补未完成造成的残缺假信号**，不是真的机构跑了（这些是旧字段名，现已不存在）。<br>⚠️ **2026-10-05 实测现行结构**：`*_change_percent` 字段恒为 0，不可用；环比只用 `shares_change` 绝对值，且**仅当 `report_period` + 45 天（13F 申报截止）已过**——按 `report_period` 判，不按日历判「是不是申报季」。<br>⚠️ **`report_period` + 45 天未过时，连绝对持仓也不引用**（2026-10-08 实测 ACN：已切到 `2026-09-30`，只回 1 家 ROXBURY FINANCIAL、shares 0——新季度只有零星早报机构，拿它排名会得出「ACN 没有机构持仓」）。此时维度 3 的 13F 写「新季度申报未完成，不引用」。NVDA 同日仍停在 `2026-06-30`、50 家，可用。<br>⚠️ **同一 `cik` 可出多行**（实测 MU 里 SUSQUEHANNA 两行、股数不同；NVDA 里 SUSQUEHANNA 与 JANE STREET 各两行，`shares_change` 一正一负），先按 `cik` 合并再排名。这类做市商可能是正股与期权分行，返回里没有 put / call 字段分不出来，合并后也不进「谁在加减仓」的叙事 |
 
 **判定**：基本面/研报看多 × A 级 KOL 或内部人反向 → **分裂**，这是读数卡里最该顶出来的一行。
 
@@ -250,7 +254,8 @@ news(query="<公司名> <TICKER>", sources=["media"], sort_by="relevance", time_
 ① 共识：研报最高 TP $X vs 全街中位 $Z（+A%）、区间 $L–$H → 孤儿 / 不是孤儿
 ② 市场：现价 $P，日内 ±A%，距 52 周高 −B% → 无背离 / 轮动错杀 / 逻辑被否 / 尚不可判
    （依据：同行 <T1 ±x%、T2 ±y%>｜行业 ETF <±z%>｜<news 事实或"召回失败">）
-③ KOL·内部人：<A 级 KOL n 人 m 帖，方向> ｜内部人近 90 天 n 买 n 卖（仅 Form4 P/S）｜国会近 90 天 n 人 n 笔
+③ KOL·内部人：<A 级 KOL n 人 m 帖，方向> ｜内部人近 90 天 n 买 n 卖（仅 Form4 P/S）｜国会近 90 天 n 人 n 笔（买 a / 卖 b）
+   <返回没覆盖满 90 天时两处都改写「近 N 天（返回只覆盖到 <日期>）」>
    → 一致 / 分裂 / 无数据
 ④ 基本面：研报侧假设 <机构 EPS 较共识 ±X%>｜营收超预期 A%（主锚）｜EPS 口径：GAAP 一致 / ⚠️非 GAAP 错位（actual_eps vs epsDiluted）｜EPS 趋势 <方向>
 
@@ -260,10 +265,10 @@ news(query="<公司名> <TICKER>", sources=["media"], sort_by="relevance", time_
 · 盯什么反向信号：<具体到可观测的事件/数据，不是"关注市场变化">
 
 【口径声明】（强制，不可省）
-· 研报侧可见 N 篇（单页 10 篇，<已翻页至尽头 ／ subject 已见尽、mention 未翻完 ／ 仅取首页>），去重后 M 家；<window> 窗口滤掉 K 篇 subject —— **仅取首页时家数是下界，不是全街覆盖**
+· 研报侧可见 N 篇（单页 10 篇，<已翻页至尽头 ／ subject 已见尽、mention 未翻完 ／ 窗口内 subject 已见尽、窗口外未翻完 ／ 仅取首页>），去重后 M 家；<window> 窗口滤掉 K 篇 subject —— **仅取首页时家数是下界，不是全街覆盖**
 · 分析师家数由 analyst_grades 去重估算，consensus_price 本身不提供家数
 · <若有>news 召回失败，维度 2 判定不成立
-· <若有>13F 环比未引用（report_period + 45 天未过，或只有 *_change_percent 恒 0 字段）
+· <若有>13F 环比未引用（report_period + 45 天未过，或只有 *_change_percent 恒 0 字段）；新季度申报未完成时绝对持仓也不引用
 · <若有>引用的 caveats / risks / catalysts 等列表为截断后的前 n 条（全量见 detail_sections）
 ```
 

@@ -18,10 +18,15 @@
 VAULT="$KOL_VAULT"
 [ -d "$VAULT" ] || exit 0
 TODAY=$(date +%Y-%m-%d)
-# 跨平台 mtime → YYYY-MM-DD：先试 BSD/macOS，失败回退 GNU/Linux
+# 跨平台 mtime → YYYY-MM-DD：先试 GNU/Linux，失败回退 BSD/macOS。
+# ⚠️ 顺序不能反：GNU stat 的 -f 是"查文件系统"开关，BSD 写法在 Linux 上会把文件系统信息打到
+#    stdout 再报错退出（按 GNU 手册语义推断，未在 Linux 实机测）——mday 输出不是纯日期，连第一道
+#    "今天跑过日报吗"都判否，门禁在 Linux 上静默放行、从不拦（用仿 GNU 的 stat 垫片实测过这条链）。
+#    反过来 BSD stat 不认 -c，报错只走 stderr、stdout 为空，回退干净（macOS 实测）。
 mday() {
-  stat -f "%Sm" -t "%Y-%m-%d" "$1" 2>/dev/null && return 0
-  stat -c "%y" "$1" 2>/dev/null | cut -d' ' -f1
+  local d
+  d=$(stat -c "%y" "$1" 2>/dev/null) && { printf '%s\n' "${d%% *}"; return 0; }
+  stat -f "%Sm" -t "%Y-%m-%d" "$1" 2>/dev/null
 }
 
 DAILY="$VAULT/Daily/$TODAY.md"

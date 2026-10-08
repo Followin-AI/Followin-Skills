@@ -22,13 +22,13 @@ args: topic_or_ticker(可选，点名则跳过扫描)
 | 步骤 | 调用 | 额度 |
 |---|---|---|
 | 1 | `news(空 query, asset_type="tradfi", time_range="24h")` 趋势榜（hot 排序，实测 sort_by_effective="hot"） | 0（4h 窗口不可用，见下） |
-| 1b | 对每条候选 `news(query="<核心名词1> <核心名词2>", time_range="24h")`（搜索模式，**不传 asset_type**，见第 2 节步骤 3），用返回行的 `source_url` 域名数判断"多源"、用最早确认报道的 `published_ts` 判断"≤12h" | 0 |
-| 1c | 菜单候选 ≤5 只批量 `metrics(keywords=["<T1>",…], query="行情", asset_type="tradfi")` 取菜单里写的涨跌幅；不调则菜单不写涨跌幅 | 1 |
+| 1b | 对每条候选 `news(query="<核心名词1> <核心名词2>", time_range="24h", sort_by="relevance", verbosity="concise")`（搜索模式，**不传 asset_type**，见第 2 节步骤 3；**必须按 relevance 排**，理由见下方调用示例），用返回行的 `source_url` 域名数判断"多源"、用最早确认报道的 `published_ts` 判断"≤12h" | 0 |
+| 1c | 菜单候选 ≤5 只批量 `metrics(keywords=["<T1>",…], query="行情", categories=["market"], asset_type="tradfi")` 取菜单里写的涨跌幅；不调则菜单不写涨跌幅 | 1 |
 | 2 | `signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")` 喊单热度佐证 | 1 |
 
 步骤 1 只能用 24h 窗口：2026-07-22 实测 4h 返回 0 篇（`meta.warnings` 报 `asset_type_filter_emptied`，候选池太小被 tradfi 过滤器清空）。这与 N-10（`metrics()` 的 `time_range <1d` 返一个月前旧数据）是两回事，不要混为一谈。
 
-**趋势池很小，且趋势榜行不能直接当判据（2026-10-05 实测）**：tradfi 24h 只返回 3 个话题，`limit=30` 也不变（不分资产类别也只有 5 个），"按 `published_ts` 取最近"在这个规模下没有意义；趋势榜每个话题只有一条 AI 摘要，**没有 `source_url`**，判断不了信源是否独立；行上的 `published_ts` 是话题刷新时间，不是事件时间（实测两条不同话题的时间戳相同到毫秒）。所以"多源""≤12h"一律靠步骤 1b 判，**不跑 1b 的候选只能标 📌 或 🚫，不能标 🔥**。
+**趋势池很小，且趋势榜行不能直接当判据（2026-10-05 实测，2026-10-08 复测）**：tradfi 24h 只返回 3-5 个话题（10-05 为 3 个、10-08 为 5 个），`limit=30` 也不变，"按 `published_ts` 取最近"在这个规模下没有意义；趋势榜每个话题只有一条 AI 摘要，**没有 `source_url`**，判断不了信源是否独立；行上的 `published_ts` 是话题刷新时间，不是事件时间（10-05 实测两条不同话题的时间戳相同到毫秒；10-08 实测中东油价话题行显示 5.5 小时前，搜索到的最早确认报道在 15.1 小时前）。所以"多源""≤12h"一律靠步骤 1b 判，**不跑 1b 的候选只能标 📌 或 🚫，不能标 🔥**。
 
 步骤 1 的 asset_type 例外依据（N-1）：
 
@@ -45,11 +45,16 @@ args: topic_or_ticker(可选，点名则跳过扫描)
    # 趋势模式，quota=0；4h/1h 短窗口不可用（2026-07-22 实测 0 篇，asset_type_filter_emptied），固定用 24h
    # content 是 AI 摘要，只作选题；摘要里的数字常自相矛盾（2026-10-05 实测），事实与数字一律取 1b 的原文
 
-1b. news(query="<核心名词1> <核心名词2>", time_range="24h")
+1b. news(query="<核心名词1> <核心名词2>", time_range="24h", sort_by="relevance", verbosity="concise")
    # 每条候选一次，quota=0；不传 asset_type（理由见第 2 节步骤 3）
    # 多源 = 不同 source_url 域名 ≥2；时效 = 最早一条确认报道的 published_ts（传闻阶段 "nears deal / source says" 不算确认）
+   # 必须 sort_by="relevance"：默认按时间倒序，热门事件一页全是最近几小时的跟进稿，页内最早一条不是事件最早报道。
+   #   2026-10-08 实测中东油价：默认排序页内最早 3.1 小时前（limit=30 也只到 6.6 小时前），会误判 ≤12h；
+   #   relevance 排序首条就是路透「胡塞称袭击利雅得机场」15.1 小时前、「白宫要五角大楼备打击伊朗方案」18.4 小时前
+   # 核心名词用公司全名 / 专有名词，不要带常见词：2026-10-08 实测 "Webull House committee" 的 House 召回一页美国中期选举和房价新闻
+   # 页内仍是零星跟进稿、看不到首发的，读正文里的日期（"said on Thursday" / "6 日至 7 日"）再判，判不了按 >12h 处理
 
-1c. metrics(keywords=["<T1>","<T2>",…], query="行情", asset_type="tradfi")
+1c. metrics(keywords=["<T1>","<T2>",…], query="行情", categories=["market"], asset_type="tradfi")
    # 菜单候选 ≤5 只一批；涨跌幅自算 change ÷ previousClose × 100，盘前/盘后写法见第 2 节步骤 4
 
 2. signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")
@@ -96,7 +101,7 @@ args: topic_or_ticker(可选，点名则跳过扫描)
 | 步骤 | 调用 | 额度 |
 |---|---|---|
 | 3 | `news(query="<核心名词×2>", time_range="24h")` 补事件细节与推特层原文（**不传 asset_type**） | 0（实测） |
-| 4 | 受影响标的 ≤5 一批 `metrics(keywords=["<T1>","<T2>",…], query="行情", asset_type="tradfi")` 实时快照（含盘前盘后价） | 1 |
+| 4 | 受影响标的 ≤5 一批 `metrics(keywords=["<T1>","<T2>",…], query="行情", categories=["market"], asset_type="tradfi")` 实时快照（含盘前盘后价） | 1 |
 | 5 | （可选，重大事件；并购 / 临床数据类事件跳过）`signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional","trader_position"], asset_type="tradfi")` 或研报钻取加一层深度 | 1-2 |
 
 若触发时带 args `topic_or_ticker` 或从菜单选中编号，第 3 步的"核心名词×2"直接取自选中话题/标的名，跳过第 1 节的步骤 1、1b、1c、2（从菜单选中时，1b / 1c 的返回可直接复用）。
@@ -112,9 +117,11 @@ args: topic_or_ticker(可选，点名则跳过扫描)
    # 搜索模式，quota=0（实测）；核心名词直接取自菜单条目或点名内容；要权威报道可加 sort_by="relevance"
    # 搜索模式不传 asset_type：2026-10-05 实测同一 query 传 tradfi 召回从 8 条降到 2 条，路透 / 彭博 / WSJ 全部丢失且无 warning；asset_type 只在第 1 步趋势榜用
 
-4. metrics(keywords=["<TICKER1>","<TICKER2>",…], query="行情", asset_type="tradfi")
+4. metrics(keywords=["<TICKER1>","<TICKER2>",…], query="行情", categories=["market"], asset_type="tradfi")
    # 受影响标的批量快照；每批 ≤5，超出的写在 meta.warnings（keyword_count_over_max），分批补跑
+   # 一律加 categories=["market"]：只写 query="行情" 时是否附带基本面块不稳定（同 c1 调用形态铁律）
    # 快照没有涨跌幅字段，自算 change ÷ previousClose × 100；非交易时段返回的是上一常规收盘，标「最近收盤」：有 _quote_session 按它判；没有（^VIX、商品、多数小盘股，N-139）看 as_of，不在美东 9:30–16:00 内都算最近收盘
+   # 盘中（美东 9:30–16:00）price 就是实时成交价，按 as_of 标「截至 美東 HH:MM」；2026-10-08 实测美东 10:10 取数，XOM / CVX / UAL / DAL / SPY 都没有 _quote_session，也都没有 extendedHoursQuote（盘中不返这个字段，不是缺失）
    # 盘前/盘后：extendedHoursQuote 只有 bid/ask（无成交价、无涨跌字段），用 (bid+ask)/2 对比 price（上一常规收盘）自算，标「盤前報價約」/「盤後報價約」
    # 该字段可能整个缺失（2026-10-05 实测事件主角 PTC 连续 3 次缺失，同批 ADSK / PCVX 有）——缺失时只写「最近收盤 X」＋「本次未取得盤前報價，媒體稱…，以開盤實際報價為準」，不引用新闻里的百分比当数字
    # 外国公司用主挂牌代码（如 keywords=["SU.PA"]），OTC ADR 只作补充：2026-10-05 实测 SBGSY 停在上周五 +3.65%，同时 SU.PA 当天 −9.9%，方向相反
@@ -176,7 +183,7 @@ args: topic_or_ticker(可选，点名则跳过扫描)
 ```
 metrics(keywords=["<TICKER>"], query="财报 分析师评级", asset_type="tradfi")
 # 返回：fiscal_quarters[0]（earnings_surprise + financial_statement）/ consensus_price / next_earnings_estimate / analyst_grades / analyst_estimates / eps_trend
-# 要盘后快照另调：metrics(keywords=["<TICKER>"], query="行情", asset_type="tradfi")
+# 要盘后快照另调：metrics(keywords=["<TICKER>"], query="行情", categories=["market"], asset_type="tradfi")
 ```
 
 **字段名已换代（N-109）**：旧的 `beat_miss` / `latest_quarter` 两个 block 已不存在。超预期数据在 `fiscal_quarters[0].earnings_surprise`（`actual_eps` / `estimated_eps` / `eps_surprise_pct` / `actual_revenue` / `estimated_revenue` / `revenue_surprise_pct` / `report_date`），财报本身在 `fiscal_quarters[0].financial_statement`（`revenue` / `eps` / `netIncome` / `period_end`）。只返最新一季。≈1 点。
@@ -223,7 +230,7 @@ metrics(keywords=["<TICKER>"], query="财报 分析师评级", asset_type="tradf
 - **继承 c1 过滤规则**：继承 c1 第 4 节「异动榜过滤」与「代币化+加密噪音白名单剔除」两条，原文以 c1 为准，本节不另抄关键词表。在 c5 里，前者用于步骤 1c / 步骤 4 批量快照涉及的候选，后者用于步骤 1 趋势榜（实测混入代币化股票与加密资产，剔除后不进热点菜单）。
 
 - **速报时效红线（age gate，S-7 铁律 5 的强化版）**：c5 定位是"实时"热点，趋势榜按热度排序返回、常混多日陈货——混入一条几天前的陈货并当"刚发生"来写，是对新手社群的信任伤害，因此本模块把铁律 5 加严为机器核规则：
-  - **趋势榜行的 `published_ts` 是话题刷新时间，不是事件时间**（2026-10-05 实测：PTC 与 PCVX 两条话题时间戳相同到毫秒，都显示 0.05 小时前；实际 FT 传闻在 15.8 小时前、路透确认在 6.0 小时前、Vaxcyte 公告在 1.3 小时前）。时效一律取步骤 1b 搜索返回里**该事件最早一条确认报道**的 `published_ts`；传闻阶段（"nears deal / source says"）与确认阶段分开计时，以确认报道为准。
+  - **趋势榜行的 `published_ts` 是话题刷新时间，不是事件时间**（2026-10-05 实测：PTC 与 PCVX 两条话题时间戳相同到毫秒，都显示 0.05 小时前；实际 FT 传闻在 15.8 小时前、路透确认在 6.0 小时前、Vaxcyte 公告在 1.3 小时前）。时效一律取步骤 1b 搜索返回里**该事件最早一条确认报道**的 `published_ts`；传闻阶段（"nears deal / source says"）与确认阶段分开计时，以确认报道为准。1b 必须按 `sort_by="relevance"` 取——默认按时间倒序时，热门事件整页都是最近几小时的跟进稿，页内最早一条会把陈货误判成新事件（2026-10-08 实测，见第 1 节步骤 1b 注释）。
   - 扫描菜单的每一条候选，必须机器核对上述事件时间，用当前时间减去它算出实际间隔小时数——不是"读一眼发布时间字符串觉得看起来很新"这种肉眼估算，是拿两个时间戳做减法算出精确小时数。
   - 间隔 >12 小时的条目一律不得列入热点菜单，无论其热度分数或喊单量看起来多高。
   - 禁止肉眼估：不能凭"这条新闻感觉是今天的"这种主观印象判断，任何进入菜单的条目都必须能够回答"最早确认报道的 `published_ts` 是几点、距现在几小时"这个具体问题。

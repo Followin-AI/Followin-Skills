@@ -16,13 +16,14 @@ args: watchlist, positions, schedule, timezone
 - 有自动化工具时，创建或更新周期任务；先查找同名或同一 watchlist 的任务，避免重复。
 - 没有自动化工具时，立即运行一次同结构的盘前报告，并说明当前客户端不能创建周期任务。
 - Followin MCP 是主要证据层。不可用或鉴权失败时，明确说明，不得伪造 Followin 数据。
+- 行情上游整体失效时照样扣额度（N-156）：第 1 步快照兼作探针，返回 `status:"degraded"` + `severity:"source_dead"` 就跳过同一上游的其余行情 / 历史 / 内部人调用，对应段落写"缺数据"，不写"没有交易"或"无异动"。
 - Followin MCP 不执行券商订单。只输出条件化研究计划，不得声称已下单、成交或修改仓位。
 
 ## 先收集四项输入
 
 1. **Watchlist**：股票代码列表，例如 `DRAM, SNDK, MU, NOK, MRVL`。
 2. **Positions**：每只股票为空仓（无持仓）、多仓、空头或期权；已有仓位尽量记录数量、均价、止损和目标。用户只说“全部空仓”时，将所有标的视为仅观察。
-3. **Schedule**：默认美股交易日开盘前约 1 小时。Asia/Shanghai 时区在美国夏令时通常为工作日 20:30，冬令时通常为 21:30；创建任务时说明夏令时切换。
+3. **Schedule / Timezone**：默认美股交易日开盘前约 1 小时（美东 08:30）。用户未给时区时按其所在时区换算：Asia/Shanghai 在美国夏令时通常为工作日 20:30，冬令时通常为 21:30；创建任务时说明夏令时切换。
 4. **Destination**：默认回到当前任务；只有用户明确要求时才使用其他目标。
 
 用户为空仓时，不追问均价和数量。缺少非必要字段时先建立第一版任务，不要因过度澄清而停住。
@@ -66,34 +67,38 @@ http_headers = { "x-api-key" = "YOUR_API_KEY_HERE" }
 
 ## Followin 调用顺序
 
-所有美股调用都传 `asset_type="tradfi"`（`news` 也可以传——2026-10-01 实测正常返回，旧"传了返 0 篇"已不复现）。
+`metrics` 与 `signal` 的美股调用都传 `asset_type="tradfi"`；**`news` 搜索模式不传**——传了召回大降且不报警，路透 / 彭博 / WSJ 会整批丢失（N-145）。
 
-1. **`metrics` 市场层**：`metrics(keywords=[≤5 个], query="行情", asset_type="tradfi")` 取指数或 ETF 市场背景、自选股当前价/最近收盘、涨跌、成交量；历史走势用 `query="历史走势"` + `time_range`，技术指标用 `query="均线 指标"`。⚠️ 日线的 `change` / `changePercent` 是**当日收盘对当日开盘**，不是对前一日收盘（N-131）——多日涨跌和波动一律用相邻两天的 `close` 自算。
-2. **`metrics` 基本面层**：`metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_type="tradfi")` 一次拿快照、最新一季财报（`fiscal_quarters[0].earnings_surprise` / `financial_statement`）、下一次财报日期（`next_earnings_estimate.date`）与分析师评级；估值比率在不写 query 的默认返回里（`valuation_block.ratios_ttm`）。
-3. **`news(query="<主题词>", time_range="24h"~"7d", limit=N)`**：最近 24 小时到 7 天的重大新闻、公告与催化。返回是 articles + social 两桶（实际约 2N 条，N-25）。
-4. **`news(query="<标的/主题词>", time_range=…, limit=N)`**：市场级或标的级社媒热度看返回里的 **social 桶**；按原帖 URL 去重后再统计。
-5. **结构化研报走 `metrics(keywords=["<TICKER>"], query="research reports", asset_type="tradfi", date_from=…, date_to=…)`**（红线 12：query 必含研报意图词）。目标价、评级和结构化 thesis 仍以 `metrics` 为准。
-6. **`signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","institutional"], asset_type="tradfi")`**：**必须显式列出 `categories`**（2026-10-01 实测：省略后只传 ticker 返回空），三类一次调用仍只计 1 额度；不带 `time_range`（13F 带窗口会被拒，喊单上游只覆盖最近 24 小时）；喊单行按 `symbol` 自行筛并按 `source_url` 去重（一条推文提到多个标的会拆成多行，N-136），内部人按 `transactionDate` 自行过滤（国会议员交易带 `_chamber` 字段、滞后 2~4 周申报，按 `disclosureDate` 判新旧，N-137）。13F 的 `*_change_percent` 恒为 0，只用持仓绝对值（N-134 ⑦）。只解读实际返回的类别。
-7. **`twitter`**：仅在用户点名账号、指定推文或需要原始线程时使用，不拿它替代一般社媒搜索。
-8. **`subscription`**：用户要求维护 KOL 喊单关注收件箱时使用。它是拉取式未读箱，不是服务端主动推送。
+1. **`metrics` 市场层**：`metrics(keywords=[≤5 个], query="行情", asset_type="tradfi", verbosity="detail")` 取指数或 ETF 市场背景、自选股当前价/最近收盘、涨跌、成交量。必须用 `detail`：standard 不带 `changePercentage` / `priceAvg50` / `priceAvg200`（N-150）。盘前 / 盘后的个股报价在 `extendedHoursQuote`（只有 bid / ask / size / volume / timestamp，没有成交价和涨跌；三大指数没有，部分个股缺失，N-150），盘前价 = (bid+ask)/2，对快照 `price`（即上一 regular 收盘）自算涨跌。历史走势用 `query="历史走势"` + `time_range` + **`limit`**——不传 `limit` 时每只只回 10 根日线（2026-10-08 实测：`time_range="30d"` 每只 10 行），要 20 日高低点就传 `limit=25`。技术指标用 `query="均线 指标"`。⚠️ 日线的 `change` / `changePercent` 是**当日收盘对当日开盘**，不是对前一日收盘（N-131）——多日涨跌和波动一律用相邻两天的 `close` 自算；**日期等于今天（美东）的那根是未收盘的半截 K 线**，`close` 比快照滞后（2026-10-08 实测：美东 10:09 NVDA 日线 close 234.05、成交量 1486 万，同时刻快照 235.55、1761 万），自算时剔除，当日涨跌用快照 `price` 对 `previousClose`。
+2. **`metrics` 基本面层**：`metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_type="tradfi")` 一次拿快照、最新一季财报（`fiscal_quarters[0].earnings_surprise` / `financial_statement`）、下一次财报日期（`next_earnings_estimate.date`）与分析师评级；估值比率在不写 query 的默认返回里（`valuation_block.ratios_ttm`）。`next_earnings_estimate.date` 会跳季（N-149：TSLA 上季 07-22 公布，返回 2027-02-03），距上次 `report_date` 超过约 100 天就标"日期待核"，不写成确定日期。`analyst_grades` 不带时间窗（N-147），只把近 30 天的行当"评级变化"。
+3. **`news(query="<公司英文名> <TICKER>", time_range="24h"~"7d", limit=N)`**：每只标的一次调用，同时读两桶——articles 桶看重大新闻、公告与催化，**social 桶**看社媒热度（实际约 2N 条，N-25）；social 按原帖 URL 去重后再计数。公司名撞常见词或同名公司时（`PTC` 会混进 PTC Therapeutics / PTC Industries），逐条核正文是否为目标公司再计入。市场级热度另用同样写法搜主题词。
+4. **结构化研报走 `metrics(keywords=[…], query="research reports", asset_type="tradfi", date_from=…, date_to=…)`**（红线 12：query 必含研报意图词）。目标价、评级和结构化 thesis 仍以 `metrics` 为准。多标的一次调用时**所有标的共用一页 10 张卡**，靠前的标的会把后面的挤成 0 条（2026-10-08 实测：5 只同批 NVDA 6 + MU 4，TSLA 返回 0 且无 warning；TSLA 单独查有 3 篇）。判读：某标的为 0 且带 `no_research_reports` warning 才是"无研报"；为 0 但无该 warning、且 `meta.pagination` 里 `has_more:true`，按"被挤出"处理，单独补查或翻页。
+5. **`signal(keywords=[≤5 个], categories=["kol_call","insider_trading","institutional"], asset_type="tradfi", limit=50)`**：**必须显式列出 `categories`**（2026-10-01 实测：省略后只传 ticker 返回空），三类一次调用仍只计 1 额度；`limit` 对每类分别生效、默认 10，多票帖拆出的行会把目标票挤出（N-151），所以传 50；某类返回行数恰好等于 `limit`（内部人最常见）时说明被截断，拆成单票再查。不带 `time_range`（13F 带窗口会被拒，喊单上游只覆盖最近 24 小时）；喊单行按 `symbol` 自行筛并按 `source_url` 去重（一条推文提到多个标的会拆成多行，N-136），去重后 <10 帖不称"共识"，美股喊单方向结构性单边看多（N-100），只报帖数与原话，不报多空比。内部人按 `transactionDate` 自行过滤，卖出只认 `S-Sale`、买入只认 `P-Purchase`（`M-Exempt` / `F-InKind` / `A-Award` 是行权、代扣与授予，不是主动交易）；国会议员交易带 `_chamber` 字段、滞后 2~4 周申报，按 `disclosureDate` 判新旧（N-137）。13F 的 `*_change_percent` 恒为 0，只用持仓绝对值（N-134 ⑦）；季末后头几周会切到只剩零星几家的新季度（N-152），不据此判断机构动向。只解读实际返回的类别。
+6. **`twitter`**：仅在用户点名账号、指定推文或需要原始线程时使用，不拿它替代一般社媒搜索。
+7. **`subscription`**：用户要求维护 KOL 喊单关注收件箱时使用。它是拉取式未读箱，不是服务端主动推送。
 
 ## 每次报告的固定结构
 
 ### 1. 市场背景
 
 - 指数/ETF、行业主题和风险偏好；只写 Followin 实际返回的可验证数据。
-- 美国节假日或休市日明确写“今日休市”，不把最近收盘冒充当日盘前。
+- 美国节假日或休市日明确写“今日休市”，不把最近收盘冒充当日盘前。休市按美东日期判：周末或 NYSE 假日即休市；快照 `as_of` 与历史日线最后一根停在前一交易日只作佐证。
+- 运行时已过美东 9:30（补跑、延迟触发），报告标题改标"盘中快照"并写明 `as_of`，不再称盘前报告。
 
 ### 2. 单票追踪
 
 每只股票给出：
 
 - 盘前价或最近可验证价格、涨跌和成交量/异动。⚠️ `change` 是**美元变动量不是百分比**（N-47），百分比自算 `change/previousClose×100`，别拿 `change` 与新闻里的 % 交叉核实。
-- 关键技术位与触发条件。
+- 关键技术位与触发条件。技术位只取可复核的数：前收 `previousClose`、最近 10 / 20 个交易日收盘高低点（历史日线，剔除当日半截 K 线）、`priceAvg50` / `priceAvg200`、`yearHigh` / `yearLow`，以及事件价（收购报价、跳空前收盘、增发定价）；不写凭感觉画的支撑压力。
 - 最近催化、重大新闻、公司公告、财报/研报变化。
 - 去重后的社媒热度、KOL/内部人/机构信号及样本量。
 
-是否为旧收盘用**字段判据**判定，不用挂钟时间猜：返回里 `_quote_session=="regular_inactive"` / `_quote_cache=="last_regular"`（N-48）即是上一个 regular 收盘——盘前时段 `metrics` 返回的仍是旧收盘，输出一律标"最近收盘"，不得称为真实盘前价。有 `_quote_session` 字段就按它判（`regular_inactive` = 最近收盘）；没有这个字段（`^VIX`、外汇、商品和多数小盘股都没有，N-139）就看 `as_of`，早于今天或不在美东 9:30–16:00 内一律标"最近收盘"，不能因为字段缺失就当成实时价。
+价格时点用**字段判据**判定，不用挂钟时间猜，按下面顺序：
+
+1. **盘前报价**：快照带 `extendedHoursQuote` 且 bid / ask 都非空时，盘前价 = (bid+ask)/2，标"盘前报价（买卖中间价）"并注明 `timestamp`；涨跌对快照 `price` 自算。缺失时不用新闻里的百分比顶替，退到下一条。
+2. **最近收盘**：返回里 `_quote_session=="regular_inactive"` / `_quote_cache=="last_regular"`（N-48）即是上一个 regular 收盘——盘前时段快照的 `price` 仍是旧收盘，标"最近收盘"，不得称为盘前价。
+3. **字段缺失**：没有 `_quote_session`（`^VIX`、外汇、商品和多数小盘股都没有，N-139；2026-10-08 实测美东 10:09 盘中 NVDA / MU / TSLA / PTC / PCVX 与 `^GSPC` / `^IXIC` 全部不带）就看 `as_of`：落在今天美东 9:30–16:00 内才算实时价，早于今天或在此区间外一律标"最近收盘"，不能因为字段缺失就当成实时价。`^VIX` 的 `as_of` 会落在下一交易日盘前而数值仍是上一收盘（N-150），按"最近收盘"写。
 
 ### 3. 持仓对应计划
 
@@ -124,12 +129,19 @@ http_headers = { "x-api-key" = "YOUR_API_KEY_HERE" }
 
 每次运行输出简洁中文盘前报告：
 1. 市场背景：指数/ETF、行业主题和风险偏好。
-2. 单票：盘前价或最近可验证价格、涨跌/异动、关键技术位、近期催化、重大新闻、结构化研报变化、去重后的社媒与公开信号。
+2. 单票：盘前价或最近可验证价格、涨跌/异动、关键技术位（前收、10/20 日收盘高低、50/200 日均线、52 周高低、事件价）、近期催化、重大新闻、结构化研报变化、去重后的社媒与公开信号（标样本量）。
 3. 持仓计划：空仓给触发价、失效/止损逻辑、初始仓位范围与优先级；已有多仓、空头或期权则按持仓状态给条件化管理计划。
 4. 组合视角：当天优先关注的 1–2 个机会、需要回避的风险和相关性风险。
 5. 来源纪律：明确标注 Followin MCP 来源。Followin 不可用时直接说明，不得编造。
 
-美东 04:00 前没有真实盘前成交时，把价格标为最近收盘或实时快照；休市日明确写休市。Followin MCP 不执行订单，不得声称已经下单。
+调用纪律（每次运行都遵守）：
+- metrics / signal 传 asset_type="tradfi"，news 搜索不传；标的放 keywords 数组，每次 ≤5 个，调用后核对 meta.warnings 并把请求列表与返回行做差集。
+- 第一次行情调用兼作探针：status="degraded" 且 severity="source_dead" 时跳过其余行情 / 历史 / 内部人调用，对应段落写"缺数据"。
+- 行情用 verbosity="detail"。盘前价 = extendedHoursQuote 的 (bid+ask)/2，对快照 price 自算涨跌；没有 extendedHoursQuote 时，带 _quote_session="regular_inactive"、或 as_of 不在今天美东 9:30–16:00 内的价格一律标"最近收盘"。
+- 快照 change 是美元变动量；日线 change / changePercent 是收盘对开盘。当日涨跌用快照 price 对 previousClose 自算；多日涨跌用相邻两天 close 自算，剔除日期为今天的未收盘 K 线；历史日线显式传 limit。
+- signal 必须显式传 categories=["kol_call","insider_trading","institutional"]、limit=50、不带 time_range；喊单按 symbol 筛、按 source_url 去重，<10 帖不称共识；内部人只认 S-Sale / P-Purchase。
+- 研报多标的同批共用 10 张卡，某标的 0 条且没有 no_research_reports warning 时单独补查。
+休市日明确写休市。Followin MCP 不执行订单，不得声称已经下单。
 
 结尾给出下一次刷新条件，并注明仅供研究参考，不构成个性化投资建议。
 ```

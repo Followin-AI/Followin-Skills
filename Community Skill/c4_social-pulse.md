@@ -26,19 +26,21 @@ args: form(A=温度计 | B=讯号汇总，默认 A；说「汇总」「交易员
 
 | 步骤 | 调用 | 额度 |
 |---|---|---|
-| 1 | `signal(categories=["kol_call"], query="consensus", asset_type="tradfi")` 喊单聚合榜（总帖数 / 多空比 / top_calls） | 1 |
+| 1 | `signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")` 喊单聚合榜（总帖数 / 多空比 / top_calls；**必须带 24h**，见下） | 1 |
 | 2 | 对喊单榜 Top 3-5 逐个 `signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","trader_position"], asset_type="tradfi", limit=50, verbosity="concise")` 三类钻取（**不带 time_range**；**必须 limit=50**，见下；三类一次调用仍只计 1 额度；c4 不使用 13F，不列 institutional） | 各 1 |
 | 3 | （可选）`news(query="<TICKER> <公司名>", sources=["twitter"], time_range="24h")` 补推特层原文 | 0（实测） |
 
 signal 工具有四个类别：kol_call（喊单）、trader_position（实盘持仓）、insider_trading（内部人+国会议员交易）、institutional（13F 机构持仓）。**2026-10-01 实测三点，旧 N-4"不带 categories 一次拿全四类"已失效**：① 不传 categories 的 `query="consensus"` 只返 kol_call 一类；只传 ticker 不传 categories 返回空（`no_match`）——所以步骤 2 必须显式列出所需类别（c4 用 kol_call / insider_trading / trader_position 三类），一次调用仍只计 1 额度。② **喊单上游只覆盖最近 24 小时**：传 `time_range="3d"` / `"7d"` 返回的仍是 24h 口径并标 `partial`（warning 原文：`KOL upstream covers only the latest 24 hours`），这也解释了旧 N-13"3d 与 24h 结果完全一致"。对外表述一律写「近一日」，不写「本週」「近 7 天」。③ **多类钻取不要带 time_range**：内部人按 transactionDate 过滤后窗口内没有就整类消失（13F 带窗口会被整类拒绝 `parameter_unsupported`，c4 已不用 13F）。内部人的时间窗口改在客户端按 `transactionDate` 过滤。
 
+**步骤 1 为什么要带 time_range="24h"（2026-10-08 实测）**：不带时 `total_posts` 连续两次都正好是 50（疑似候选上限），同一时刻带 24h 是 57；榜单跟着变样——MU 5→6、带 1 则看空的 NBIS 整只消失、第 5 名在 SMCI / IREN 之间来回换。带 24h 返回 `status:"ok"`，不会像 3d / 7d 那样标 partial。步骤 2 的钻取仍然不带 time_range（理由同上 ③）。
+
 步骤 2 返回的 kol_call 行**不会按 ticker 过滤干净**（实测查 MU 混入 NBIS / NOW / CTKB 的帖子）——写作前必须按 `symbol == <TICKER>` 自行筛行。trader_position 在多数美股上没有数据（实测 MU / SNDK 均不返回该类；2026-10-05 实测 MU / SOFI / VST / CBRS / NKE 五只全部不返回，`status` 仍是 `ok`），返回里没有这一类就是没有，「真金白銀」格按第 3 节的降级规则处理。
 
-**步骤 2 为什么必须 limit=50（2026-10-05 实测）**：limit 对每一类分别生效，加大仍只计 1 额度。默认 10 行时会出两种截断：① kol_call——一条列了很多只票的帖子会拆成很多行，把目标票自己的行挤出去（实测 SOFI：默认 10 行全是同一条 11 只票清单帖拆出的 CRWV～UBER，按字母序截到第 10 行，`symbol=="SOFI"` 筛完为 0；limit=50 后出现 2 行 SOFI，其中一条带目标价）；② insider_trading——10 行只回溯到 3 周前，90 天窗口内的卖出被漏掉（实测 SOFI 漏了两笔 S-Sale）。**截断自检**：内部人返回最旧一行的 `transactionDate` 若晚于 90 天窗口起点，说明还没回溯完，不能写「近 90 天只有这些」。
+**步骤 2 为什么必须 limit=50（2026-10-05 实测）**：limit 对每一类分别生效，加大仍只计 1 额度。默认 10 行时会出两种截断：① kol_call——一条列了很多只票的帖子会拆成很多行，把目标票自己的行挤出去（实测 SOFI：默认 10 行全是同一条 11 只票清单帖拆出的 CRWV～UBER，按字母序截到第 10 行，`symbol=="SOFI"` 筛完为 0；limit=50 后出现 2 行 SOFI，其中一条带目标价）；② insider_trading——10 行只回溯到 3 周前，90 天窗口内的卖出被漏掉（实测 SOFI 漏了两笔 S-Sale）。**截断自检**：内部人返回里**最旧一条公司内部人行（不带 `_chamber` 的行）**的 `transactionDate` 若晚于 90 天窗口起点，说明还没回溯完，不能写「近 90 天只有这些」。议员行来自另一个子源、排在列表最后，不能拿来做自检（2026-10-08 实测 MU：最旧一行是 07-10 的议员买入，恰好落在窗口起点，但公司内部人其实只回溯到 07-24）。limit=50 也不一定够：高频分笔减持的公司，一份 Form 4 会按成交价拆成十几到二十几行（实测 MU CEO 08-21 一份申报 27 行、SNDK CEO 09-17 一份 15 行），50 行只够回溯 4-5 周；limit 已到上限，换 `sort_by="amount"` 也拉不到更早的（实测 SNDK 两种排序最旧的 Form 4 都停在 09-03）。**截断时对外改写实际覆盖范围**，如「9/3 以來」，不写「近 90 天」。
 
 **Top 3-5 怎么选（2026-10-05 实测）**：`top_calls` 并列时服务端排序不稳定——同一池子两次调用，4 只并列 2 次的票顺序不同。并列时依次按 A 级以上帐号数、独立帐号数排；**进入主体段的门槛是独立帐号 ≥2 或独立帖 ≥3**（按步骤 2 筛行 + `source_url` 去重 + 数 `username` 得出），不够的只在总览行写「並列」，不展开三格。实测周末池子 Top 5 里有 4 只各 2 帖、且都出自同一个帐号——这种不够格，宁可只出 1-2 只。
 
-frontmatter 的 mcp 声明含 `mcp__followin__metrics`，但上表三步核心序列本身不调用它——若运营想在温度计贴文里额外给某标的加一行即时价格/涨跌幅做视觉锚点，可选调用 `metrics(keywords=["<TICKER>"], query="行情", asset_type="tradfi")` 补一次快照（快照没有涨跌幅字段，自算 `change ÷ previousClose × 100`；**写明快照时点**——周末与美股开盘前 `as_of` 停在上一交易日收盘，`change` 是那天的涨跌，对外写「上週五收盤」这类时点，不写成「今天」；盘前/夜盘涨幅只能引 `extendedHoursQuote`）（不计入标称额度 ≈4-6/周，需另计 1 点）；没有这类展示需求时，三步核心序列完全不需要 metrics。
+frontmatter 的 mcp 声明含 `mcp__followin__metrics`，但上表三步核心序列本身不调用它——若运营想在温度计贴文里额外给某标的加一行即时价格/涨跌幅做视觉锚点，可选调用 `metrics(keywords=["<TICKER>"], query="行情", asset_type="tradfi")` 补一次快照（快照没有涨跌幅字段，自算 `change ÷ previousClose × 100`；**写明快照时点**——周末与美股开盘前 `as_of` 停在上一交易日收盘，`change` 是那天的涨跌，对外写「上週五收盤」这类时点，不写成「今天」；美股盘中跑时 `as_of` 是实时、`change` 是当天盘中涨跌，写「美東 X/X 盤中」，而喊单帖讲的多半是前一交易日的走势——2026-10-08 实测盘中 MU −2.0%，帖子说的是 10-07 的「Up 4%+」，两者不要写成同一天；盘前/夜盘涨幅只能引 `extendedHoursQuote`）（不计入标称额度 ≈4-6/周，需另计 1 点）；没有这类展示需求时，三步核心序列完全不需要 metrics。
 
 调用形态铁律（本序列全程通用）：
 
@@ -47,8 +49,8 @@ frontmatter 的 mcp 声明含 `mcp__followin__metrics`，但上表三步核心�
 每步 query 主形态调用示例：
 
 ```
-1. signal(categories=["kol_call"], query="consensus", asset_type="tradfi")
-   # 喊单聚合榜，1 额度；口径是最近 24 小时
+1. signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")
+   # 喊单聚合榜，1 额度；口径是最近 24 小时（不带 time_range 时 total_posts 封顶 50，见上）
 
 2. signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","trader_position"], asset_type="tradfi", limit=50, verbosity="concise")
    # 对步骤 1 喊单榜 Top 3-5（按上文门槛筛过）逐个钻取，温度计三格的素材皆出自这一步；不带 time_range；
@@ -77,11 +79,11 @@ spec 产出结构（逐字）：
 1. **标题**：📌 + 本週熱議溫度計 + 日期区间（「本週」只指发布节奏）
 2. **一句話先懂**（≤40 字）：近一日喊单最热的 1-2 个标的 + 整体多空比一句
 3. **模块正文**，分两段：
-   - **总览段**：近一日推特在吵什么——喊单聚合榜（Top 3-5 标的排名，并列照实写「並列」）+ 整体多空比一行，素材来自步骤 1 consensus 返回的聚合结果。**consensus 的计数按拆行算，不按帖子**（2026-10-05 实测：`total_posts:34`，按 `source_url` 去重后只有 24 条帖子；一条 11 只票的清单帖贡献了 11 个 bullish；buy 并进 bullish、sell 并进 bearish）——所以总览行写「多空提及比 X:Y」，不写「N 則喊單」；要写「N 則」须另跑形态 B 步骤 2 去重后自算
+   - **总览段**：近一日推特在吵什么——喊单聚合榜（Top 3-5 标的排名，并列照实写「並列」）+ 整体多空比一行，素材来自步骤 1 consensus 返回的聚合结果。**consensus 的计数按拆行算，不按帖子**（2026-10-05 实测：`total_posts:34`，按 `source_url` 去重后只有 24 条帖子；一条 11 只票的清单帖贡献了 11 个 bullish；buy 并进 bullish、sell 并进 bearish）——所以总览行写「多空提及比 X:Y」，不写「N 則喊單」；要写「N 則」须另跑形态 B 步骤 2 去重后自算（截断时写「至少 N 則」，见第 2.5 节）
    - **主体段**：对总览榜单 Top 3-5（按第 1 节门槛筛过）逐个给出温度计三格，每个标的固定三行：
      - 🐦 **推特情緒**：喊单多空比（如"多 8：空 2"，按筛行 + `source_url` 去重后的帖数）并注明「來自 K 個帳號」——同一帐号多帖不能写成「多人看多」；一帖列 ≥5 只票的清单帖只计入统计、不作代表观点 + A 级 KOL 代表观点正反各一句，注明 tier（如"（A 級 KOL）"）——正反都要放，不能只挑一边；反方只有 B 级帐号时写「反方僅見 B 級帳號 N 則」，不引原话
      - 💰 **真金白銀**：实盘持仓方向/人数/杠杆一句；统计前先过滤 tier 为空、notional 为 null 的行（第 3 节镜像）；标的属 stock_perp（代币化股票永续）时标注「鏈上股票永續交易員」而非「美股交易員」；过滤后样本仍太薄就直接写「本週實盤數據樣本太薄，不足以下判斷」，禁止硬凑（S-7 铁律 3 镜像）
-     - 🏢 **內部人動向**：近 90 天窗口，客户端按 transactionDate 过滤（第 3 节 N-6 镜像），只认 S-Sale（卖出）、P-Purchase（买入）两种；90 天内无符合条件记录就写「近 90 天無內部人申報異動」（先过第 1 节的截断自检）；同一返回里的议员交易（带 `_chamber` 字段）按第 3 节议员规则另起半句
+     - 🏢 **內部人動向**：近 90 天窗口，客户端按 transactionDate 过滤（第 3 节 N-6 镜像），只认 S-Sale（卖出）、P-Purchase（买入）两种；90 天内无符合条件记录就写「近 90 天無內部人申報異動」（先过第 1 节的截断自检，截断时把「近 90 天」换成实际覆盖起点）；同一申报人同一交易日的多行合并成一句（「8/21 共賣出 4 萬股、均價約 $969」），不按行数写「N 筆」——一份 Form 4 会按成交价拆成几十行；联合申报（夫妻 / 关联实体）会把同一笔交易各报一次（2026-10-08 实测 SMCI：Liang Charles 与 Liu Liang Chiu-Chu Sara 各报一笔 09-04 卖出 100,000 股，价格、申报后持股 437,506 完全相同），合计前按 `transactionDate` + `securitiesTransacted` + `price` + `securitiesOwned` 去重；同一返回里的议员交易（带 `_chamber` 字段）按第 3 节议员规则另起半句
 4. **接下來看什麼**（可选）：若某标的三格分歧巨大，提示下次跑温度计时留意哪个维度会不会收敛
 5. **今日名詞卡**
 6. **免责声明**（S-11 对外版逐字）："⚠️ 以上整理自公開研報與市場數據，僅做資訊分享，不構成投資建議。"
@@ -112,7 +114,7 @@ spec 产出结构（逐字）：
 MU 溫度計
 🐦 推特情緒：多 9：空 0（來自 4 個帳號）｜正：算力型 KOL（A 級）「DRAM 漲價週期才剛開始」｜反：暫無明顯反方聲音，一面倒偏多本身就是風險訊號
 💰 真金白銀：實盤僅 1 位交易員輕倉做多，槓桿 2x｜過濾無評級與空值後樣本仍偏薄，本週實盤數據樣本太薄，不足以下判斷
-🏢 內部人動向：近 90 天僅 CEO 兩筆 S-Sale（賣出），無 P-Purchase
+🏢 內部人動向：近 90 天僅 CEO 在兩個交易日賣出（S-Sale），無 P-Purchase
 
 跨源打架：情緒滿格 ≠ 大錢進場——推特一面倒看多，但真金白銀和內部人動向都沒有同步跟上。
 
@@ -133,7 +135,7 @@ MU 溫度計
 | 1 | `signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")` 拿聚合口径（总帖数/多空比/Top5 标的） | 1 |
 | 2 | `signal(categories=["kol_call"], query="详细仓位", asset_type="tradfi", time_range="24h", limit=50, verbosity="concise")` **不带 ticker** → 全市场原帖（旧实测曾带 `status:"partial"`；2026-10-05 实测为 `ok`） | 1 |
 
-**步骤 2 按 limit=50 拉全量**（2026-10-05 实测）：24h 池子通常不到 50 行，limit 数的是**拆行后的行**，不是帖子，而且 limit 小于池子时返回的**不是最新的 N 行**——旧写法 limit=20 返回 20 行只对应 15 条帖，漏掉了当期唯一一条看空帖，「空方」段因此写不出来；limit=50 返回 34 行，正好等于步骤 1 的 `total_posts`。**自检**：返回行数应等于步骤 1 的 `total_posts`，对不上就说明截断了。体积随池子大小浮动（实测 34 行 + concise 约 2.5 万字符；2026-07-23 旧实测 139 行 13.7 万字符，N-20），仍然**禁止直接读入上下文**。正确做法是客户端脚本聚合后只保留结构化摘要：按 `source_url` 去重（N-5：一条帖子会按提及的每个标的裂成多行，实测 139 行 → 96 条独立帖）→ 按 `symbol` 分组统计多空 → 提取 `conviction`/`target_price`/`is_recommended`/`kol_info.tier` → 只把摘要交给写作层。
+**步骤 2 按 limit=50 拉全量**（2026-10-05 实测）：24h 池子周末通常不到 50 行，limit 数的是**拆行后的行**，不是帖子，而且 limit 小于池子时返回的**不是最新的 N 行**——旧写法 limit=20 返回 20 行只对应 15 条帖，漏掉了当期唯一一条看空帖，「空方」段因此写不出来；limit=50 返回 34 行，正好等于步骤 1 的 `total_posts`。**自检**：返回行数应等于步骤 1 的 `total_posts`，对不上就说明截断了。**工作日池子会超过 50 行**（2026-10-08 周四实测：步骤 1 `total_posts:57`，步骤 2 只回 50 行，limit 已到上限），缺的照样不是最旧的几行（14:20 那帖在，14:42、16:26 两帖不在，其中一帖是 `is_recommended:1` 的 MU 加仓帖）。截断时：①「一句話先懂」与热度榜的「N 則」写「至少 N 則」；② 截断后某标的只剩 1 个帐号，不能据此写「只有一人在喊」——实测 MU 在这 50 行里只剩 1 个帐号 4 則，单票钻取实际是 3 个帐号 6 則；③ 当天同时跑了形态 A 的，热度榜 Top 3 的帖数 / 帐号数改用形态 A 步骤 2 的钻取结果。体积随池子大小浮动（实测 34 行 + concise 约 2.5 万字符；2026-07-23 旧实测 139 行 13.7 万字符，N-20），仍然**禁止直接读入上下文**。正确做法是客户端脚本聚合后只保留结构化摘要：按 `source_url` 去重（N-5：一条帖子会按提及的每个标的裂成多行，实测 139 行 → 96 条独立帖）→ 按 `symbol` 分组统计多空 → 提取 `conviction`/`target_price`/`is_recommended`/`kol_info.tier` → 只把摘要交给写作层。
 
 ### 聚合规则（决定这篇的成色）
 

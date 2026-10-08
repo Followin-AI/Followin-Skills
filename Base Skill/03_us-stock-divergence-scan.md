@@ -26,7 +26,7 @@ args: days
 | XX财报、XX earnings | ❌ 转 02 earnings-report |
 | 宏观日报、美股早报 | ❌ 转 06 morning-brief |
 
-> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文的调用写法和字段名于 **2026-10-03 实跑验证**；与登记表冲突时，以日期更新的一方为准。
+> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文的调用写法和字段名于 **2026-10-03 实跑验证、2026-10-08 复跑**；与登记表冲突时，以日期更新的一方为准。
 
 ## 调用约定（2026-10-03 实测）
 
@@ -58,10 +58,13 @@ args: days
 ```
 
 - 三张榜的行**只有** symbol / name / price / change / changesPercentage，没有市值也没有交易所，而且大量是仙股和杠杆产品（实测涨幅榜前 6 只有 5 只股价低于 6 美元）。
+- 不传 `include_penny_stocks` 时，股价低于 1 美元的票已被服务端去掉（2026-10-08 实测三张榜最低价 1.05~1.07 美元），不必再自己剔。
 
 ### Step 2: 榜单初筛 + 补市值
 
-1. **按名称剔杠杆、反向与 ETF 产品**：`name` 匹配 `(?i)\bETF\b|\bETN\b|Ultra|Leverag|\d+X\b|Bull|Bear|Daily|Short|Inverse|Target` 即剔（不区分大小写）。只判 "ETF" 一个词会漏——TQQQ 叫 ProShares UltraPro QQQ，RWM 叫 ProShares - Short Russell2000。代码为 5 个字母且以 `R` / `U` / `W` 结尾、名称含 `Acquisition Corp` / `Merger Corp` / `Right` / `Unit` / `Warrant` 的，按 SPAC 权证、权利证或单位剔掉（实测 GSRVR 是 GSR V Acquisition Corp. 的权利证，名称里没有 "Right"）。
+1. **按名称剔基金类产品（含杠杆、反向 ETF）**：`name` 匹配 `(?i)\bETFs?\b|\bETNs?\b|ProShares|Direxion|Leverage Shares|GraniteShares|Tradr|Defiance|T-Rex|MicroSectors|iPath|SPDR|iShares|Vanguard|Invesco QQQ|Grayscale|United States (Oil|Natural Gas|Gasoline)` 即剔（与 c1 晨报同一份名单）。只判 "ETF" 一个词会漏——TQQQ 叫 ProShares UltraPro QQQ，RWM 叫 ProShares - Short Russell2000，靠发行商名接住。**不要再单独用 `Ultra|Bull|Bear|Daily|Short|Inverse|Target` 当剔除词**：会误杀 Target Corp（TGT）、Ultra Clean（UCTT）、Daily Journal 这类正常公司。2026-10-08 实测三张榜去重后 86 行里的 20 只基金类产品，这份名单与旧词表剔得完全一致。
+   **SPAC 权证、权利证、单位**：代码为 5 个字母且以 `R` / `U` / `W` 结尾，**并且**名称含 `Acquisition Corp` / `Merger Corp` / `Right` / `Unit` / `Warrant` 的剔掉（实测 GSRVR 是 GSR V Acquisition Corp. 的权利证，名称里没有 "Right"；2026-10-08 跌幅榜 CCAQU −39%、ALISU −11% 两只 SPAC 单位按此剔除）。两个条件要同时满足：名称含 `Acquisition Corp` 但代码不符合的是 SPAC 普通股，留到本步第 5 条按 SPAC 规则处理。
+   **疑似合股**：`changesPercentage ≥ 200` 的直接剔，写进数据缺口（与 c1 同一规则：合股前后价格拼出来的假涨幅，c1 2026-10-05 实测涨幅榜前四 +699%~+2141% 全是这种，现价都在 3 美元以上，补市值前剔掉免得占名额）。
 2. **按最宽的信号门槛挑候选**（三个信号里最宽的是情绪错配的 ±5%，具体门槛到 Step 5 再卡）：
    - 涨幅榜：`changesPercentage > 5`
    - 跌幅榜：`changesPercentage < −5`
@@ -73,7 +76,7 @@ args: days
    metrics(keywords=[<T1>…<T5>], query="行情", asset_type="tradfi")
    ```
    快照行带 `marketCap` 和 `exchange`。⚠️ 快照的 `change` 是美元变动量不是百分比；涨跌幅沿用榜单行的 `changesPercentage`。
-   调用后对照请求清单：`results.market.snapshot[]` 里没有的 ticker 记为"取不到市值"，按不满足市值门槛处理并列入数据缺口。
+   调用后对照请求清单：`results.market.snapshot[]` 里没有的 ticker 记为"取不到市值"，按不满足市值门槛处理并列入数据缺口。**按 `symbol` 逐个比对，不要按返回行数**：代码会被静默换成别的公司——2026-10-08 实测 `ANTA`（Antalpha Platform）返回的是 `2020.HK` 安踏体育（市值 1,989 亿、`exchange:"HKSE"`），`filters_applied.keywords` 里也被改写成 `2020.HK`，没有 warning。这种情况记为该 ticker 取不到市值。
 4. **终筛**：`exchange` 属于 NYSE / NASDAQ / AMEX，且市值过对应信号的门槛。**不要用股价做门槛**（实测 GRAB 股价 3.31 美元、市值 131 亿美元，会被"低于 5 美元"误杀）。
 5. **公司行为、流动性与 SPAC 标记**（只对过了市值门槛的票做；不剔除，先标出来）：
    - `marketCap < price × volume`（市值比一天成交额还小），或 `yearHigh ÷ price > 5`：标"市值或价格疑受分拆 / 并股影响"。核实方法：看相关报道，或看 `previousClose` 是否已是分拆 / 并股后的价格——已调整的，当日涨跌幅照常使用。实测 CTVA 10-01 分拆，yearHigh ÷ price = 7.6，但前收盘已是分拆后价格，−5.2% 是真实跌幅；WHLR 并股后快照市值只有 6,309 美元。对过门槛前的全部候选做这一步会误标一大片小盘股（实测 50 只里 30 只），没有意义。
@@ -89,6 +92,7 @@ news(query="<CompanyName> <TICKER>", time_range="<days>d", limit=5)
 - query 用"公司名 + 代码"两个词，纯英文，不写"impact / 影响 / 解读"这类词。
 - 不要只用代码单查（短代码会撞上同名的词或公司）。
 - **怎么判"没查到"**：返回为空、`status:"degraded"`，或返回里一条都不含目标公司名或代码，都记 0，不要重试——同一个 query 重试、换措辞返回的都是同一批兜底内容。两只不同的票如果返回了一模一样的内容，说明两只都没查到，不是"有共同报道"。
+- **行情页、公司简介页不算报道**：例如 `fool.com/quote/…` 这类页面，`published_ts` 是抓取时间、正文是公司介绍，不讲任何事件。2026-10-08 实测 PCRX 当日 +44%，"Pacira BioSciences PCRX" 唯一沾边的一条就是它；换成 "Pacira acquisition" + `sources=["media"]` 再查，返回的还是这一页。
 - **不论 `meta.filters_applied.entity_filter_applied` 是 true 还是 false 都要逐条判断**：为 false 时是语义召回，无关内容比例更高；为 true 时也会混进无关内容（实测 SPCX 10 条里 6 条是被 "Space" 带进来的英国预算、仓储公司报道）。
 - **SPAC 要换名字查**：用榜单上的 SPAC 名称查几乎全是无关内容（实测 "Armada Acquisition Corp. II XRPN" 10 条里只有 1 条相关），用合并对象的名字查才准（"Evernorth XRPN" 10 条里 7 条相关）。先从第一次返回里那 1~2 条相关报道找合并对象的名字，再用"<合并对象名> <TICKER>"重新计数。找不到合并对象就不判 Unreported，放进报告末尾的"SPAC 合并行情"备注。
 - 对 Sentiment Mismatch 的候选，根据相关报道的标题和正文判断情绪方向，标"Claude 推断"。
@@ -107,6 +111,8 @@ metrics(keywords=[<T1>…<T5>], query="历史走势", asset_type="tradfi", time_
 
 **接近门槛的静默异动**：市值 > 10 亿、涨跌幅绝对值 > 10%、相关报道 = 0，但没命中任何一个信号的票（例如涨 15%，不够无声暴涨的 20%），列进报告末尾的备注，不算信号。实测 IMOS（+14.6%、29 亿、零报道）就卡在这个空档里。
 排序：同时命中多个信号的在前；其次市值大的在前；再次涨跌幅绝对值大的在前。
+
+**命中后分析驱动时先看快照形态**（只影响分析写法，不影响是否命中）：大幅跳空后 `dayHigh` 与 `dayLow` 相差不到 0.5%、成交量是平时的十几倍以上，多半是现金收购报价（股价被钉在收购价下方）。分析里写"疑似收购要约，新闻库未收录，待核实"，不要写成"没人知道的异动"。2026-10-08 实测 PCRX 开盘 +44%，开盘后 40 分钟都在 36.27~36.33 之间，成交 1,400 万股（前一个月日均约 50 万股）。
 
 ### Step 6: 输出报告
 

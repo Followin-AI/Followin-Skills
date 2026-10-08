@@ -17,7 +17,7 @@ tools: WebSearch, WebFetch
 
 ---
 
-> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文的调用写法于 **2026-10-01 逐条实测**；与登记表冲突时，以日期更新的一方为准。
+> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文的调用写法于 **2026-10-01 逐条实测**，2026-10-08 按全文端到端复跑一次；与登记表冲突时，以日期更新的一方为准。
 
 ## 调用约定（2026-10-01 实测）
 
@@ -28,7 +28,7 @@ tools: WebSearch, WebFetch
 - **`UNRATE` 会多占一个名额**（服务端把它同时展开成 `unemployment`），含它的那一批最多放 4 个。
 - **FRED 指标带 `categories=["macro"]`**，行情带 `asset_type="tradfi"`，BTC 带 `asset_type="crypto"`（不带会混入美股 BTC Inc）。
 - 如果你的客户端不接受数组入参（报 `-32602`），FRED 指标可退回 `query="<series_id>"` 单个直查；`*USD` 商品代码没有可用的 query 串写法，只能标"数据不可用"。
-- 非美股交易时段，行情快照返回的是上一个常规收盘。判断方法：有 `_quote_session` 字段就按它判（`regular_inactive` = 最近收盘）；没有这个字段（指数、外汇、商品通常没有）就看 `as_of`，早于今天或不在美东 9:30–16:00 内一律标"最近收盘"，不当实时价。
+- 非美股交易时段，行情快照返回的是上一个常规收盘。判断方法：有 `_quote_session` 字段就按它判（`regular_inactive` = 最近收盘）；没有这个字段（指数、外汇、商品通常没有）就看 `as_of`，早于今天或不在美东 9:30–16:00 内一律标"最近收盘"，不当实时价。BTC 快照没有时间戳（2026-10-08 实测 `as_of` 为 null），按调用时间记。
 
 ## 数据源
 
@@ -36,7 +36,7 @@ tools: WebSearch, WebFetch
 |------|------|
 | FRED 宏观指标 | `metrics(keywords=[<series_id>…], categories=["macro"], limit=N)` |
 | 行情快照（DXY / 纳指 / VIX / 黄金）| `metrics(keywords=["DXUSD","^IXIC","^VIX","GCUSD"], query="行情", asset_type="tradfi")` |
-| 50 日均线 | `metrics(keywords=["DXUSD","^IXIC","GCUSD"], query="均线 指标", period=50, limit=1, asset_type="tradfi")`——一次返回每个标的的全部 9 个指标，取 `indicator=="ema"` |
+| 50 日均线 | `metrics(keywords=["DXUSD","^IXIC","GCUSD"], query="均线 指标", period=50, limit=1, asset_type="tradfi")`——一次返回每个标的的全部 9 个指标，取 `indicator=="ema"`。现价一律用行情快照的 `price`：指标返回里的 `close` 是当日未收盘的实时值，与快照不是同一时点（2026-10-08 实测纳指差约 34 点），不要混用 |
 | BTC 价格 | `metrics(keywords=["BTC"], query="行情", asset_type="crypto")` |
 | 经济日历 | `metrics(query="economic calendar", country="US", …)`——**必须传 `country="US"`**，不传返回的是韩国、印度等地的事件 |
 | 稳定币总市值 | HTTP `GET https://stablecoins.llama.fi/stablecoins?includePrices=true`（Followin 不覆盖）|
@@ -96,10 +96,12 @@ tools: WebSearch, WebFetch
 
 | # | 指标 | 权重 | 取数 | +2 | +1 | 0 | -1 | -2 |
 |---|------|------|------|----|----|---|----|----|
-| ⑪ | BTC 现货 ETF 近 5 个交易日净流入合计 | 13% | Web：bitbo.io + tftc.io（Farside 口径），见 Batch 3 | > +10 亿美元 | +2 ~ +10 亿 | ±2 亿以内 | −2 ~ −10 亿 | < −10 亿 |
-| ⑫ | 稳定币总市值 30 日变化 | 12% | DeFiLlama：各币 `circulating.peggedUSD` 求和，对比 `circulatingPrevMonth.peggedUSD` 求和 | > +2% | +0.5% ~ +2% | ±0.5% 以内 | −0.5% ~ −2% | < −2% |
+| ⑪ | BTC 现货 ETF 近 5 个交易日净流入合计 | 13% | Web：bitbo.io + tftc.io 两家对照，见 Batch 3 | > +10 亿美元 | +2 ~ +10 亿 | ±2 亿以内 | −2 ~ −10 亿 | < −10 亿 |
+| ⑫ | 稳定币总市值 30 日变化 | 12% | DeFiLlama：只取 `circulating.peggedUSD` 与 `circulatingPrevMonth.peggedUSD` **都有值且 > 0** 的币，两项分别求和后相比（见下方说明）| > +2% | +0.5% ~ +2% | ±0.5% 以内 | −0.5% ~ −2% | < −2% |
 
 交易所 BTC 余额需要付费数据源，不纳入评分（它原本的权重已并入 ⑪⑫）。
+
+> **⑫ 的说明**：DeFiLlama 有些币的 `circulatingPrevMonth` 是空对象 `{}` 或 0，全量求和会把它们整笔当成一个月内的新增。2026-10-08 实测 USDD（15.8 亿，上月为 `{}`）、OUSD（7.3 亿，`{}`）、USDX（6.8 亿，上月为 0）三项让 30 日变化从 +0.43% 虚高到 +1.45%，得分由 0 变成 +1。剔除的币和金额写进明细。
 
 ### 第四层：经济数据脉冲（10%）
 
@@ -156,16 +158,18 @@ metrics(keywords=["BTC"], query="行情", asset_type="crypto")
 metrics(query="economic calendar", country="US", time_range="35d", sort_by="hot", limit=50)   # ② 议息结果、⑭⑮ 已发布数据的 actual / estimate
 metrics(query="economic calendar", country="US", date_from="<今天>", date_to="<今天+14天>", sort_by="hot", limit=30)   # 下次关键事件（窗口别超过 14 天：服务端候选上限只覆盖约两周）
 ```
-**日历只写 `query="economic calendar"`（不传 keywords，传了会被静默忽略），必须带 `sort_by="hot"`**：不带时按时间排序，一天就有几十行国债拍卖、EIA 周报、官员讲话，50 行只能覆盖一两天，CPI / PCE / 非农全被挤出去（2026-10-03 实测）。带上后高重要度事件排在前面，35 天窗口内的非农、失业率、核心 CPI、核心 PCE、议息结果一次就能拿全。
+**日历只写 `query="economic calendar"`（不传 keywords，传了会被静默忽略），必须带 `sort_by="hot"`**：不带时按时间排序，一天就有几十行国债拍卖、EIA 周报、官员讲话，50 行只能覆盖一两天，CPI / PCE / 非农全被挤出去（2026-10-03 实测）。带上后高重要度事件排在前面（同一重要度内按时间倒序），35 天窗口内的非农、失业率、核心 CPI、核心 PCE、议息结果通常一次就能拿全。但 50 行只排到约 4 周前（2026-10-08 实测只到 28 天前，核心 CPI 排在第 44 行），上次 CPI 发布超过约 4 周时它会落到第二页——缺行按下面的规则翻页。
 从返回里取：`Core Inflation Rate MoM`（核心 CPI 环比）、`Core PCE Price Index MoM`、`Non Farm Payrolls`（不是 `Nonfarm Payrolls Private`）、`Unemployment Rate`（不是 U-6）、`Fed Interest Rate Decision`。同一事件有多期时取最近一期。query 里不要写"本周"；不要用事件名当 query（实测 `query="nonfarm payrolls"` 只返回私营部门那一行，漏掉总数）。
 
 **Batch 3（HTTP + Web）**
 ```
 HTTP: GET https://stablecoins.llama.fi/stablecoins?includePrices=true        # ⑫
 Web:  CME FedWatch 下次会议降息 / 加息概率（含一周前的值）                     # ③
-Web:  BTC 现货 ETF 近 5 日净流入：bitbo.io/treasuries/etf-flows 与 tftc.io/bitcoin-etf-flows（Farside 口径）两家都 WebFetch   # ⑪
-      （Farside 官网会返回 403）。"近 5 个交易日" = 该来源已发布的最近 5 个交易日；先核对周一到周五没有缺行，
-      有缺行的来源只作对照、不单独计分（实测 bitbo 缺过一个周五）
+Web:  BTC 现货 ETF 近 5 日净流入：bitbo.io/treasuries/etf-flows 与 tftc.io/bitcoin-etf-flows 两家都 WebFetch   # ⑪
+      （Farside 官网会返回 403）。"近 5 个交易日" = 该来源已发布的最近 5 个交易日（bitbo 常比 tftc 晚一天，两家窗口可以不同）；
+      先核对这 5 个交易日里周一到周五没有缺行，有缺行的来源只作对照、不单独计分（实测 bitbo 缺过一个周五；窗口外的缺行不影响）。
+      两家不是同一口径：2026-10-08 实测 tftc 注明日度合计取自 SoSoValue，bitbo 未注明来源，同一天的数字可差 1~2 亿美元
+      （10-06：bitbo −0.76 亿、tftc +1.19 亿），按下面"ETF 数据来源打架"处理
 Web:  最新 FOMC 声明要点                                                     # ②
 ```
 
@@ -183,7 +187,7 @@ Web:  最新 FOMC 声明要点                                                  
 
 ### 第三步：算综合分
 
-套公式。缺失指标按 0 分计、权重不转移（见"数据缺失处理"）。
+套公式，结果四舍五入取整。缺失指标按 0 分计、权重不转移（见"数据缺失处理"）。
 
 ### 第四步：层方向与矛盾度
 
@@ -206,8 +210,8 @@ Web:  最新 FOMC 声明要点                                                  
 │  流动性 [↑↓→] ±X.X  |  市场环境 [↑↓→] ±X.X
 │  加密资金 [↑↓→] ±X.X  |  经济脉冲 [↑↓→] ±X.X
 │
-│  主要支撑：[得分最高的 2-3 个指标]
-│  主要拖累：[得分最低的 2-3 个指标]
+│  主要支撑：[对总分贡献（得分×权重）最大的 2-3 个指标]
+│  主要拖累：[对总分贡献最小（最负）的 2-3 个指标]
 │
 │  矛盾度：低/中/高 [· 层内分歧：A vs B]  ·  数据时间：XXXX年X月X日
 │  下次关键事件：[日期] [事件名]
@@ -235,8 +239,8 @@ BTC宏观环境评分 — 完整明细
   ...
 
 第三层 — 加密原生资金（25%）  层得分：±X.X
-  ETF 近 5 日净流入    [得分]  [...]
-  稳定币市值 30 日变化  [得分]  [...]
+  ETF 近 5 日净流入    [得分]  [两家来源各自的 5 日合计与日期窗口]
+  稳定币市值 30 日变化  [得分]  [当前 / 上月合计 · 剔除的缺上月值的币及金额]
 
 第四层 — 经济数据脉冲（10%）  层得分：±X.X
   通胀脉冲            [得分]  [发布日期 · 实际 vs 预期 · 是否已过保鲜期]
