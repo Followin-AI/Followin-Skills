@@ -4,7 +4,11 @@
 #   (1) Daily-Index / Macro / _Sectors-Index mtime=今天；
 #       Portfolio.md **仅在确有持仓时**才要求 mtime=今天（无持仓的用户没东西可改，
 #       强制它只会训练出"为过门禁而 touch 文件"——正是本门禁要消灭的行为）
-#   (2) 日报含"账号覆盖表"+"完整性审查"标记
+#   (2) 日报「✅ 收尾门禁」段的两行计数字段（格式见 references/output-templates.md 模板 A）：
+#       - 账号覆盖：N/M（✅a ⚪b ❌c）   → 要求 a+b+c=M、a+b=N、M>0（算术对不上 = 覆盖表是糊的）
+#       - 完整性审查：遗漏 X · 落盘 ticker T · 落盘 sector S
+#         → X 必须为 0；Tickers/ 今天动过的文件数 ≥ T；S = sector-sync 声明的板块个数
+#       只查标题文字的旧版拦不住任何事——模板自带"完整性审查"四个字，照抄就过
 #   (3) 日报含 <!-- sector-sync: 板块A, 板块B --> 声明（逗号分隔；兼容空格分隔），
 #       且声明的每个 Sectors/<X>.md mtime=今天
 # 退出码 2 = 阻止 stop 并把 stderr 反馈给模型。非日报会话静默 exit 0。
@@ -65,9 +69,33 @@ elif [ ! -f "$VAULT/Portfolio.md" ]; then
   MISS+=("缺文件: Portfolio.md（Step 0.0 种子文件未建）")
 fi
 
-# (2) 日报内容标记
-grep -q "账号覆盖表" "$DAILY" 2>/dev/null || MISS+=("缺标记: 日报无『账号覆盖表』(Step 2 拉取覆盖未落)")
-grep -q "完整性审查" "$DAILY" 2>/dev/null || MISS+=("缺标记: 日报无『完整性审查』(Step 10.95 未落)")
+# (2) 收尾门禁段的计数字段
+# ⚠️ 正则里不用含中文 / emoji 的方括号字符集（[：:] 之类）：hook 进程常跑在 C locale，
+#    多字节字符在方括号里会被拆成单字节，整条匹配静默失败。一律用 (A|B) 分支。
+VS=$(printf '\xef\xb8\x8f')   # emoji 变体选择符 U+FE0F，有的编辑器会在 ✅⚪❌ 后面带上
+COV=$(grep -oE "账号覆盖(：|:) *[0-9]+ */ *[0-9]+ *(（|\() *✅($VS)? *[0-9]+ *⚪($VS)? *[0-9]+ *❌($VS)? *[0-9]+" "$DAILY" 2>/dev/null | head -1)
+if [ -z "$COV" ]; then
+  MISS+=("缺字段: 日报无『账号覆盖：N/M（✅a ⚪b ❌c）』(Step 2 拉取覆盖未落，或照抄了模板占位符)")
+else
+  set -- $(printf '%s' "$COV" | grep -oE '[0-9]+')
+  if [ $(( 10#$3 + 10#$4 + 10#$5 )) -ne "$2" ] || [ $(( 10#$3 + 10#$4 )) -ne "$1" ] || [ "$2" -eq 0 ]; then
+    MISS+=("账号覆盖算术不对: $1/$2 但 ✅$3 ⚪$4 ❌$5（应 ✅+⚪=N、✅+⚪+❌=M）")
+  fi
+fi
+
+INT=$(grep -E "完整性审查(：|:).*遗漏" "$DAILY" 2>/dev/null | head -1)
+num_of() { printf '%s' "$INT" | grep -oE "$1 *[0-9]+" | head -1 | grep -oE '[0-9]+'; }
+LOST=$(num_of "遗漏"); DECL_T=$(num_of "落盘 ticker"); DECL_S=$(num_of "落盘 sector")
+if [ -z "$INT" ] || [ -z "$LOST" ] || [ -z "$DECL_T" ] || [ -z "$DECL_S" ]; then
+  MISS+=("缺字段: 日报无『完整性审查：遗漏 X · 落盘 ticker T · 落盘 sector S』(Step 10.95 未落)")
+else
+  [ "$LOST" -eq 0 ] || MISS+=("完整性审查报遗漏 $LOST 条 → 补落盘后把遗漏改回 0 再结束")
+  TT=0
+  for f in "$VAULT"/Tickers/*.md; do
+    [ -f "$f" ] && [ "$(mday "$f")" = "$TODAY" ] && TT=$((TT + 1))
+  done
+  [ "$TT" -ge "$DECL_T" ] || MISS+=("声明落盘 ticker $DECL_T 个，但 Tickers/ 今天只动过 $TT 个文件")
+fi
 
 # (3) 板块同步声明
 SYNC_LINE=$(grep -oE '<!-- sector-sync:[^>]*-->' "$DAILY" 2>/dev/null | head -1)
@@ -75,15 +103,19 @@ if [ -z "$SYNC_LINE" ]; then
   MISS+=("缺声明: 日报无 <!-- sector-sync: ... --> (改 _Sectors-Index 日期≠sweep)")
 else
   SECTORS=$(printf '%s' "$SYNC_LINE" | sed -E 's/<!-- sector-sync: *//; s/ *-->//')
-  # 逗号分隔（推荐——板块名可含空格，如 "AI ASIC"）；无逗号则退回空格分隔（向后兼容）
+  # 逗号分隔（推荐——板块名可含空格，如 "AI ASIC"）；无逗号时整串若正好是一个板块文件名就当一个
+  # （否则单独声明 "AI ASIC" 会被拆成 AI / ASIC 两个），再不是才退回空格分隔（向后兼容）
+  SECTORS=$(printf '%s' "$SECTORS" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
   case "$SECTORS" in
     *,*) OLDIFS=$IFS; IFS=','; set -- $SECTORS; IFS=$OLDIFS ;;
-    *)   set -- $SECTORS ;;
+    *)   if [ -f "$VAULT/Sectors/$SECTORS.md" ]; then set -- "$SECTORS"; else set -- $SECTORS; fi ;;
   esac
+  SC=0
   for s in "$@"; do
     s=$(printf '%s' "$s" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
     [ -z "$s" ] && continue
     [ "$s" = "none" ] && continue
+    SC=$((SC + 1))
     sf="$VAULT/Sectors/$s.md"
     if [ ! -f "$sf" ]; then
       MISS+=("sector-sync 声明的 $s.md 不存在")
@@ -91,6 +123,9 @@ else
       MISS+=("sector-sync 声明了 $s 但 Sectors/$s.md 今天没更新（只改日期≠sweep）")
     fi
   done
+  if [ -n "$DECL_S" ] && [ "$DECL_S" -ne "$SC" ]; then
+    MISS+=("完整性审查写落盘 sector $DECL_S 个，sector-sync 声明了 $SC 个——两处对不上")
+  fi
 fi
 
 if [ ${#MISS[@]} -gt 0 ]; then

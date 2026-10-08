@@ -52,7 +52,7 @@ args: ticker
 
 ## 执行步骤
 
-### Step 1: 数据采集（4 批，每批 ≤4 路并行，共 13 路）
+### Step 1: 数据采集（4 批，每批 ≤4 路并行，共 13 路；"自定同业"可选 +1 路）
 
 **Batch A：基本面 + 历史**
 ```
@@ -75,6 +75,10 @@ args: ticker
    这一路的估值只有 ratios_ttm（P/E、P/S、P/B、利润率），没有 key_metrics_ttm，同行的 EV/EBITDA 拿不到。
    同行的服务端 PEG 不可比（2026-10-08 实测 MRVL 为 0.03），不引用；行业对比只用 P/E、P/S、P/B、利润率。
    ADR 同行（如 TSM）的报表和 EPS 可能是本币，只引用比率
+   **自定同业（可选，+1 路）**：接口同行与目标同属一个 industry、但主营细分明显不同时（实测 AVGO 的接口同行前 3 是
+   TXN / MRVL / ADI，其中 TXN、ADI 是模拟芯片，AVGO 主营 AI 定制芯片与网络芯片），可另选**最多 3 只**同细分行业的同业，
+   按同样写法再调一次 metrics(keywords=[S1,S2,S3], categories=["market","fundamentals"], asset_type="tradfi", limit=1, verbosity="concise")。
+   返回后同样核对 profile_block.industry。输出里标"自定同业"并逐只写选择理由，与接口同行**分开展示、分开算中位数**，不混成一组
 4. metrics(keywords=["<T>"], query="历史走势", asset_type="tradfi", time_range="13m", limit=290)
    → 13 个月日线（必须传 limit；time_range="1y" 只返回 251 行，算不出 1Y 涨幅）。
      返回约 5 万字符，用代码解析 close 序列。盘中跑时最后一行是**当天未走完的 K 线**（date = 今天、close ≈ 实时价，
@@ -99,7 +103,7 @@ args: ticker
 10. news(query="<CompanyName> <TICKER>", sources=["twitter"], time_range="1w", limit=10)
 11. news(query="<CompanyName> <TICKER>", sources=["research"], time_range="2w", limit=10)
 ```
-研报窗口用 30 天、`concise`：研报库比公开新闻晚 1~4 天，7 天窗口常为空；`detail` 一次约 2.8 万字符且多为提及型，含金量低。第 9~11 路分别供 ⑱ 使用（媒体、推特、研报原文）；第 7 路的 KOL 和 13F 供 ⑰ 使用。
+研报窗口用 30 天、`concise`：研报库比公开新闻晚 1~4 天，7 天窗口常为空；`detail` 一次约 2.8 万字符且多为提及型，含金量低。第 9~11 路分别供 ⑱ 使用（媒体、推特、research 源文章）；第 7 路的 KOL 和 13F、第 8 路的研报（评级动作 / 目标价变动）供 ⑰ 使用，读法与权重见附件 ⑰。
 
 **Batch D：宏观**
 ```
@@ -150,20 +154,21 @@ SMA50 / SMA200 = 最近 50 / 200 个收盘的平均
 | DCF | ✅ `valuation_block.dcf`。与现价相差 5 倍以上判失效，不进任何输出（亏损期 DCF 会算崩）|
 | ROE / ROIC / EV/EBITDA / PE / PEG / 毛利率 / D/E / 流动比率 | ✅ `key_metrics_ttm` + `ratios_ttm` |
 | 分析师远期预期、Forward PE | ⚠️ `analyst_estimates` 可能缺当前财年、只有较远的财年，且远期数字不自洽（实测 NVDA FY2030 高于 FY2031，后者只有 9~10 位分析师）。Forward PE = 现价 ÷ 最近的、`numAnalystsEps ≥ 20` 的财年 epsAvg，并写明是哪个财年 |
-| PEG | ⚠️ 统一口径见 `01_agent-prompts.md` 开头：TTM P/E ÷（最近财年 epsgrowth × 100），附注服务端值 |
-| 行业相对估值 | ⚠️ 第 3 路只有同行的 `ratios_ttm`（P/E、P/S、P/B、利润率；服务端 PEG 不可比）；同行 EV/EBITDA 不返回，写"数据不足" |
+| PEG | ⚠️ 统一口径见 `01_agent-prompts.md` 开头：TTM P/E ÷（最近财年 epsgrowth × 100）；最近财年 epsgrowth < 0 或 > 100% 时改用 3 年 EPS CAGR 作分母，仍不可得标"PEG 不适用"、不进 ⑥⑦⑲ 的判据。附注服务端值 |
+| 行业相对估值 | ⚠️ 第 3 路只有同行的 `ratios_ttm`（P/E、P/S、P/B、利润率；服务端 PEG 不可比）；同行 EV/EBITDA 不返回，写"数据不足"。接口同行细分不符时可加"自定同业"（最多 3 只，写理由，分开展示）|
 | 维护性 CapEx | ❌ 只有总 CapEx，所有者盈余用总 CapEx 近似并注明 |
 | 净现金 / 净负债 | ⚠️ 不要用 `netDebt`（只扣现金等价物）。统一用 `cashAndShortTermInvestments − shortTermDebt − longTermDebt` |
 | 企业价值 | ✅ `key_metrics_ttm.enterpriseValueTTM`。不要用 `enterprise_values`：它是上一个财年末的快照，实测比当前低 20% |
 | SBC / 商誉 / 应收 / 递延收入 / 有形账面 / WACC / 分红历史 / 客户集中度 / 预期修正 | ❌ 接口不提供，写"数据不足"；ROIC 对 WACC 只能写"ROIC = X%（WACC 不可得）" |
 | Beta、行业、公司简介 | ✅ `profile_block` |
-| 内部人交易、13F、KOL、研报、新闻 | ✅ 见 Batch B / C |
+| 内部人交易、13F、KOL、新闻 | ✅ 见 Batch B / C |
+| 研报评级动作 / 目标价变动（⑰ 用）| ⚠️ 第 8 路：subject 层有 `rating_action` / `revision_summary`；只有 mention 层时，只能用 `matched_asset_target_price`（本标的自己的目标价，可能为 null）和 `mention_direction`。研报库比公开新闻晚 1~4 天，嵌套列表截顶（N-141）|
 | RSI / EMA50 | ✅ 见 Batch B |
 | SMA50 / SMA200 | ✅ 第 4 路日线自算 |
 
 **两个 EPS 口径不同**：`earnings_surprise.actual_eps` 是分析师口径（通常是调整后），财报口径取 `financial_statement.epsDiluted`（GAAP 稀释），实测同一季可以差 10% 以上。引用"超预期"时注明是分析师口径；两者符号相反时必须点明"GAAP 为亏损"。`actual_revenue` 为 null 时 `revenue_surprise_pct` 会显示 -100，那是缺数据。
 
-**非经营收益**：任一季 `totalOtherIncomeExpensesNet ÷ incomeBeforeTax > 10%` 时，在数据池里标"利润含大额非经营收益"（实测 NVDA 某季占税前利润 23%，GAAP EPS 反而高于分析师口径）。涉及净利率、P/E、ROE 的分析师须注明口径。
+**非经营损益**：任一季 `|totalOtherIncomeExpensesNet| ÷ incomeBeforeTax > 10%` 时（取绝对值，收益和损失都算），在数据池里标"利润含大额非经营损益"（实测 NVDA 某季非经营收益占税前利润 23%，GAAP EPS 反而高于分析师口径；AVGO 各季是 −4.7 亿 ~ −7.8 亿的非经营损失，占税前利润 5.1%~9.3%，未触发）。涉及净利率、P/E、ROE 的分析师须注明口径。
 
 ### Step 3: 19 位分析师独立研判
 
@@ -201,6 +206,8 @@ SMA50 / SMA200 = 最近 50 / 200 个收盘的平均
 
 ### 基本信息
 行业: [sector] / [industry] | 市值: $[marketCap] | 价格: $[price]（[自算涨跌%]，[实时 / 常规收盘]）| Beta: [beta]
+同行（接口）: [P1/P2/P3 的 P/E、P/S、P/B、利润率及中位数]
+自定同业: [S1/S2/S3 同上 + 每只的选择理由；没加就删掉这一行]
 
 ### 📊 19 位分析师投票分布
 | Agent | 信号 | 置信度 | 核心理由 |

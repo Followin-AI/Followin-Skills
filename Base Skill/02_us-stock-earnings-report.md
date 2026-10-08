@@ -75,8 +75,8 @@ args: ticker
 4. **财报当晚或次日数据可能还没更新**。满足任一条就判"未更新"：① `earnings_surprise` 整块不存在；② `next_earnings_estimate.date` ≤ 今天，且不等于 `report_date`（说明预定的财报日已过、但这里还是上一季）。
    未更新时按顺序回退，**不要拿上一季顶替**：
    - **财报日历**：`metrics(query="earnings calendar", asset_type="tradfi", date_from=<财报日>, date_to=<财报日>, limit=50)`。`keywords` 对日历不起过滤作用，在返回里**按 `symbol=="<T>"` 自己筛**；不要传 `country="US"`（它按注册地过滤，会漏掉 ACN 这类爱尔兰注册的美股）。用 `epsActual / epsEstimated`、`revenueActual / revenueEstimated` 自算 surprise，标"据财报日历·基本面块未更新"。日历行和基本面块同属一个数据源（实测 MU 两者逐项一致）。
-     日历按代码字母序排，**单页 50 行常常翻不完一天**：本页没有 <T> 且 `meta.pagination` 里 `has_more` 为 true 时，带 `next_cursor` 原样重发、其余参数不变，直到找到或翻完，每页 1 额度（2026-10-08 实测：10-01 共 37 行，ACN 在第 1 页；09-30 超过 200 行，MU 在第 4 页）。同一公司的外国挂牌行（ACN 的 `0Y0Y.L`、MU 的 `MU.TO`）数字不同，只认 `symbol` 完全等于 <T> 的那行。
-   - **新闻原文**：日历也没有时，取 `news()` 媒体原文的实际值和预期值，标来源；新闻里的预期值可能和接口口径不同（实测 MU 媒体 EPS 预期 31.52、接口 31.77），不要混算。
+     日历按代码字母序排，**单页 50 行常常翻不完一天**：本页没有 <T> 且 `meta.pagination` 里 `has_more` 为 true 时，带 `next_cursor` 原样重发、其余参数不变，直到找到或翻完，**最多翻 5 页**（含第 1 页），每页 1 额度（2026-10-08 实测：10-01 共 37 行，ACN 在第 1 页；09-30 超过 200 行，MU 在第 4 页）。同一公司的外国挂牌行（ACN 的 `0Y0Y.L`、MU 的 `MU.TO`）数字不同，只认 `symbol` 完全等于 <T> 的那行。
+   - **新闻原文**：日历翻满 5 页仍找不到 <T>，或日历里没有时，转 `news()`：先核实财报日（是否已发布、哪天发布），再取媒体原文的实际值和预期值，标来源；新闻里的预期值可能和接口口径不同（实测 MU 媒体 EPS 预期 31.52、接口 31.77），不要混算。
 5. **4 季窗口算不出同比**。最新季的去年同期不在返回里，趋势表只做环比；同比需要外部来源，别把 3 季前那季当去年同期。
 
 ## 执行步骤
@@ -98,19 +98,18 @@ args: ticker
 5. news(query="<CompanyName> <TICKER>", sources=["media"],
         time_range="2w", limit=10, sort_by="relevance")                      # 媒体报道
 6. news(query="<CompanyName> <TICKER>", sources=["twitter"], time_range="1w", limit=10)   # 推特风向（可选）
-7. signal(keywords=["<T>"], categories=["insider_trading","institutional","kol_call"],
-          asset_type="tradfi", limit=50)                                      # 内部人 + 13F + KOL，1 次额度
+7. signal(keywords=["<T>"], categories=["insider_trading","kol_call"],
+          asset_type="tradfi", limit=50)                                      # 内部人 + KOL，1 次额度（不拉 13F，见下）
 8. metrics(keywords=["<T>"], query="research reports", categories=["fundamentals"],
            asset_type="tradfi", time_range="30d", verbosity="concise")        # 机构研报
 ```
 - `news()` 的 query 用"公司名 + 代码"两个词（如 `"Apple AAPL"`），不写"earnings 影响 解读"这类词。
 - `news()` 查不到相关内容时不会返回空，而是返回一批不相关的热门内容。**返回里一条都不含目标公司名或代码，就是没查到**，记数据缺口，不要重试，也不要拿这些内容做情绪判断。
-- `signal()` **必须显式传 `categories`**——只传 ticker 现在返回空（旧记载"省略 categories 自动展开"已失效）。三类一起传仍只计 1 次额度。
-- 第 7 路 `limit` 按类分别生效，**用 50 不用 20**：内部人一份申报会拆成很多行，20 行只覆盖一两个月（2026-10-08 实测 MU 的 CEO 一份 Form 4 拆成 16 行，20 行只回溯到 08-21；50 行回溯到 07-10）。返回约 7 万字符，会被写进本地文件，用脚本解析。
-- 13F 的环比字段在申报季中期不完整，只引用持仓绝对值和结构。
-- **KOL 先筛 `symbol=="<T>"`，再按 `source_url` 去重**：kol_call 不按标的过滤（实测查 MU 返回 20 行，只有 5 行是 MU，其余 15 行是别的票，有的原帖根本没提 MU），一条推文还会拆成多个标的的多行。tradfi 喊单的方向字段近乎恒为看多，只报条数和话题，不报多空比。喊单上游只覆盖最近约一天，一律写"近一日"。**返回里整个没有 `kol_call` 这一类**，就是近一日没有该标的的喊单（2026-10-08 实测 ACN：三类一起请求只回来内部人和 13F，`status:"ok"`、无 warning），写"近一日无喊单"，不要当接口失败重试。
+- `signal()` **必须显式传 `categories`**——只传 ticker 现在返回空（旧记载"省略 categories 自动展开"已失效）。多类一起传仍只计 1 次额度。
+- 第 7 路 `limit` 按类分别生效，**用 50 不用 20**：内部人一份申报会拆成很多行，20 行只覆盖一两个月（2026-10-08 实测 MU 的 CEO 一份 Form 4 拆成 16 行，20 行只回溯到 08-21；50 行回溯到 07-10）。返回可能超出工具输出上限被写进本地文件（含 13F 时实测约 7 万字符），用脚本解析。
+- **KOL 先筛 `symbol=="<T>"`，再按 `source_url` 去重**：kol_call 不按标的过滤（实测查 MU 返回 20 行，只有 5 行是 MU，其余 15 行是别的票，有的原帖根本没提 MU），一条推文还会拆成多个标的的多行。tradfi 喊单的方向字段近乎恒为看多，只报条数和话题，不报多空比。喊单上游只覆盖最近约一天，一律写"近一日"。**返回里整个没有 `kol_call` 这一类**，就是近一日没有该标的的喊单（2026-10-08 实测 ACN：请求里带了 kol_call，返回里只有其他类，`status:"ok"`、无 warning；N-166），写"近一日无喊单"，不要当接口失败重试。
 - **内部人只认 Form 4**：卖出 = `S-Sale`，买入 = `P-Purchase`；`F-InKind` / `G-Gift` / `A-Award` / `M-Exempt` 和 Form 3 不计。带 `_chamber` 字段的是议员交易，单列。覆盖区间按返回里最早的 `transactionDate` 写；不足 3 个月时写"覆盖 MM-DD 起"，不要写成"近 3 个月"。
-- **13F**：同一机构可能出现两行（推断一行正股一行期权），合并或注明；`*_change_percent` 字段不可用（实测全为 0 而 `shares_change` 不为 0）；写明"截至 report_period"。季末后头几周会切到申报还没交齐的新季度：`report_period` 距今不足 45 天就不引用，写"新季度 13F 申报未齐"（2026-10-08 实测 ACN 已切到 09-30，只剩 1 家且持股 0；同时 MU 仍是 06-30、前 20 家齐全）。
+- **不使用 13F**（与社群 c4 / c6 一致，第 7 路不传 `institutional`）：季末后头几周会切到申报还没交齐的新季度，持仓与变化率都不可靠（N-152 / N-166；2026-10-08 实测 ACN 已切到 09-30，只剩 1 家且持股 0，同时 MU 仍是 06-30；`*_change_percent` 全为 0 而 `shares_change` 不为 0；同一机构出现两行）。报告里不写机构持仓。
 - 研报的 `subject_reports` 是专题报告，`mention_reports` 只是别的报告里提到它；`subject_reports` 为空时不能说"有机构专题覆盖"。研报库比公开新闻晚 1~4 天，财报前瞻常落在 7 天之外，所以窗口用 30 天（实测 MU 7 天 0 篇、30 天专题 1 篇提及 9 篇）；输出区分"财报前 / 财报后"。
 - 新闻摘要里的价格数字可能被截断（实测出现"settling at $1"），价格一律以 metrics 为准。
 
@@ -142,7 +141,7 @@ EPS：    Beat = eps_surprise_pct > +2%；Miss = < −2%；其余 In-line
 
 #### 维度二：媒体覆盖与情绪
 
-对第 5 路返回的文章，先剔掉与该公司无关的，再逐篇判断：情绪偏向、高频话题、代表性报道（标题 + 来源 + 链接）。情绪结论标"Claude 推断"。
+对第 5 路返回的文章，先剔掉与该公司无关的，再剔掉不算"相关报道"的两类：没有正文的行情页（如 Barron's 的个股报价页）和 Zacks / GuruFocus 等模板稿（标题套路固定、`category` 常标 `research`）——它们不计入篇数，也不参与情绪统计。再逐篇判断：情绪偏向、高频话题、代表性报道（标题 + 来源 + 链接）。情绪结论标"Claude 推断"。
 
 #### 维度三：宏观一致性 + 价格动量
 
@@ -217,7 +216,6 @@ PE: XX.X | PS: X.X | PEG: X.X | ROE: XX.X% | D/E: X.X | 毛利率: XX.X%
 
 ### 🧭 信号面
 - 内部人: [覆盖区间（最多近 3 个月）内 Form 4 主动买入 / 卖出笔数与金额]；议员交易另列
-- 机构持仓: [前几大持有人与占比]（截至 report_period；新季度申报未齐时写明不引用）
 - KOL（近一日）: [按本标的筛选并去重后 N 条；主要话题；没有就写"近一日无喊单"]
 - 机构研报: [专题报告 N 篇 / 仅被提及 N 篇；最新催化与主要保留意见]
 

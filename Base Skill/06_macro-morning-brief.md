@@ -89,7 +89,8 @@ args: watchlist
 
 三张榜（涨幅 / 跌幅 / 活跃）的行**只有** symbol / name / price / change / changesPercentage 五个字段，没有市值也没有交易所，每张最多约 30 行、以小盘股为主。**榜单覆盖有限：跌幅不够极端的大盘股不会上榜**（实测 10-02 STX −10.2%、市值 1,904 亿美元，三张榜都没有），所以这一节只能叫"榜单内可见的大市值异动"。
 
-1. **先按名称剔杠杆、反向和 ETF 产品**：`name` 匹配 `(?i)\bETF\b|\bETN\b|Ultra|Leverag|\d+X\b|Bull|Bear|Daily|Short|Inverse|Target` 即剔（不区分大小写）。只判 "ETF" 一个词会漏——TQQQ 的名称是 ProShares UltraPro QQQ，RWM 是 ProShares - Short Russell2000。
+1. **先按名称剔基金类产品（含杠杆 / 反向）**：`name` 匹配 `(?i)\bETFs?\b|\bETNs?\b|ProShares|Direxion|Leverage Shares|GraniteShares|Tradr|Defiance|T-Rex|MicroSectors|iPath|SPDR|iShares|Vanguard|Invesco (QQQ|DB)|Grayscale|Teucrium|\b(Bitcoin|Ether(eum)?|Crypto|Gold|Silver|Platinum|Palladium|Oil|Gas|Gasoline|Agriculture|Commodity|Index) (Funds?|Trust|Shares)\b` 即剔（不区分大小写，与 c1 同一份名单）。后半段的发行商名和"商品 + Fund / Trust / Shares"用来接住名字里不带 ETF 的产品——TQQQ 叫 ProShares UltraPro QQQ，RWM 叫 ProShares - Short Russell2000，QQQ 叫 Invesco QQQ Trust。**旧版的 `Ultra|Leverag|\d+X|Bull|Bear|Daily|Short|Inverse|Target` 不再单独当剔除条件**：单独命中会误杀 Target Corp（TGT）、Ultra Clean（UCTT）、Daily Journal 这类正常公司；也不要放宽成 `Invesco`（误杀 Invesco Ltd 本身）或 `Fund|Trust`（误杀 Northern Trust 和名字带 Trust 的 REIT）。2026-10-08 实测三张榜里的 20 只基金类产品（PLTU / PLTA / PTIR / NRGU / CIFG / RIOX / SOXL / TQQQ / IBIT / BKLC 等）新名单全部剔中。
+   - **同时剔疑似合股的假涨幅**：`changesPercentage ≥ 200` 的行直接剔（等价于前收 < 现价 / 3，榜单行就能判，免得假涨幅占掉补市值名额）。2026-10-05 c1 实测涨幅榜前四 SCNX +2141%、VIVK +1501%、GUTS +984%、CMND +699% 全是合股前后价格拼出来的，现价都在 $3 以上，价格闸挡不住。
 2. **挑候选**（不截前 N 名）：
    - 涨幅榜、跌幅榜：**全部** `price ≥ 5` 的行
    - 活跃榜：**全部** `price ≥ 5` 且 `|changesPercentage| ≥ 3` 的行
@@ -99,7 +100,7 @@ args: watchlist
    metrics(keywords=[<T1>…<T5>], query="行情", asset_type="tradfi")
    ```
    快照行带 `marketCap` 和 `exchange`。涨跌幅沿用榜单行的 `changesPercentage`（**快照的 `change` 是美元变动量，不是百分比**）。
-4. **终筛**：`marketCap > 5 亿美元` 且 `exchange` 属于 NYSE / NASDAQ / AMEX。`marketCap` 小于 100 万美元的是异常值（2026-10-08 实测 BBCI 返回 `marketCap: 8`），按缺失处理、写进数据缺口，不要当成小盘股悄悄剔掉。名称含 `Acquisition Corp` 的是 SPAC（借壳空壳公司），保留但在输出里标"SPAC"——它们的暴涨通常来自合并消息，不代表行业动向。
+4. **终筛**：先剔补快照后才看得出的合股 / 拆股——快照 `dayLow < price/3`（或第 1 步漏掉的 `previousClose < price/3`）的直接剔（SCNX 快照 `previousClose` 0.1771、`dayLow` 0.1358、`price` 3.97）。再留 `marketCap > 5 亿美元` 且 `exchange` 属于 NYSE / NASDAQ / AMEX 的行。`marketCap` 小于 100 万美元的是异常值（2026-10-08 实测 BBCI 返回 `marketCap: 8`），按缺失处理、写进数据缺口，不要当成小盘股悄悄剔掉。名称含 `Acquisition Corp` 的是 SPAC（借壳空壳公司），保留但在输出里标"SPAC"——它们的暴涨通常来自合并消息，不代表行业动向。
 5. **watchlist**（如果传了）每批 ≤5 个取快照；涨跌幅自己算 `change ÷ previousClose × 100`。对涨跌超过 2% 的每只，补一次 `news(query="<公司英文名>", sources=["media"], time_range="1d", limit=3, sort_by="relevance")` 找原因——只在两路宏观新闻里找会把大涨大跌的票误标成"无新闻"（实测 TSLA +4.7% 的交付超预期、MU −2.1% 的财报后报道都只能这样找到；2026-10-08 PEP +2.1% 的三季报超预期也是）。这一路返回的多是前一天的稿子或荐股稿时，写"未见当日直接原因"，不要拿旧稿凑原因（2026-10-08 实测 MU −2.1%，3 条都是 10-07 的热门榜和看多文）。
 
 ### Step 3: 分析与聚合

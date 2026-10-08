@@ -76,7 +76,7 @@ Put the symbols in `keywords` and only the intent in `query` (for example `keywo
 
 Sanity-check the indicator set before using it (2026-10-08 实测):
 
-- If `close_50_sma`, `close_200_sma`, and `boll` (the 20-day middle band) are identical or nearly so, the long averages were computed on too short a history (HYPE returned 90.0413 for all three). Mark the 50/200-day averages unavailable for that asset and do not write any long-term moving-average break.
+- If `close_50_sma`, `close_200_sma`, and `boll` (the 20-day middle band) are identical or nearly so, the long averages were computed on too short a history (HYPE returned 90.0413 for all three). Label the 50/200-day averages `历史不足，不可用` for that asset and do not write any long-term moving-average break. Do not fill the gap from a non-Followin source.
 - `mfi` is returned on a 0–1 scale although its description uses 80/20 thresholds; multiply by 100 before comparing.
 - The `price_data` header shows the source (“Binance kline data … Interval: 1d” vs hourly “Crypto price data”); it can differ from the snapshot's `provenance`, so do not mix its prices with the snapshot price.
 
@@ -88,7 +88,7 @@ Translate indicators into three separate labels rather than one opaque score:
 
 - **Trend**: strong / improving / range / weakening, based on price relative to available moving averages plus MACD direction. Default reading: price above both the 50- and 200-day averages with `macdh` positive and rising = strong; `macdh` negative and falling, or price newly below the 50-day = weakening; price back above the 50-day with `macdh` rising = improving; price oscillating around the 50-day or the 20-day middle band = range. When the long averages are unavailable, judge from the 20-day band and MACD only and say so.
 - **Heat**: cool / neutral / hot / extreme. Treat RSI 70 as hot and 80 as extreme, but note that strong crypto trends can remain overbought. On the downside treat RSI ≤30 as oversold and ≤20 as extreme, and say “oversold” rather than “cool” when it matters.
-- **Volatility**: normal / elevated / extreme, using ATR and recent range only when available. Default reading when a day's high–low range is at hand: above 1.5× ATR = elevated, above 2.5× ATR = extreme; otherwise normal.
+- **Volatility**: normal / elevated / extreme, using ATR and recent range only when available. Fixed thresholds when a day's high–low range is at hand: above 1.5× ATR = elevated, above 2.5× ATR = extreme; otherwise normal.
 
 These labels are primarily for internal synthesis. In the visible brief, summarize the technical state in one natural sentence. Mention at most one or two indicator values only when they are exceptional or decision-relevant, such as overbought/oversold RSI, a major moving-average break, a MACD reversal, an ATR spike, or a Bollinger breakout. Never print a mechanical indicator inventory.
 
@@ -115,12 +115,12 @@ Say “Followin覆盖来源内的更新”, never “全网所有新闻”. Abse
 
 ### 3. KOL calls
 
-Call `signal` with category `kol_call`, query `consensus`, the watchlist batch, and the report window. Report:
+Call `signal` with category `kol_call`, query `consensus`, the watchlist batch, and a fixed `time_range="24h"` — not the report window. The KOL upstream covers only the latest 24 hours (N-117), and a 12-hour window left most assets with no sample. State this separately from the report window, e.g. `喊单：近 24 小时`. Report:
 
 - bullish, bearish, and neutral counts;
 - distinct source/post count after deduplication by `source_url`;
 - representative reasoning from higher-quality sources when returned;
-- whether the sample is balanced, one-sided, or too small (fewer than five distinct posts for the asset = too small; say so instead of naming a direction).
+- whether the sample is balanced, one-sided, or too small. Fixed threshold: fewer than 5 distinct posts for the asset in the 24-hour window = too small; say so instead of naming a direction.
 
 Read the crypto aggregate carefully (2026-10-08 实测):
 
@@ -130,9 +130,9 @@ Read the crypto aggregate carefully (2026-10-08 实测):
 
 One post can fan out into multiple symbol rows, and short aliases can retrieve longer symbols such as `ETHFI` for `ETH`. Verify every returned row's canonical `symbol` against the requested asset and discard non-matches. If an aggregate contains non-matching symbols and cannot be recomputed safely, call the detail view, filter exact-symbol rows, and aggregate those rows; otherwise mark the asset-specific KOL sample unavailable. Deduplicate retained posts by `source_url`, or by author plus timestamp plus normalized content when no URL is returned. Do not call a one-sided sample “market consensus” without its sample size.
 
-Also search `news` with `sources=["twitter"]` over the report window for broader KOL analysis that may not be classified as a structured call. Search both the exact ticker and project name — one query such as `"$HYPE Hyperliquid"` with `sort_by="relevance"` covers both — then use `twitter` with `tweets_by_ids` to verify the full text, author, timestamp, engagement, and direct link for the final candidates.
+Also search `news` with `sources=["twitter"]` over the report window (not the 24-hour KOL window) for broader KOL analysis that may not be classified as a structured call. Search both the exact ticker and project name — one query such as `"$HYPE Hyperliquid"` with `sort_by="relevance"` covers both — then use `twitter` with `tweets_by_ids` to verify the full text, author, timestamp, engagement, and direct link for the final candidates.
 
-Take the handle and link from the `tweets_by_ids` result (`author.userName`, `url`), never from the `news` row. 2026-10-08 实测：a `news` row showed `kol_info.name:"calebfranzen"` and a `twitter.com/CalebFranzen/status/…` URL, but the tweet's real author was `milkroaddaily` promoting a video about Caleb Franzen. Both `news` content and `tweets_by_ids` text can render a cashtag as a chain reference (`hyperliquid:native`, `solana:<address>`, `ethereum:0x…`); write it back as the ticker when summarizing. `tweets_by_ids` draws on a separate, much smaller Twitter quota (`limit` 10,000 vs the main pool), so verify only the final candidates in one batched call.
+Take the handle and link from the `tweets_by_ids` result (`author.userName`, `url`), never from the `news` row. 2026-10-08 实测：a `news` row showed `kol_info.name:"calebfranzen"` and a `twitter.com/CalebFranzen/status/…` URL, but the tweet's real author was `milkroaddaily` promoting a video about Caleb Franzen. Both `news` content and `tweets_by_ids` text can render a cashtag as a chain reference (`hyperliquid:native`, `solana:<address>`, `ethereum:0x…`); write it back as the ticker when summarizing. `tweets_by_ids` draws on a separate, much smaller Twitter quota (`limit` 10,000 vs the main pool, shared with every other Twitter use; two runs a day across several lists add up quickly), so verify posts for at most three assets per run: those with the largest absolute 24-hour move or a material new event. Batch their final candidates into one `tweets_by_ids` call. For other assets, do not quote a handle or link in `KOL 怎么看`; mention a view only as unverified context or leave it out.
 
 Select two or three posts per high-attention asset when useful. Prefer original posts that contain a thesis plus data, reasoning, a time horizon, or a falsifiable condition. Aim for viewpoint diversity: fundamental/flow, technical/conditional, and risk/positioning where available. Exclude referral or exchange promotions, copied ATH commentary, pure price targets, self-congratulation, unrelated word matches, and claims whose supporting detail is not present. Do not rank a post solely by follower count or engagement. Preserve disclosures such as “holding HYPE” and distinguish a KOL opinion from verified market data.
 
@@ -155,7 +155,7 @@ For each asset, keep these concepts separate:
 
 A trader may hold simultaneous long and short legs. Count position legs for exposure, but count that person once for agreement and treat a two-sided trader as hedged/abstaining from the directional vote. Exclude null notional from dollar sums while retaining the leg count. All notional is bot-reported, not inferred margin.
 
-Lead with distinct-trader agreement. Quote the notional ratio or `net_direction` only when no leg in the group has null notional and no single leg exceeds half of gross notional; otherwise say the dollar split is dominated by one position or incomplete. 2026-10-08 实测 ETH：three of four traders short, yet `net_direction:"long"` / long ratio 0.83 because one $1.0 M long outweighed the rest and two of the four legs had null notional. With fewer than three distinct traders, or a trivially small gross notional (HYPE returned one $100 leg as “100% long”), report the sample as too small rather than as a direction.
+Lead with distinct-trader agreement. Quote the notional ratio or `net_direction` only when no leg in the group has null notional and no single leg exceeds half of gross notional; otherwise say the dollar split is dominated by one position or incomplete. 2026-10-08 实测 ETH：three of four traders short, yet `net_direction:"long"` / long ratio 0.83 because one $1.0 M long outweighed the rest and two of the four legs had null notional. Fixed threshold: fewer than 3 distinct traders = sample too small; report it as such rather than as a direction. Apply the same wording to a trivially small gross notional (HYPE returned one $100 leg as “100% long”).
 
 Before quoting trader quality, apply the profile checks in the caveat register (N-59 group): treat `pnl_ratio_infinite=true` or `pnl_ratio` above 100 as unverifiable rather than strong (one tier-A profile showed a last-30-day ratio of 985,510), quote `n_trades` with any win rate, flag `current_symbol_caution=true`, and flag leverage ≥10x.
 
@@ -163,7 +163,9 @@ Do not equate “currently long” with “newly bought”. `action` is the leg'
 
 ### 5. Optional watchlist inbox
 
-When available, use `subscription` to store the watchlist and surface unread KOL-call counts at zero quota cost. It is a pull-based inbox, not server push. Actual post content still comes from `signal`. Acknowledge unread counts only after the report has presented those updates.
+When available, `subscription` can store the watchlist and surface unread KOL-call counts at zero quota cost. It is a pull-based inbox, not server push. Actual post content still comes from `signal`.
+
+Ask the user before any `subscription` call and proceed only on a clear yes. `set` is a persistent write to the user's watchlist, and `list` is not read-only either: it folds pending updates into `shown`, changing the unread state. One consent at schedule setup covers the recurring runs it names; never `delete` without a separate request. Without consent, skip this step — the report does not depend on it. Acknowledge unread counts only after the report has presented those updates.
 
 ## Synthesis rules
 

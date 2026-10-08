@@ -4,14 +4,14 @@ description: 单标的研报解读旗舰。把卖方研报的结论当「有偏�
 trigger: 印证一下XX的研报、XX研报靠不靠谱、跨源印证、读数卡、研报校准、这个目标价能信吗、research readout、cross-source
 not_trigger: 研报榜/本周研报（→ Community c3）、单纯问目标价（→ Base 02）、催化剂日历（→ r3）、只想看报告口径（→ r2）、财报季扫描（→ Earnings Screener）、背离扫描（→ Base 03）
 mcp: mcp__followin__metrics, mcp__followin__signal, mcp__followin__news
-args: ticker(必填), window(可选，默认 30d，只作用于研报 report_date；步骤 1 不传 time_range、取回后客户端过滤，以便记下窗口外被滤掉的篇目)
+args: ticker(必填), window(可选，默认「本季财报日起、最长 45 天」，取不到财报日退回 30d；只作用于研报 report_date；步骤 1 不传 time_range、取回后客户端过滤，以便记下窗口外被滤掉的篇目)
 ---
 
 # /r1-cross-source-readout $ARGUMENTS
 
 **研报库单独不产信号，只产候选。信号是候选被跨源印证或证伪的那一刻才铸成的。**
 
-> **版本**：v1.1 ｜ **实测验证于 2026-07-29**（NVDA 全链路实跑）｜ **调用形态与字段名 2026-10-01 按生产端复测更新**（逐调用复测，未重跑全链路）｜ **2026-10-05 MU 全链路实跑后修订**（候选层窗口分支、闸 1 判据、内部人窗口、背离判据、口径声明）｜ **2026-10-08 NVDA / ACN 全链路复跑后修订**（signal 带 `limit=50`、单家候选按带 TP 家数计、同日不同 TP 去重、窗口内见尽判据、降级分支不跑步骤 2–4）
+> **版本**：v1.1 ｜ **实测验证于 2026-07-29**（NVDA 全链路实跑）｜ **调用形态与字段名 2026-10-01 按生产端复测更新**（逐调用复测，未重跑全链路）｜ **2026-10-05 MU 全链路实跑后修订**（候选层窗口分支、闸 1 判据、内部人窗口、背离判据、口径声明）｜ **2026-10-08 NVDA / ACN 全链路复跑后修订**（signal 带 `limit=50`、单家候选按带 TP 家数计、同日不同 TP 去重、窗口内见尽判据、只有行业报告点名时出简版卡）｜ **2026-10-08 用户拍板**：窗口改为本季财报日起最长 45 天、背离触发改为日内 / 超额回撤 / 近 20 日三条
 >
 > ⚠️ 本文所有 ⚠️ 与阈值都是实测结果或明确标注的拍脑袋值，不是推断。MCP 行为会变。
 > 通用红线见 [`references/followin-mcp-caveats.md`](../references/followin-mcp-caveats.md)，本文内联的是镜像，冲突以该文件为准。
@@ -26,7 +26,7 @@ args: ticker(必填), window(可选，默认 30d，只作用于研报 report_dat
 | 参数 | 必填 | 默认 | 说明 |
 |------|------|------|------|
 | ticker | ✅ | — | 单个美股代码。**本 Skill 不做批量**——四维对撞每标的 3 额度，且需逐份读报告论点 |
-| window | 否 | 30d | 报告新鲜度窗口，**只作用于研报**（内部人窗口另定，见步骤 3）。**服务端 `time_range` 腿已于 2026-08-03 修复**（`date_from`/`date_to` 可用、`time_scope` 字段透明），窗口过滤可服务端做；**本 Skill 仍在客户端按 `report_date` 过滤**——窗口外的 subject 要作为「窗口外背景」列出（见步骤 1 清洗第 4 条），服务端过滤会把它们直接丢掉。但 `report_limit:10` **单页**硬顶与机构名不归一仍在（N-38 部分修复；**翻页能力已于 2026-08-12 补上**，见 N-81）|
+| window | 否 | 本季财报日起，最长 45 天 | 报告新鲜度窗口，**只作用于研报**（内部人窗口另定，见步骤 3）。**起点 = 步骤 2 的 `earnings_surprise.report_date`**（含当日），早于今天 −45 天时截到 −45 天；取不到财报日（闸 0 缺失等）时退回 30d。**理由**（2026-10-08 实测 NVDA）：卖方报告扎堆在财报后几天，30d 按日历一刀切会把这一波整批切到窗口外——NVDA 08-26 财报后 08-26~08-27 有 5 家出报告，30d 窗口（09-08 起）只剩 Citi 一家，按财报日起算则是 5 家 $300–400；窗口按财报周期切，读到的才是「消化完本季财报后的立场」。最长 45 天是为了财报已过很久时不把陈旧报告算进来。**服务端 `time_range` 腿已于 2026-08-03 修复**（`date_from`/`date_to` 可用、`time_scope` 字段透明），窗口过滤可服务端做；**本 Skill 仍在客户端按 `report_date` 过滤**——窗口外的 subject 要作为「窗口外背景」列出（见步骤 1 清洗第 4 条），服务端过滤会把它们直接丢掉。但 `report_limit:10` **单页**硬顶与机构名不归一仍在（N-38 部分修复；**翻页能力已于 2026-08-12 补上**，见 N-81）|
 
 ## 为什么必须跨源
 
@@ -46,7 +46,7 @@ MCP 侧还额外叠了一层削弱：**每票最多看得到 10 篇、去重后�
 
 ---
 
-## 执行流水线（4 步 · 3 额度；判「轮动错杀」另加同行快照 1 额度）
+## 执行流水线（4 步 · 3 额度；个股距高点 ≥10% 或判「轮动错杀」时另加同行快照 1 额度）
 
 🔒 全程美股：**所有调用必带 `asset_type="tradfi"`**，`news()` 也带（2026-10-01 实测正常返回，旧例外已撤销）
 📌 **入参分工（2026-10-01 实测，N-105）**：标的放 `keywords` 数组、意图词放 `query`、信号类别放 `categories`、新闻来源放 `sources`。客户端不接受数组入参（报 `-32602`）时，metrics 可退回 `query="<TICKER> …"` 拼串
@@ -85,11 +85,11 @@ metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detai
    实测 INTC：Goldman Sachs 2026-07-23 两篇同为 TP 150——《…First Take: Strong quarter across the board…》与《…Strong quarter across the board, with margin upside…》，前者是盘后快评、后者是完整版。不合并会把 GS 算成两家。
    **跨日变体也要看**：Citi 07-23《2Q26 Earnings Quick Take》与 07-24《Transformation in Progress》同为 TP 130，是同一事件的快评+深度。跨日时不强制合并，但**按机构取最新一篇**即可自然消解。
    ⚠️ **同机构同日、TP 不同**（2026-10-08 实测 NVDA）：Goldman Sachs 08-26《First Take: Solid quarter…》TP 285，同日完整版《Strong 2027 outlook…》TP 300、`matched_asset_target_price.old`=285——快评之后当天就改了价。上面的判据（同 TP）合并不了它，「取最新一篇」又因同日分不出先后。**取 `old` 等于另一篇 `new` 的那篇（后发版）**，另一篇丢弃；两篇都没有 `old`、分不出先后时，仍只算 1 家，TP 写成「$A / $B（同日两版）」，口径声明里注明。
-4. **按 `report_date` 过滤到 window 内**，并记下被滤掉几篇。窗口外的 subject **按机构取最新一篇**，列为「窗口外背景（日期）」，不进区间 / 中位 / 离散比计算。
+4. **按 `report_date` 过滤到 window 内**（起点要等步骤 2 拿到财报日才定；过滤在客户端做，不影响步骤 1 的调用），并记下被滤掉几篇。财报当天的报告计入窗口，但标题含 Preview / 前瞻的仍按财报前研究处理、不计入。窗口外的 subject **按机构取最新一篇**，列为「窗口外背景（日期）」，不进区间 / 中位 / 离散比计算。
 5. **分层**：只有 `subject_reports` 能用于评级/目标价统计（N-19）。`mention_reports` 只能当叙事背景，**其 `mention_context.rationale` 可引用为"某行业报告里被点名的理由"，但绝不能标成"机构评级"**。
    ⚠️ **`subject_reports=0` 是真实分支，必须处理**：实测 F(Ford) 返回 `report_returned_count=3`，**全部是 mention，subject 为 0**。
-   此时**不出读数卡**——候选层不成立。降级输出："本标的近期无专题研究，只在 N 份行业报告里被点名"，附 `mention_context.rationale`。**降级时步骤 2–4 不跑**（省 3 额度；四维对撞没有候选可撞）。
-   📌 降级输出可用的两个字段（2026-10-08 实测 ACN：9 篇全 mention、`has_more:false`）：`mention_context.mention_direction`（`beneficiary` / `negative` / `competitor`）按篇计数，写「n 篇看作受益、m 篇看作受损」；`mention_context.mention_rating`（如 GS 10-02 行业报告里标 ACN `"Buy"`、MS 07-16 标 `"Equal-weight"`）只写成「该行业报告顺带标注的评级」，**不进评级统计**——它是行业组的转引，不是这只票的专题结论。⚠️ 别和 `rating_current` 混：后者是报告主角的评级（实测 Bernstein 09-14 的 `rating_current:"Outperform"` 是给 Capgemini 的）。
+   此时**出「简版卡」**（格式见「输出」一节）：不含【候选层】，步骤 2–4 照跑，四维对撞里能做的维度（共识、市场、KOL·内部人、基本面）照写；【领读】首句固定写「**本标的近期无专题研究，以下不含研报候选层**」。行业报告点名单独一行列作背景，附 `mention_context.rationale`。
+   📌 点名背景可用的两个字段（2026-10-08 实测 ACN：9 篇全 mention、`has_more:false`）：`mention_context.mention_direction`（`beneficiary` / `negative` / `competitor`）按篇计数，写「n 篇看作受益、m 篇看作受损」；`mention_context.mention_rating`（如 GS 10-02 行业报告里标 ACN `"Buy"`、MS 07-16 标 `"Equal-weight"`）只写成「该行业报告顺带标注的评级」，**不进评级统计**——它是行业组的转引，不是这只票的专题结论。⚠️ 别和 `rating_current` 混：后者是报告主角的评级（实测 Bernstein 09-14 的 `rating_current:"Outperform"` 是给 Capgemini 的）。
    ⚠️ 但 **N-19 的「GOOGL subject=0」是时点现象不是恒定特性**：2026-07-23 实测 GOOGL subject=0，**2026-07-29 复测 subject=6**（Barclays/MS/Bernstein/Citi×2/GS）。**每次当场看返回，不要照抄历史结论。**
 
 > ⚠️ **窗口内可见 <2 家时**（2026-10-05 实测 MU：首页 4 篇 subject，30d 窗口内只剩 UBS 09-23 一篇）——**家数按带 `matched_asset_target_price.new` 的机构计**，没有 TP 的 subject 只列名、不算（2026-10-08 实测 NVDA：窗口内 Citi 09-28 TP 315 + UBS 09-28 回购快评，后者无 TP、无评级、`stance_normalized:null`，按机构数是 2 家，按 TP 只有 1 家）：候选层标「**单家候选**」，离散比写「不适用」，【候选层】只填这一家，窗口外背景照第 4 步列出。窗口内 0 家、窗口外有 subject 时同样出卡，但【领读】第一句写明「窗口内无专题研究」——这和第 5 步的 `subject=0`（全库都没有）不是一回事。
@@ -116,12 +116,14 @@ metrics(keywords=["<TICKER>"], query="research reports 行情", verbosity="detai
 ### 步骤 2 · 维度 1 + 维度 4 + 价格腿：一次拿全（1 额度）
 
 ```
-metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_type="tradfi", limit=20)
+metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价 历史走势", asset_type="tradfi", limit=21)
 ```
+
+> 📌 **query 带「历史走势」、`limit=21`**（2026-10-08 实测 ACN，仍 1 额度）：同一次调用多回 `market.history` 21 行日线（含当天盘中那一行），供背离第 3 条算近 20 个交易日涨跌。`analyst_grades` 会因此报 `parameter_partial`（「capped at 20 rows」）、`status:"partial"`，属正常，不要重试。
 
 **这一个调用同时返回**（2026-10-01 实测）：`consensus_price` + `analyst_grades` + `analyst_estimates` + `eps_trend` + `fiscal_quarters[0]`（内含 `earnings_surprise` 与 `financial_statement`，只有最新一季）+ `next_earnings_estimate` + `market.snapshot`。
 
-> ⚠️ **字段已换代（N-109）**：旧的 `beat_miss` / `latest_quarter` 两个 block 不存在了。对应关系：`beat_miss.epsActual` → `fiscal_quarters[0].earnings_surprise.actual_eps`；`beat_miss.date` → `earnings_surprise.report_date`；`latest_quarter.eps` → `fiscal_quarters[0].financial_statement.eps`（基本 EPS；GAAP 稀释在 `epsDiluted`，闸 1 用后者）；`latest_quarter.date` → `financial_statement.period_end`。本调用不再返回 `valuation_block`（要 DCF 得把"DCF"写进 query，本 Skill 不用）。`analyst_grades` 的行数受 `limit` 控制，估家数时传 `limit=20`。
+> ⚠️ **字段已换代（N-109）**：旧的 `beat_miss` / `latest_quarter` 两个 block 不存在了。对应关系：`beat_miss.epsActual` → `fiscal_quarters[0].earnings_surprise.actual_eps`；`beat_miss.date` → `earnings_surprise.report_date`；`latest_quarter.eps` → `fiscal_quarters[0].financial_statement.eps`（基本 EPS；GAAP 稀释在 `epsDiluted`，闸 1 用后者）；`latest_quarter.date` → `financial_statement.period_end`。本调用不再返回 `valuation_block`（要 DCF 得把"DCF"写进 query，本 Skill 不用）。`analyst_grades` 的行数受 `limit` 控制、封顶 20，本步传 `limit=21` 是为了 history 多拿一行，grades 照样是 20 行上下。
 
 > ⚠️ **query 里不要加会撞 ticker 的英文词**（N-14）：`beat` / `miss` / `hold` / `buy` / `now` / `all` 都会被当成 ticker 抽取（实测 `BEAT` 撞上仙股 HeartBeam $0.55）。调用后核对 `meta.filters_applied.keywords` 只有目标 ticker。
 
@@ -219,7 +221,14 @@ news(query="<公司名> <TICKER>", sources=["media"], sort_by="relevance", time_
 
 **背离性质三分**（这一步是整张卡的关键，读法完全相反）：
 
-**先判有没有背离**：日内跌幅 ≥2% **或**距 `yearHigh` ≥10%，满足任一才进三分；两条都不满足，维度 2 写「无背离」。⚠️ 2% / 10% 两个阈值是拍的，未回测，用的时候把原始百分比一起写出来。
+**先判有没有背离**，三条满足任一才进三分；都不满足，维度 2 写「无背离」：
+1. **日内跌幅 ≥2%**：`change ÷ previousClose`（步骤 2 快照不带涨跌幅，自算）
+2. **相对同行的超额回撤 ≥10%**：（个股距 `yearHigh` 的回撤）−（基准距 `yearHigh` 的回撤）。**基准取同行快照里同细分行业 2–3 只的回撤中位数**；行业 ETF 只作参考并列写出——宽基或相邻行业 ETF 与细分同行走势经常分叉，拿 ETF 当基准会误触发（见下）。个股自己距高点 <10% 时这条不可能触发，不必为它取同行快照
+3. **近 20 个交易日跌幅 ≥8%**：步骤 2 的 `market.history`，最新一行（盘中用快照价）对第 21 行的 `close` 自算——⛔ 不要用行内 `changePercent`，那是收盘对开盘（N-131）
+
+> ⚠️ **为什么不再用「距 52 周高 ≥10%」**（2026-10-08 实测 ACN）：ACN 当天 +4.5%、10-01 财报日 +15.8%，距 52 周高仍有 −29.4%，旧判据照样触发，可三分全是按「在跌」写的，套不上。同行普遍 −30% 以上（CTSH −31.8%、IBM −32.8%、EPAM −50.2%、INFY −64.5%）——这是整个 IT 服务被重新定价，不是 ACN 自己的背离。
+> ⚠️ **为什么基准用同行中位、不用 ETF**：同一天软件 ETF IGV 距高点只有 −6.4%，拿它当基准 ACN 的超额回撤是 23.0%，第 2 条仍会误触发；换成 IT 服务同行（CTSH −31.8%、IBM −32.8%、EPAM −50.2%）的中位 −32.8%，超额回撤是 +3.4%，不触发——这才是"整个 IT 服务被重新定价"的正确读法。ETF 的数照写，作参考。
+> ⚠️ 2% / 10% / 8% 三个阈值都是拍的，未回测，用的时候把原始百分比一起写出来。
 
 | 性质 | 判据 | 读法 |
 |---|---|---|
@@ -227,14 +236,14 @@ news(query="<公司名> <TICKER>", sources=["media"], sort_by="relevance", time_
 | **逻辑被否** | news 里有直接击中研报核心论点的事实（订单取消、指引下修、竞品夺单）| 候选作废，别再锚研报 TP |
 | **尚不可判** | news 召回失败，或有报道但与论点无关 | **诚实写"不可判"**，不要为了叙事完整硬圆 |
 
-> 判「轮动错杀」**必须**取同行快照（+1 额度）：`metrics(keywords=["<T1>","<T2>","<T3>","<行业ETF>"], query="行情", categories=["market"], asset_type="tradfi")`，**每批 ≤5 只**（超出的写在 `meta.warnings` 的 `keyword_count_over_max`），含 `CL`/`GC`/`BABA` 等影子代码时**按 4 只装**（N-36）。不带 `categories=["market"]` 会顺带返回各家 `profile_block`，白占体积（2026-10-05 实测）。
+> 判「轮动错杀」与算超额回撤（背离第 2 条）**必须**取同行快照（+1 额度）：`metrics(keywords=["<T1>","<T2>","<T3>","<行业ETF>"], query="行情", categories=["market"], asset_type="tradfi")`，**每批 ≤5 只**（超出的写在 `meta.warnings` 的 `keyword_count_over_max`），含 `CL`/`GC`/`BABA` 等影子代码时**按 4 只装**（N-36）。不带 `categories=["market"]` 会顺带返回各家 `profile_block`，白占体积（2026-10-05 实测）。
 > **同行 = 同细分行业 2–3 只 + 1 只宽基行业 ETF，两者分开写**。两者可能反向——实测 10/2：存储股 WDC −10.22%、STX −10.21%、SNDK −3.79%，而半导体 ETF SOXX +2.16%，MU −2.05%。此时应写「存储板块被单独卖」，不是「半导体板块在跌」。
 
 ---
 
 ## 输出：读数卡
 
-固定五段。**净信号不是「买入/卖出」**——只回答三个问题。
+固定五段（只有行业报告点名时用文末的简版卡）。**净信号不是「买入/卖出」**——只回答三个问题。
 
 ```
 📇 <TICKER> 研报跨源印证读数卡 · <日期>
@@ -252,7 +261,7 @@ news(query="<公司名> <TICKER>", sources=["media"], sort_by="relevance", time_
 
 【四维对撞】
 ① 共识：研报最高 TP $X vs 全街中位 $Z（+A%）、区间 $L–$H → 孤儿 / 不是孤儿
-② 市场：现价 $P，日内 ±A%，距 52 周高 −B% → 无背离 / 轮动错杀 / 逻辑被否 / 尚不可判
+② 市场：现价 $P，日内 ±A%，近 20 日 ±C%，距 52 周高 −B%（行业 ETF −E%，超额 F%）→ 无背离 / 轮动错杀 / 逻辑被否 / 尚不可判
    （依据：同行 <T1 ±x%、T2 ±y%>｜行业 ETF <±z%>｜<news 事实或"召回失败">）
 ③ KOL·内部人：<A 级 KOL n 人 m 帖，方向> ｜内部人近 90 天 n 买 n 卖（仅 Form4 P/S）｜国会近 90 天 n 人 n 笔（买 a / 卖 b）
    <返回没覆盖满 90 天时两处都改写「近 N 天（返回只覆盖到 <日期>）」>
@@ -270,6 +279,32 @@ news(query="<公司名> <TICKER>", sources=["media"], sort_by="relevance", time_
 · <若有>news 召回失败，维度 2 判定不成立
 · <若有>13F 环比未引用（report_period + 45 天未过，或只有 *_change_percent 恒 0 字段）；新季度申报未完成时绝对持仓也不引用
 · <若有>引用的 caveats / risks / catalysts 等列表为截断后的前 n 条（全量见 detail_sections）
+```
+
+**简版卡**（`subject_reports=0`、只有行业报告点名时用；步骤 2–4 照跑，额度同完整跑）：
+
+```
+📇 <TICKER> 跨源读数卡（简版）· <日期>
+
+【🔎 领读】
+本标的近期无专题研究，以下不含研报候选层。<再 1–3 句判断：四维里哪条最该看>
+
+【行业报告点名】（背景，不是候选）
+<N 篇（<window> 窗口内 n 篇）｜n 篇看作受益、m 篇看作受损｜最新一篇：<机构> <日期>——<rationale 一句>>
+
+【四维对撞】
+① 共识：现价 $P vs 全街中位 $Z（±A%）、区间 $L–$H｜分析师 grades 近期 <n 维持 / n 上调 / n 下调>（无研报 TP，不做孤儿判断）
+② 市场：同完整卡
+③ KOL·内部人：同完整卡
+④ 基本面：营收超预期 A%（主锚）｜EPS 口径 ...｜EPS 趋势 <方向>（无研报侧假设）
+
+【净信号】
+· 锚哪个价：<只能锚共识中位，写明为什么不锚别的>
+· 背离什么性质 / 盯什么反向信号：同完整卡
+
+【口径声明】
+· 研报库内无本标的专题研究（已翻页至尽头 / 仅取首页），行业报告点名不进评级统计
+· 其余同完整卡
 ```
 
 **⛔ 硬要求**：
@@ -301,7 +336,7 @@ news(query="<公司名> <TICKER>", sources=["media"], sort_by="relevance", time_
 
 每次跑完读一次 `meta.quota`（每个返回都带）。`remaining/limit < 15%` 时在产出末尾附一行内部提醒（不进对外内容）：`⚠️ 本月额度剩 N 次，按当前节奏约可跑 X 天`。
 
-单次完整跑 = **3 额度**（研报 1 + fundamentals 1 + signal 1；news 0）。加 peers 快照则 4（判「轮动错杀」时必加）。
+单次完整跑 = **3 额度**（研报 1 + fundamentals 1 + signal 1；news 0）。加 peers 快照则 4（个股距 52 周高 ≥10% 时要算超额回撤、判「轮动错杀」时，都必加）。
 
 ## 已知边界
 
@@ -312,4 +347,4 @@ news(query="<公司名> <TICKER>", sources=["media"], sort_by="relevance", time_
 | 榜单方向字段不可用 | 连带污染（N-39；字段 2026-08-04 改名为 `mention_impact`）| 本 Skill 全程不读榜单方向，只读钻取后的 `subject_reports`。⚠️ **也不读 `mention_reports[].rating_current`**——那是报告自己主角的评级 |
 | **停止覆盖信号：未证实，不是做不了** | ⚠️ **2026-07-29 修正此前的错误断言**：`revision_summary.list_changes[]` **字段确实存在**（结构 `{action, list, security}`），此前写"MCP 无此字段"是错的 | 实测三标的只见到 `action` 为 `initiate`（Bernstein 07-27 组合名单）与 `add`（J.P. Morgan 加入 Positive Catalyst Watch），**未见到停覆类 action**。→ 表述为"**样本内未出现，机制上可能支持**"，出现时按库内时钟族读法处理；**不承诺一定能抓到**。<br>⚠️ **`remove` 已出现，但不是停覆**（2026-10-05 实测 MU）：Citi Research 08-03 `{action:"remove", list:"Upside 90-Day Catalyst Watch"}`，同篇维持 Buy、TP 1,400 不变——这是移出催化剂观察名单，读作「短期信心下降」，不能写成「停止覆盖」 |
 | 方向翻转（错位族）做不了 | 需同机构前后比对，而只有 3–5 家可见、`rating_history` 只带 TP 不带 rating | 不做。**但 `revision_summary` 的 old→new TP 是可用的替代**（实测 INTC 两家真上调），已并入候选强度 |
-| `subject_reports=0` | 真实分支（实测 F 全 mention）| 不出读数卡，降级为 mention 叙事。**且该状态会变**——GOOGL 07-23 为 0、07-29 为 6 |
+| `subject_reports=0` | 真实分支（实测 F / ACN 全 mention）| 出简版卡（不含候选层，四维照做），行业报告点名只作背景。**且该状态会变**——GOOGL 07-23 为 0、07-29 为 6 |

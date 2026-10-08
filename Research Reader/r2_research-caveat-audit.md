@@ -40,9 +40,9 @@ args: ticker(必填), focus(可选：报告标题关键词，只审匹配的那�
 
 ---
 
-## 执行流水线（1 额度）
+## 执行流水线（1–3 额度）
 
-### 步骤 1 · 拉报告（1 额度）
+### 步骤 1 · 拉报告（1–3 额度：首页 1 + subject 翻页每页 1）
 
 ```
 metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", asset_type="tradfi")
@@ -50,10 +50,15 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 > 📦 **返回体积与游标位置（2026-10-05 实测）**：单页 `detail` 返回约 **85–90K 字符**（NVDA 首页 88,589 / 第 2 页 82,169），会超过工具输出上限被落盘——**用脚本按字段解析，不要整段读进上下文**。翻页游标在 `meta.pagination["fundamentals.research_reports"].next_cursor`（**键名本身含点**，不是 `meta.pagination.next_cursor`）；带 `cursor` 重查时 query / keywords / verbosity / limit 须与首页完全一致。
 
+> 📄 **翻页口径（2026-10-08 定）**：**subject 翻到尽头，mention 只取 1 页**。
+> · 首页 `has_more=false` 或首页已出现 mention → 停（1 额度）
+> · 首页全是 subject 且 `has_more=true` → 带 cursor 翻下一页，直到某页出现 mention 或 `has_more=false`（通常 2–3 额度；第 3 页仍全是 subject 就继续翻到尽头，每页 +1，头部写实际额度）
+> · mention **只用 subject 见尽的那一页带出来的**（按日期倒序，就是最新的一批），不为 mention 单独翻页；产出头部写明"mention 只取 1 页，has_more=<值>"，mention 侧结论一律是下界
+
 > 🔴 **取数前先认块（N-86，2026-08-12 实测）**：解析层会静默扩展出额外候选 ticker，**每个候选都是一个平级结果块，顺序不保证主匹配在前**（实测 `ASML.AS` 的 `[0]` 是空块、数据在 `[1]`）。
 > ① ⛔ **禁止用 `research_reports[0]` 取数**　② 逐块比对 `query_ticker` == 本次标的，**只认相等的块**　③ ⛔ **禁止用 `meta.total` 判条数**（它数的是块）
 
-同 r1 步骤 1 的全部铁律：query 必带研报意图词（红线 12）／`time_range` 已于 2026-08-03 修复可传，`limit` 单页仍被 10 硬顶，但 **2026-08-12 起返回体带 `meta.pagination.next_cursor`，可翻页枚举完**（N-81 销案）——**没翻页才需要把家数标下界**（N-38 部分修复）／`default_fanout_fallback` 警告是假阴性别重试（N-21）／机构名先归一再按「机构+标题+日期」去重（N-38 + N-3）。
+同 r1 步骤 1 的全部铁律：query 必带研报意图词（红线 12）／`time_range` 已于 2026-08-03 修复可传，`limit` 单页仍被 10 硬顶，但 **2026-08-12 起返回体带 `meta.pagination.next_cursor`，可翻页枚举完**（N-81 销案）——按上方翻页口径，subject 家数是全量，**mention 只取 1 页、标下界**（N-38 部分修复）／`default_fanout_fallback` 警告是假阴性别重试（N-21）／机构名先归一再按「机构+标题+日期」去重（N-38 + N-3）。
 
 > ⚠️ **快评 + 完整版合并要补一条（2026-10-05 实测）**：r1 的「同机构 + 同日 + 同 TP」判据**漏掉"快评后完整版当天上调 TP"**——实测 GS 2026-08-26《First Take: Solid quarter…》TP 285，同日完整版 TP 285→300，TP 不同所以不会被合并。追加：**同机构 + 同日 + 任一篇标题含 First Take / Quick Take → 计家数时合并，以非快评那篇为准**；逐篇地基里快评可保留，但须注"已被同日完整版取代，别引其 TP"。
 > 同批另见 N-3 复现：GS 两篇标题 / 日期 / TP 逐字相同、`event_id` 不同——服务端"按 event_id 去重"去不掉这种，客户端三元组去重照做。
@@ -61,14 +66,11 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 > 🔴 **排序与新鲜度（2026-10-05 实测）**：不传窗口时 `time_scope:"all_available_reports"`，且排序是 **subject 整层在前、各层内按 `report_date` 倒序**——NVDA 第 2 页要先排完到 07-07 的 9 篇 subject，才出现 09-28 的 mention。即**subject 满一页时，首页不会出现比 subject 更新的 mention**。实测 NVDA 首页最新一篇 08-27（距今 39 天），同时刻 `time_range="30d"` 返回 subject 0 / mention 10（09-24~09-28）。
 > **subject 不足一页时反过来**（2026-10-08 实测 META）：首页 = subject 6 篇（07-02~09-24）+ 尾部直接接上最新 mention 4 篇（10-05~10-07）；第 2 页 subject 0、mention 10。所以：
-> · **首页已出现 mention ⇒ subject 已见尽**，subject 侧不用再翻页；继续翻页只是在补 mention
-> · 此时下面 ③ 的 30d 补查**不必跑**——META 的 30d 首页（subject 1 + mention 9）全部已在前两页里
+> · **首页已出现 mention ⇒ subject 已见尽**，subject 侧不用再翻页；按翻页口径 mention 也不再翻
+> · 30d 补查**不必跑**——META 的 30d 首页（subject 1 + mention 9）全部已在前两页里
 > ① 产出头部**必须写报告日期区间与 `time_scope`**（模板已留位；subject 与 mention 混在一页时**两层的区间分开写**）
 > ② 最新 subject 距今 **>21 天**时，【领读】第一句必须写"本批地基审计的是 <日期> 前的报告"
-> ③ 首页全是 subject、又需要看近期 mention 时可补一次（+1 额度，非必跑）：
-> ```
-> metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", asset_type="tradfi", time_range="30d")
-> ```
+> ③ 不再单独补 30d：subject 翻到尽头的那一页自带最新一批 mention，已覆盖原先补 30d 的用途
 
 > ✅ **与 r1 同源**：若本轮已跑过 r1，**直接复用它步骤 1 的返回，0 额度**。r2 用的字段（`key_caveat` / `coverage_flag` / `consensus_diff` / `content_truncated` / `novelty` / `detail.caveats` / `detail.risks`）r1 全都已经拉回来了。
 
@@ -173,7 +175,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 ```
 🔍 <TICKER> 研报口径审计 · <日期>
-可见 N 篇（去重后 M 家）｜报告日期 subject <最早>~<最新> ／ mention <最早>~<最新>｜time_scope=<值>｜单页 10 篇，<已翻页至尽头 ／ 仅取首页 ／ subject 已见尽、mention 取到第 K 页>
+可见 N 篇（去重后 M 家）｜报告日期 subject <最早>~<最新> ／ mention <最早>~<最新>｜time_scope=<值>｜额度 <1–3>｜subject 已翻至尽头（共 K 页）｜mention 只取 1 页，has_more=<true/false>（mention 侧为下界）
 <最新 subject 距今 >21 天时加一行：⚠️ 本批地基审计的是 <日期> 前的报告>
 
 【🔎 领读】（先写这段）
@@ -186,7 +188,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
   ② 口径边界：<和谁比、同口径吗、覆盖到哪>
   ③ 自陈与自相矛盾：③a <报告自己承认的局限> ／ ③b <抽取时发现报告内对不上的数字>
      无则写"未自陈（仅见 1/N 条 caveat）"
-  可信度：🟢可直接引用 / 🟡引用须带限定 / 🔴地基有问题，别引结论
+  可信度：🟢可直接引用 / 🟢（可见范围内） / 🟡引用须带限定 / 🔴地基有问题，别引结论
 
 【高危表述】（跨全部报告汇总）
 ⚠️ 代理指标推断：<N 条，逐条列 + 代理链条>
@@ -224,14 +226,15 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 · key_caveat 被流程备注占位 N 篇 ／ 书目缺失类 N 篇 ／ 类型声明 N 篇 ／ 字段缺失 N 篇（0 号分流剔出，不计分）
 · mention 篇 caveat 指向报告主标的 N 篇（不进本标的打分）；consensus_diff 未返回 N 篇
 · 库里缺的中间报告：<机构 old TP 对不上上一篇可见 new 的，逐条列>
-· 覆盖面：单页 10 篇，has_more=<true/false>；榜单口径覆盖数需 r0（本轮未取）
+· 覆盖面：subject 全量（K 页）；mention 只取 1 页，has_more=<true/false>；榜单口径覆盖数需 r0（本轮未取）
 ```
 
-**可信度分档规则**（三档，只看①②③，**不看④**）：
+**可信度分档规则**（三档，🟢 分两级；只看①②③，**不看④**）：
 
 | 档 | 条件 |
 |---|---|
-| 🟢 可直接引用 | 基准是独立调研或披露数据；口径边界清晰；**且 `detail_sections.caveats` 所示的全部 caveat 都已读到、均不涉及①③**（只见 1/N 条时最高 🟡，注"未读全"——硬要求 5：未自陈 ≠ 没问题）|
+| 🟢 可直接引用 | 基准是独立调研或披露数据；口径边界清晰；**且 `detail_sections.caveats` 所示的全部 caveat 都已读到、均不涉及①③** |
+| 🟢（可见范围内） | 前两条同上；**可见的 caveat 不涉及①③，但只见 1/N 条**（截顶下的常态）。必须带括注，写"仅见 1/N 条 caveat"——硬要求 5：未自陈 ≠ 没问题。`key_caveat` 未返回的篇不适用（最高 🟡）|
 | 🟡 引用须带限定 | 基准是管理层口径或建模估算；**或**口径边界不清；**或** ③b 只涉及辅助表格（注"引用该表前核对正文"）| 
 | 🔴 别引结论 | ③b 涉及**目标价、上行幅度或核心预测**；**或**核心论点建立在未验证的代理指标上 |
 
@@ -261,10 +264,10 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 | `coverage_flag.missing` 的作用域不明 | **待向 Dev 确认**：文案写的是 *"The report does not disclose…"*（指报告），但同一条记录 `content_truncated` 为 True（说明只抽了一部分）。**究竟是"报告没披露"还是"抽取到的部分没披露"，从数据本身判不出来** | 在澄清前，一律按"抽取侧缺口"处理（④轴），**不计入报告可信度打分**。这是保守侧错——宁可少扣分，不可把抽取限制栽给报告 |
 | `completeness` 取值域未穷举 | 实测 20 篇（NVDA 10 + INTC 10）只见 `high`(8+) / `medium`(2+)；2026-10-05 复测 NVDA 首页 high 9 / medium 1；2026-10-08 META 20 篇 high 16 / medium 4，仍无 `low` | `low` 是否存在待观察；出现时按 🔴 提示人核 |
 | `content_truncated` 实测**累计 49/49 全为 True** | 数据特性（2026-10-05、2026-10-08 复测仍成立）| 恒为真 ⇒ **零判别力**，只能单列进④轴。若拿它扣分，每份报告都会被判不完整 |
-| `detail` 数组固定截顶 | **2026-10-05 实测**：caveats 恒 1 条（= `key_caveat`）、risks 2、key_points 3、data_points 3；改 `limit` / query 无效 | 见步骤 2 截顶说明；①③轴只有一条信源，"未自陈"写成"仅见 1/N 条"，🟢 最高只到 🟡 |
+| `detail` 数组固定截顶 | **2026-10-05 实测**：caveats 恒 1 条（= `key_caveat`）、risks 2、key_points 3、data_points 3；改 `limit` / query 无效 | 见步骤 2 截顶说明；①③轴只有一条信源，"未自陈"写成"仅见 1/N 条"，🟢 只能给到「🟢（可见范围内）」 |
 | `key_caveat` 被流程备注 / 书目缺失占位 | **2026-10-05 实测**：30d 窗口 10 篇里 6 篇是流程备注 | 步骤 2 的 0 号分流先剔出，归④轴 |
 | 不传窗口时 subject 整层在前 | **2026-10-05 实测**：首页全是 subject，最新可能已是一个多月前；**2026-10-08 实测** subject 不足一页（META 6 篇）时首页尾部即接最新 mention | 头部写日期区间 + `time_scope`；>21 天领读首句声明；首页全是 subject 时才考虑补 30d |
 | mention 篇字段的归属 | **2026-10-08 实测**：`key_caveat` / `rating_current` / `report_subject_target_price` 属报告主标的（META 14 篇 mention 里多数如此）| 见步骤 2 mention 规则：只审 `mention_context`，不涉及本标的的 caveat 不计分 |
 | 内部校验器抓不到报告自身的推断错误 | 已知（外部核验首轮 3/6 命中全属此类）| 靠步骤 3 三类规则 + 步骤 4 外部核验，**不承诺自动化能兜住** |
-| 单页只有 10 篇，且不一定给满 | 上游单页硬顶（N-38）| **可翻页补全**（N-81）。仅取首页时审计结论标下界。实测 F 首页只返回 3 篇且全是 mention |
+| 单页只有 10 篇，且不一定给满 | 上游单页硬顶（N-38）| **subject 翻到尽头、mention 只取 1 页**（N-81 + 2026-10-08 翻页口径）。mention 侧结论标下界。实测 F 首页只返回 3 篇且全是 mention |
 | `subject_reports=0` 时仍可审 | 实测 F 全 mention | mention 报告同样带 `key_caveat` / `coverage_flag` / `consensus_diff`，**照样可审**——F 的两条 🔴 基准问题就出自 mention 报告。但先判 caveat 说的是不是本标的（见上一行）|

@@ -21,7 +21,8 @@ filter_tweets.py — Stock KOL Watch Step 3 固化脚本（framework v1.6）
   - [⚠️截断]：推文带 content_truncated=true（2026-10-08 实测：user_tweets 默认 verbosity=standard
     把正文截在 600 字，detail 截在 2000 字；嵌套 QT/RT 原文被截也会让外层带这个标）——见标即知不是全文
   - 跳过 data.pin_tweet（置顶推常是几个月前的旧推，混进来会让"窗口未回溯"告警永远不响）
-  - stderr 打印每账号 in-window 计数（直接喂 Step 2 覆盖表）；空 dump 单列，提示查账号状态
+  - stderr 打印 digest 字符数（Step 3 外包阈值 15K 字符）+ 每账号 in-window 计数（直接喂 Step 2 覆盖表）；
+    空 dump 单列，提示查账号状态；窗口跨本地 0 点时按本地日期分列条数（拆日报用）
 
 schema 变了 → 改这个脚本，不要回退到内联重写。
 """
@@ -84,6 +85,12 @@ def find_tweets(obj, out, in_tweet=False):
 
 def author_of(t):
     return (t.get("author") or {}).get("userName") or t.get("screen_name")
+
+
+def local_day(d, offset_hours):
+    """推文的本地日期（YYYY-MM-DD）——跨本地 0 点的批次按它拆进各自日期的日报。"""
+    loc = d.astimezone() if offset_hours is None else d + timedelta(hours=offset_hours)
+    return loc.strftime("%Y-%m-%d")
 
 
 def local_ts(d, offset_hours, label):
@@ -196,6 +203,7 @@ def main():
     merged = {}           # 主账号 → 累计条数（同账号多文件合并成一行覆盖表）
     earliest = {}         # 主账号 → 跨全部 dump 的最早一条（判断回溯够不够，翻页后自动消警）
     truncated = {}        # 主账号 → in-window 里带 [⚠️截断] 的条数
+    by_day = {}           # 本地日期 → {主账号: 条数}（跨本地 0 点时按它拆日报）
     empty = []            # 读不了 / 没有任何推文的 dump
     for f in args.files:
         main_author, rows, first_dt = process_file(f, cutoff, seen)
@@ -208,6 +216,8 @@ def main():
         truncated[main_author] = truncated.get(main_author, 0) + sum("[⚠️截断]" in r[2] for r in rows)
         chunks.append(f"\n\n########## @{main_author} ({len(rows)} in-window) ##########")
         for cd, text, mark, url in rows:
+            day = by_day.setdefault(local_day(cd, args.tz_offset), {})
+            day[main_author] = day.get(main_author, 0) + 1
             chunks.append(
                 # UTC 必须带日期：本地自然日窗口必然跨两个 UTC 日（如 CST 08-03 00:00 = 08-02 16:00Z），
                 # 只写 HH:MMZ 会让"22:09Z 是昨天还是今天"无法判断，违反"数据带源可回头验证"。
@@ -220,11 +230,16 @@ def main():
     Path(args.out).write_text(digest, encoding="utf-8")
     print(args.out)
     # Step 3 外包阈值按「字符」算，不是 wc -c 的字节（中文一字 3 字节，会把 13K 字符报成 23K）
-    print(f"--- digest {len(digest):,} 字符（>20,000 → 派 reader 子代理，SKILL Step 3）---", file=sys.stderr)
+    print(f"--- digest {len(digest):,} 字符（>15,000 → 派 reader 子代理，SKILL Step 3）---", file=sys.stderr)
     print("--- in-window counts（喂覆盖表）---", file=sys.stderr)
     for name, n in sorted(summary, key=lambda x: -x[1]):
         t = truncated.get(name, 0)
         print(f"  {name}: {n}" + (f"（其中 {t} 条 ⚠️截断）" if t else ""), file=sys.stderr)
+    if len(by_day) > 1:
+        print("\n📅 本批跨本地 0 点 —— 按推文本地日期拆进各自日期的日报（SKILL「时间窗口」）：", file=sys.stderr)
+        for day in sorted(by_day):
+            acc = "、".join(f"@{a}×{n}" for a, n in sorted(by_day[day].items(), key=lambda x: -x[1]))
+            print(f"  {day}: {sum(by_day[day].values())} 条（{acc}）", file=sys.stderr)
     if empty:
         print("\n⚪ 空 / 读不了的 dump：" + "、".join(empty) +
               "\n  → 按调用顺序对出是哪个账号。销号 / 封号也返回 success + 空数组（N-90），"

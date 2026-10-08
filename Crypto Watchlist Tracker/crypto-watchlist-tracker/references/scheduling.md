@@ -17,6 +17,8 @@ Use the client's native automation/task tool. Prefer two named tasks because sep
 
 If the scheduler supports one task with two daily times and preserves mode context, one task is acceptable.
 
+If the user wants the Followin watchlist inbox (`subscription`) kept in sync, ask before writing it and record the approval in the task prompt; `set` is persistent and `list` changes unread state.
+
 Before creating anything, search for an existing task with the same purpose or watchlist. Update it rather than creating duplicates. When the user changes the watchlist, timezone, official accounts, or destination, update both runs consistently.
 
 ## Prompt template
@@ -33,7 +35,7 @@ Destination: current task/thread
 
 Use the previous successful report in this task as the comparison baseline. If none exists, use the latest 12 hours and label the output an initial snapshot.
 
-Refresh every asset's Followin-covered project/news events, live price and 24-hour market data, technical indicators, KOL calls, current trader positions, and new trader actions. Deduplicate events and posts, keep event time separate from publication time, and distinguish current long/short posture from open/add/reduce/close actions.
+Refresh every asset's Followin-covered project/news events, live price and 24-hour market data, technical indicators, KOL calls (fixed 24-hour window), current trader positions, and new trader actions. Call the subscription inbox only if the user approved it when this task was set up. Deduplicate events and posts, keep event time separate from publication time, and distinguish current long/short posture from open/add/reduce/close actions.
 
 Output the report using the skill's report-format reference. Include the effective window and timezone; surface data timestamps, sample sizes, and missing leaves only when they affect a conclusion. Keep Followin request IDs out of the report unless a call failed and needs diagnosis. Followin failure must be disclosed; never invent current data. Do not place orders or provide unconditional buy/sell instructions.
 ```

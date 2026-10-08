@@ -81,14 +81,14 @@ metrics(query="earnings calendar", asset_type="tradfi",
 - `revenueActual` 为 null = 还没发布，留给「📅 即将发财报」板块。
 - `has_more:true` 时用 `meta.pagination` 里的 `next_cursor` 翻页，**最多翻到第 2 页**。
 - ⚠️ **这条腿实际只覆盖窗口最早的一两天**（见调用约定里的排序一条）。2026-10-08 实测 `days=7`：两页 100 行只走到 10-05 的 "B…"，10-06~10-08 发财报的 STZ、LW、RPM、APLD、LEVI、PEP 一只都没出现。**记下末行的 `date`，输出里写"日历腿覆盖 [date_from]~[末行日期]"**，之后的日子全靠新闻腿。返回还可能带 `status:"partial"`（候选上限），中小盘会漏。
-- **淡季判定**：窗口内已发财报、代码合规的公司（日历腿 + 新闻腿去重，市值不限）不足 15 家，视为淡季，输出顶部加一行"本周处于财报淡季，窗口内仅 N 家发布"。日历腿只盖住一两天，所以这个数是**下限**；不能只数日历腿——窗口头一两天发的少，旺季也会被误判成淡季。
+- **淡季判定（按日期）**：运行当天落在 1 / 4 / 7 / 10 月的 1–10 日（财报季刚开头，大公司还没发），或落在 3 / 6 / 9 / 12 月（上一季财报季已结束），判为淡季，输出顶部加一行"本周处于财报淡季"；其余时间按旺季处理。窗口内已发财报、代码合规的公司数（日历腿 + 新闻腿去重，市值不限）只作辅助说明，写"已知至少 N 家"，**不再作判据**——日历腿只盖住一两天，这个数只是下限（2026-10-08 实测按计数得 14 家，漏掉的 STZ、LW、RPM 补上就有 17 家，判淡季与否全看哪几页被翻到）。
 
 **腿②：成交活跃榜（1 额度）——今天在动的票**
 
 ```
 metrics(query="most active stocks", asset_type="tradfi", limit=30)
 ```
-返回行只有 symbol / name / price / change / changesPercentage。剔除 ETF、杠杆和反向产品：`name` 匹配 `(?i)\bETF\b|\bETN\b|Ultra|Leverag|\d+X\b|Bull|Bear|Daily|Short|Inverse|ProShares|Direxion|iShares|SPDR|Trust` 即剔，再加代码黑名单 `QQQ|SPY|IWM|DIA|SOXX`。只判 "ETF" 一个词会漏（TQQQ 叫 ProShares UltraPro QQQ，RWM 叫 ProShares - Short Russell2000）。
+返回行只有 symbol / name / price / change / changesPercentage。剔除基金类（ETF、杠杆和反向产品）：`name` 匹配 `\bETFs?\b|\bETNs?\b|ProShares|Direxion|Leverage Shares|GraniteShares|Tradr|Defiance|T-Rex|MicroSectors|iPath|SPDR|iShares|Vanguard|Invesco (QQQ|DB)|Grayscale|Teucrium|\b(Bitcoin|Ether(eum)?|Crypto|Gold|Silver|Platinum|Palladium|Oil|Gas|Gasoline|Agriculture|Commodity|Index) (Funds?|Trust|Shares)\b`（不区分大小写）即剔，再加代码黑名单 `QQQ|SPY|IWM|DIA|SOXX`。口径与 `Community Skill/c1` 的 2026-10-08 定稿一致：按发行商名接住名字里不带 ETF 的杠杆 / 反向产品（TQQQ 叫 ProShares UltraPro QQQ，RWM 叫 ProShares - Short Russell2000）；**不再单独用 `Ultra|Bull|Bear|Daily|Short|Inverse|Trust` 判**——会误杀 Ultra Clean、Daily Journal、Northern Trust 这类正常公司。2026-10-08 活跃榜 30 行用新正则剔掉的 11 只与旧正则相同（SOXS、SOXL、BKLC、KORU、PLTD、TQQQ、IBIT、SQQQ、BITO、TSLL、EWZ），无误杀。
 **不要用股价做过滤**（GRAB 股价 3 美元、市值 120 亿美元以上）。仙股交给 Step 2 的市值闸。
 这条腿是当日快照，回答的是"今天哪些票在异动"，不覆盖整个窗口。**活跃榜的票只有同时出现在日历腿或新闻腿（说明刚发了财报）时才送 Step 2**——实测 18 只活跃票花了 4 次调用，0 只在窗口内发过财报。其余的不送验，只在输出里提一句当日异动。
 
@@ -323,7 +323,7 @@ Step 2 淘汰的不进明细；其中**窗口内已发财报、只是业绩闸�
 ```
 ## 🔍 财报季超预期扫描 — [日期]（窗口 [N] 天）
 
-[淡季时] ⚠️ 本周处于财报淡季，窗口内仅 [n] 家发布财报。
+[淡季时] ⚠️ 本周处于财报淡季（按日期判定），窗口内已知至少 [n] 家发布财报。
 
 候选池：日历 [a] + 活跃榜 [b] + 新闻 [c]，去重后 **[X] 个送验**
 → 取到数据 [X'] → 窗口内已发财报 [W] → 过硬闸 [Y] → 深扫 [min(Y, top)]

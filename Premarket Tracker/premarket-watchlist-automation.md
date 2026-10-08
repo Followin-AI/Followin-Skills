@@ -13,7 +13,7 @@ args: watchlist, positions, schedule, timezone
 
 ## 使用边界
 
-- 有自动化工具时，创建或更新周期任务；先查找同名或同一 watchlist 的任务，避免重复。
+- 以 Claude Code 为主要客户端：有定时任务能力（如 `/schedule`、scheduled-tasks 工具）时，创建或更新周期任务；先查找同名或同一 watchlist 的任务，避免重复。其他客户端（Codex 等）的接入见文末附录。
 - 没有自动化工具时，立即运行一次同结构的盘前报告，并说明当前客户端不能创建周期任务。
 - Followin MCP 是主要证据层。不可用或鉴权失败时，明确说明，不得伪造 Followin 数据。
 - 行情上游整体失效时照样扣额度（N-156）：第 1 步快照兼作探针，返回 `status:"degraded"` + `severity:"source_dead"` 就跳过同一上游的其余行情 / 历史 / 内部人调用，对应段落写"缺数据"，不写"没有交易"或"无异动"。
@@ -37,24 +37,14 @@ args: watchlist, positions, schedule, timezone
    claude mcp get followin
    ```
 
-3. 使用客户端提供的自动化工具创建或更新任务，不手写不可执行的自动化指令。
+3. 使用 Claude Code 的定时任务能力创建或更新任务，不手写不可执行的自动化指令。
 4. 将 watchlist、positions、schedule、timezone、输出结构和失败处理全部写入任务提示词。
 5. 返回任务 ID、运行时间、标的列表和持仓假设。
 
-推荐的 Streamable HTTP 配置：
+Claude Code 接入（Streamable HTTP；key 用环境变量传入，避免明文留在命令历史，添加后保存在 `~/.claude.json`）：
 
-```toml
-[mcp_servers.followin]
-url = "https://mcp.followin.io/v2/mcp"
-env_http_headers = { "x-api-key" = "FOLLOWIN_MCP_TOKEN" }
-```
-
-若用户接受把 key 存进配置，也可使用：
-
-```toml
-[mcp_servers.followin]
-url = "https://mcp.followin.io/v2/mcp"
-http_headers = { "x-api-key" = "YOUR_API_KEY_HERE" }
+```bash
+claude mcp add --transport http followin https://mcp.followin.io/v2/mcp --header "x-api-key: ${FOLLOWIN_MCP_TOKEN}"
 ```
 
 不得在报告、日志或回复中输出真实 API key。
@@ -89,27 +79,28 @@ http_headers = { "x-api-key" = "YOUR_API_KEY_HERE" }
 
 每只股票给出：
 
-- 盘前价或最近可验证价格、涨跌和成交量/异动。⚠️ `change` 是**美元变动量不是百分比**（N-47），百分比自算 `change/previousClose×100`，别拿 `change` 与新闻里的 % 交叉核实。
+- 盘前价或最近可验证价格、涨跌和成交量/异动。**异动**＝涨跌幅绝对值 ≥3% 或量比 ≥2，二者满足其一即标"异动"。量比＝当前成交量 ÷ 近 20 个交易日同一时段的平均成交量（同时段均量用 `interval` 分钟线算）；盘前用 `extendedHoursQuote.volume` 对比时注明口径——拿得到近 20 日盘前同时段均量才叫"盘前量比"，拿不到就写"盘前量 ÷ 20 日日均量"并标明不是量比、不据此判异动。⚠️ `change` 是**美元变动量不是百分比**（N-47），百分比自算 `change/previousClose×100`，别拿 `change` 与新闻里的 % 交叉核实。
 - 关键技术位与触发条件。技术位只取可复核的数：前收 `previousClose`、最近 10 / 20 个交易日收盘高低点（历史日线，剔除当日半截 K 线）、`priceAvg50` / `priceAvg200`、`yearHigh` / `yearLow`，以及事件价（收购报价、跳空前收盘、增发定价）；不写凭感觉画的支撑压力。
 - 最近催化、重大新闻、公司公告、财报/研报变化。
 - 去重后的社媒热度、KOL/内部人/机构信号及样本量。
 
 价格时点用**字段判据**判定，不用挂钟时间猜，按下面顺序：
 
-1. **盘前报价**：快照带 `extendedHoursQuote` 且 bid / ask 都非空时，盘前价 = (bid+ask)/2，标"盘前报价（买卖中间价）"并注明 `timestamp`；涨跌对快照 `price` 自算。缺失时不用新闻里的百分比顶替，退到下一条。
+1. **盘前报价**（⚠️ 待盘前实测：默认 08:30 ET 触发时能否取到 `extendedHoursQuote` 尚未验证，2026-10-08 只在盘中跑过，盘中不返回该字段）：快照带 `extendedHoursQuote` 且 bid / ask 都非空时，盘前价 = (bid+ask)/2，标"盘前报价（买卖中间价）"并注明 `timestamp`；涨跌对快照 `price` 自算。**兜底**：取不到（字段缺失、bid 或 ask 为空）时价格写"最近收盘"，不用新闻里的百分比顶替，按下面第 2、3 条判定。
 2. **最近收盘**：返回里 `_quote_session=="regular_inactive"` / `_quote_cache=="last_regular"`（N-48）即是上一个 regular 收盘——盘前时段快照的 `price` 仍是旧收盘，标"最近收盘"，不得称为盘前价。
 3. **字段缺失**：没有 `_quote_session`（`^VIX`、外汇、商品和多数小盘股都没有，N-139；2026-10-08 实测美东 10:09 盘中 NVDA / MU / TSLA / PTC / PCVX 与 `^GSPC` / `^IXIC` 全部不带）就看 `as_of`：落在今天美东 9:30–16:00 内才算实时价，早于今天或在此区间外一律标"最近收盘"，不能因为字段缺失就当成实时价。`^VIX` 的 `as_of` 会落在下一交易日盘前而数值仍是上一收盘（N-150），按"最近收盘"写。
 
 ### 3. 持仓对应计划
 
-- **空仓**：给“等待 / 试仓 / 突破 / 反转”中的条件化计划，包括触发价、失效价/止损逻辑、初始仓位范围和优先级。
+- **空仓**：给“等待 / 试仓 / 突破 / 反转”中的条件化计划，包括触发价、失效价/止损逻辑和优先级。
+- **已宣布现金收购的标的**：剔出方向性计划，单列「并购价差观察」：收购价、现价、价差（(收购价−现价)÷现价×100%），附交易进展与主要风险（监管审批、股东投票、交易终止）。收购价以公司公告或新闻原文为准，并注明来源。
 - **多仓 / 空头 / 期权**：根据用户提供的均价、数量和风险预算，给持有、加减仓、止损或对冲观察条件。
 - 明确区分“交易设置”和“中长期投资逻辑”。
 - 不承诺收益，不把社媒热度写成确定性信号。
 
 ### 4. 组合视角
 
-- 排出当天最值得关注的 1–2 个机会。
+- 排出当天最值得关注的 1–2 个机会。排序：先看有没有 24 小时内的新催化（有的排前），同档内再按异动幅度（涨跌幅绝对值）从大到小。「并购价差观察」里的标的不参与排序。
 - 列出需要回避的标的或事件风险。
 - 提醒同一行业、同一因子或同一事件造成的相关性风险。
 
@@ -129,15 +120,15 @@ http_headers = { "x-api-key" = "YOUR_API_KEY_HERE" }
 
 每次运行输出简洁中文盘前报告：
 1. 市场背景：指数/ETF、行业主题和风险偏好。
-2. 单票：盘前价或最近可验证价格、涨跌/异动、关键技术位（前收、10/20 日收盘高低、50/200 日均线、52 周高低、事件价）、近期催化、重大新闻、结构化研报变化、去重后的社媒与公开信号（标样本量）。
-3. 持仓计划：空仓给触发价、失效/止损逻辑、初始仓位范围与优先级；已有多仓、空头或期权则按持仓状态给条件化管理计划。
-4. 组合视角：当天优先关注的 1–2 个机会、需要回避的风险和相关性风险。
+2. 单票：盘前价或最近可验证价格、涨跌/异动（涨跌幅绝对值 ≥3% 或量比 ≥2；量比＝当前成交量 ÷ 近 20 日同时段均量，盘前对比注明口径）、关键技术位（前收、10/20 日收盘高低、50/200 日均线、52 周高低、事件价）、近期催化、重大新闻、结构化研报变化、去重后的社媒与公开信号（标样本量）。
+3. 持仓计划：空仓给触发价、失效/止损逻辑与优先级；已有多仓、空头或期权则按持仓状态给条件化管理计划。已宣布现金收购的标的不做方向性计划，单列「并购价差观察」：收购价、现价、价差。
+4. 组合视角：当天优先关注的 1–2 个机会（先看 24 小时内有无新催化，再看异动幅度）、需要回避的风险和相关性风险。
 5. 来源纪律：明确标注 Followin MCP 来源。Followin 不可用时直接说明，不得编造。
 
 调用纪律（每次运行都遵守）：
 - metrics / signal 传 asset_type="tradfi"，news 搜索不传；标的放 keywords 数组，每次 ≤5 个，调用后核对 meta.warnings 并把请求列表与返回行做差集。
 - 第一次行情调用兼作探针：status="degraded" 且 severity="source_dead" 时跳过其余行情 / 历史 / 内部人调用，对应段落写"缺数据"。
-- 行情用 verbosity="detail"。盘前价 = extendedHoursQuote 的 (bid+ask)/2，对快照 price 自算涨跌；没有 extendedHoursQuote 时，带 _quote_session="regular_inactive"、或 as_of 不在今天美东 9:30–16:00 内的价格一律标"最近收盘"。
+- 行情用 verbosity="detail"。盘前价 = extendedHoursQuote 的 (bid+ask)/2，对快照 price 自算涨跌（08:30 ET 能否取到该字段待盘前实测）；取不到时写"最近收盘"，不用新闻百分比顶替；带 _quote_session="regular_inactive"、或 as_of 不在今天美东 9:30–16:00 内的价格一律标"最近收盘"。
 - 快照 change 是美元变动量；日线 change / changePercent 是收盘对开盘。当日涨跌用快照 price 对 previousClose 自算；多日涨跌用相邻两天 close 自算，剔除日期为今天的未收盘 K 线；历史日线显式传 limit。
 - signal 必须显式传 categories=["kol_call","insider_trading","institutional"]、limit=50、不带 time_range；喊单按 symbol 筛、按 source_url 去重，<10 帖不称共识；内部人只认 S-Sale / P-Purchase。
 - 研报多标的同批共用 10 张卡，某标的 0 条且没有 no_research_reports warning 时单独补查。
@@ -155,3 +146,23 @@ http_headers = { "x-api-key" = "YOUR_API_KEY_HERE" }
 - Watchlist 和 positions 摘要。
 - 是否完成 Followin MCP 验证。
 - 若只运行了一次报告，明确说明未创建周期任务。
+
+## 附录：其他客户端接入（Codex）
+
+Codex 用 TOML 配置 Streamable HTTP（`~/.codex/config.toml`）：
+
+```toml
+[mcp_servers.followin]
+url = "https://mcp.followin.io/v2/mcp"
+env_http_headers = { "x-api-key" = "FOLLOWIN_MCP_TOKEN" }
+```
+
+若用户接受把 key 存进配置，也可使用：
+
+```toml
+[mcp_servers.followin]
+url = "https://mcp.followin.io/v2/mcp"
+http_headers = { "x-api-key" = "YOUR_API_KEY_HERE" }
+```
+
+Codex 的周期任务用其自带的自动化功能创建，提示词仍用上面的模板。不得在报告、日志或回复中输出真实 API key。
