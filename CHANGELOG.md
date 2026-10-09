@@ -4,6 +4,13 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-09 — 收尾核验
+
+- **c4 修正（P0）**：内部人持股差不再当卖出股数写。对照 SEC 原件：MU CEO 8/21 实卖 40,000 股（持股差 48,715 混进 7/24 同日第二份申报的 8,715 股，接口没返回那一份）；SNDK CEO 9/17 实卖 33,841 股（持股差 30,545 扣掉了被合并掉的 3,296 股授予）。对不上时改写"申報後持股較上一份申報減少約 N 股（申報行異常）"。caveats N-187 同步订正。
+- **01 / c6 / 盘前追踪补持股差核对**，口径与 c4 一致：持股差只用来发现申报行被截短，对外写持股变化、不写卖出股数；限定同一 `securityName`、同一 `directOrIndirect`，持股减少量大于申报行股数才判截短（P1：不限定时 MRVL CEO 8/17 会被误判）。盘前追踪与 c4 补"外国发行人无 Form 4"（P1）。核验：01 的 MU ⑰ 内部人维仍 −0.5、c6 MU 结论不变、盘前 SNDK 三份截短已对照 SEC 原件证实。
+- **审计按退出标准收尾**：本轮核验出的 P0（c4 持股差当卖出股数）与 P1 均已修，P0 / P1 清零；剩余 P2 记入待办，不再开新一轮复跑。
+- **06**：夜间合并日线调用（`CLUSD` / `BZUSD` / `^TNX`）正式端复核通过——日 K、三代码齐全、两个原油各剔 1 根 10-09 未收盘行、额度扣 1；10-08 WTI +3.6%、布伦特 +4.1%，10 年期 −5bp（取整后），选题由规则 2 命中 `"treasury yield"`。
+
 ## 2026-10-09 — 第六轮拍板（10 项）
 
 用户对第五轮复跑列出的 10 条"全按建议"：
