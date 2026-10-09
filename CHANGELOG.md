@@ -4,10 +4,16 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-09 — 第四轮拍板后复跑
+
+- 第四轮改动分 6 组在正式端复跑。结果：MU ⑰ 计入花旗 1150→1300 后由 Neutral 翻 Bullish（+0.4），组合仍 Hold；c3 出 NVDA / AMD / META / 2330.TW，AMD 写花旗 $800；r4 NVDA 真修正 16 条与上轮一致；c6 📌 门槛两侧都验证（NBIS 5 条→c4、MTSI 1 条→c3）。
+- **修正**：old→new 字段路径改为卡片顶层 `revision_summary.by_name[]`（第四轮误写成 `detail.` 下），且必须用 `detail`；c3 提及层页数实测 NVDA 14 页；KOL 门禁数名单账号改为"任一列以 @ 开头"（原写法遇 starter 首列"角色"数出 0、误拦合规日报）；加密自选的日线根数不能用被封顶在 31 的 `Total records`；06 夜间跳过原油选题时在数据缺口里交代；c4 / c6 残留"實盤"删净。
+- caveats 新增 N-183~N-186，计数 205。
+
 ## 2026-10-09 — 第四轮拍板（21 项）
 
 用户对第三轮复跑列出的 21 条"全按建议"：
-- **研报提及层的目标价动作（A1，N-181①）**：01 的 ⑰ 研报维把提及卡里本标的的 old→new 也算上调 / 下调，研报翻页取全（花旗 MU 1150→1300 → ⑰ 由 Neutral 翻 Bullish）；c3 同一机构取最新目标价并注明出处（AMD 写花旗 10/6 的 $800，不写 9/28 的 $575），入选标的提及层翻到尽头。字段 = `detail.revision_summary.by_name[]` 本标的那行。c3 层 2 钻满 5 次、合格的全出。
+- **研报提及层的目标价动作（A1，N-181①）**：01 的 ⑰ 研报维把提及卡里本标的的 old→new 也算上调 / 下调，研报翻页取全（花旗 MU 1150→1300 → ⑰ 由 Neutral 翻 Bullish）；c3 同一机构取最新目标价并注明出处（AMD 写花旗 10/6 的 $800，不写 9/28 的 $575），入选标的提及层翻到尽头。字段 = 卡片顶层 `revision_summary.by_name[]` 本标的那行（`concise` 下截到 5 行，要用 `detail`）。c3 层 2 钻满 5 次、合格的全出。
 - **06**：夜间跑跳过"原油涨跌 >3%"选题。**财报季扫描**：新闻覆盖起点只按媒体稿。**c2**：只对与同日多数相差整 1 小时的发布时间只写日期。
 - **c4**："短线看跌、等低位再买"按看空计；全是清单帖的票进"並列"；代扣 / 行权窗口放宽到 2 个交易日。**c6**：📌 去 c4 需推特 48 小时 ≥3 条；删实盘持仓拉取。
 - **r0** 位移只比候选集；**r4** 只有评级变动的行不保留；**r2** "抽取器所见缺失"类 caveat 给 🟡 并注明。

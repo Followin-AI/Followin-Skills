@@ -122,7 +122,10 @@ args: ticker
 - `news()` 查不到相关内容时不返回空，而是返回一批不相关的热门内容。返回里一条都不含目标公司名或代码就是没查到，该路记数据缺口，不要拿这些内容做情绪判断，也不要重试。
 - 13F 的 `*_change_percent` 字段恒为 0、不可用；`shares_change == shares` 的行不要当成新建仓；同一机构可能有两行。只引用持仓绝对值和结构，写明"截至 report_period"。
   季末后头几周 `report_period` 会切到刚结束的季度，返回的只是先报的小机构（2026-10-09 实测 MU：report_period 09-30，第一名持股仅占 0.03%，N-152）：此时写"新季度申报未齐，13F 结构不引用"，不要把这些机构当前十大。
-- 研报（第 8 路）一页最多 10 篇，subject 卡排在前面，⑰ 要按 `next_cursor` 翻页取全（翻到 `has_more:false` 或卡片日期超出 30 天窗口为止）：mention 层卡片里带本标的 old→new 目标价变动的也算目标价动作（读 `detail.revision_summary.by_name[]` 里本标的那一行，先按 `mention_context.mention_ticker` 确认是本标的；N-181①，2026-10-09 实测花旗 09-28 MU 1150→1300 在提及卡里），只看第一页会漏。
+- 研报（第 8 路）一页最多 10 篇，subject 卡排在前面，⑰ 要按 `next_cursor` 翻页取全（翻到 `has_more:false` 或卡片日期超出 30 天窗口为止；翻页时 `cursor` 原样回传，其余参数与首页一字不差）：mention 层卡片里带本标的 old→new 目标价变动的也算目标价动作（读卡片顶层的 `revision_summary.by_name[]` 里 `ticker == 本标的` 那一行，先按 `mention_context.mention_ticker` 确认是本标的；N-181①，2026-10-09 实测花旗 09-28 MU 1150→1300 在提及卡里），只看第一页会漏。
+  字段路径是卡片顶层的 `revision_summary`，不是 `detail.revision_summary`：`detail` 里没有这个字段，`concise` 也不返回 `detail`（2026-10-09 美东收盘后 MU 两种 verbosity 各翻 5 页实测）。
+  `concise` 下 `by_name` 无标记截到 5 行（N-177①），本标的那一行可能被截掉：同次实测高盛 10-02 汇编稿 detail 有 22 行、含 MU 1100→1250，concise 只见 5 行、没有 MU（高盛已由 09-30 的 subject 篇计入上调，家数未受影响）。
+  `by_name` 正好 5 行且没有本标的时，在输出里注明"该篇 by_name 可能被截断"。实测 MU 30 天窗口共 5 页 43 篇（subject 5 + mention 38），concise 5 次额度；detail 每页约 9~10 万字符，要用代码解析。
 - KOL 喊单先按 `symbol == <T>` 筛行（返回里会混入别的标的的帖子），再按 `source_url` 去重。喊单只覆盖最近 24 小时，tradfi 方向字段近乎恒为看多，只报条数和话题。
 - 第 7 路返回里**没有 `kol_call` 这一类**（`status` 仍是 `ok`、无 warning）时，是近 24 小时没有本标的喊单，不是调用失败：写"近一日无喊单"，不要重试，也不记数据缺口（2026-10-08 实测 AVGO：合并调用缺这一类，单独调返回 `no_match`，全市场喊单池正常）。
 - 内部人只认 Form 4：卖出 = `S-Sale`，买入 = `P-Purchase`，按 `transactionDate ≥ 今天 − 90 天` 过滤；`F-InKind` / `G-Gift` / `A-Award` / `M-Exempt` 不计。带 `_chamber` 的议员交易单列。
