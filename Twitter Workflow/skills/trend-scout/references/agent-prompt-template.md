@@ -60,6 +60,11 @@ RT 封顶（结构解，替代黑名单打地鼠）：转推判据 = `retweeted_
      → unique_by(.id) → createdAt DESC
 <30min 推文无论 velocity 硬保留
 
+转推的时效按原推算，不按转发时间（转推外层 createdAt 是转发时刻、互动数却是原推的，同 engagement 剔转推口径）：
+  有 retweeted_tweet.createdAt → age / createdAt 轨 / <30min 硬保留一律用它；
+  没有（list_timeline 返回实测不带 retweeted_tweet，2026-10-09）→ 原推时间未知：不进 createdAt 轨、不享 <30min 硬保留，
+  候选行标「RT·原推时间未知」，只按上面的 RT 封顶参与 velocity 轨。翻页判窗口仍用外层 createdAt。
+
 ⚠️ age 为负 = 报错信号，禁止 abs() 静默转正。
    算出 age_hours < 0 必须在返回里标：
    "⚠️ age 为负 (N 条)：scan_ts 过期或时区解析错 → 本次 velocity 不可信"

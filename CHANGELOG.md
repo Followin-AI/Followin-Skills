@@ -4,6 +4,13 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-09 — Twitter Workflow P2 收尾
+
+- performance-review 视频占比按 `extendedEntities.media[].type == "video"` 计；`tweet_analyzer.py` 兼容 results 直接是推文数组、解析出 0 条时警告。
+- ledger 删掉两处本仓不存在的章节引用，选题回填定为当日简报的 `published[]` / `data_tracking[]`；operations-plan / topic-engine / tweet-composer 去掉已删的"10"；README 写明 voice-guide「不能做」节必填。
+- trend-scout / topic-engine：tradfi 改 keywords 数组每批 ≤5 并逐个核对；CT 回退不传 tradfi；突发模式改为真实的 `search` + `query_type="Latest"`；转推按原推时间判时效（`list_timeline` 的转推不带原推时间，10-09 实测，不享时效加成）。
+- tweet-styles 示例 hashtag 换成白名单内；engagement 话题搜索按 `createdAt` 裁窗并剔抽奖帖、评论只留 `inReplyToId` 等于原推的直接回复；competitor-watch 原推 <5 条时周环比记 n/a。
+
 ## 2026-10-09 — Twitter Workflow 审计
 
 按退出标准（P0 结论错 / 跑不下去、P1 两种读法结论不同才修，P2 只记）在正式端只读实跑 8 个 skill，修 P0 5 处、P1 约 23 处，最后一次核验无新 P0。

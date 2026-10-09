@@ -32,9 +32,9 @@ description: "Twitter 互动运营 — Outbound 抢热评换曝光 + Inbound 评
 | 用途 | 调用写法 |
 |---|---|
 | 某账号最新推文 | `twitter(action="user_tweets", user_name="X", include_replies=false)`。🔴 **含转推**（`include_replies=false` 只滤回复）：转推的 `createdAt` 是转发时刻、互动数却是原推的——实测自转推把 14h 前的旧帖伪装成 2.2h 的新帖、互动 102 照样过闸。筛选前剔 `retweeted_tweet` 非空；要评就去原推，窗口按 `retweeted_tweet.createdAt` 算 |
-| 话题下高互动推文 | `twitter(action="search", query="关键词", query_type="Top")` |
+| 话题下高互动推文 | `twitter(action="search", query="关键词", query_type="Top")`。⚠️ Top 会混进旧帖和抽奖帖：返回后按 `createdAt` 裁到本次窗口，并剔抽奖 / giveaway 类帖（转发抽奖、送币、airdrop 领取这类）再挑 |
 | 按作者搜 | `twitter(action="search", query="from:X")`（高频号翻页翻不到窗口起点时用）。⚠️ `time_range` 被静默无视（10-09 实测传 `7d` 返回 16 天前的帖），窗口按 `createdAt` 自己裁；结果不含转推、含回复 |
-| 拉自己推文的评论 | `twitter(action="tweet_replies", tweet_id="...")`；`tweet_replies_v2` 是另一口径备选。🔴 **返回里会混入根推自身**（同 id、`isReply=false`）——按 `isReply` 或 id 剔掉，否则把原推算进评论、虚增计数 |
+| 拉自己推文的评论 | `twitter(action="tweet_replies", tweet_id="...")`；`tweet_replies_v2` 是另一口径备选。🔴 **返回里会混入根推自身**（同 id、`isReply=false`）——按 `isReply` 或 id 剔掉，否则把原推算进评论、虚增计数；还会混楼中楼——只保留 `inReplyToId` 等于原推 `tweet_id` 的直接回复 |
 | 被 @ / 被提及 | `twitter(action="user_mentions", user_name="你的用户名")` |
 | 评论者/KOL 影响力 | `twitter(action="user_info", user_name="X")`；批量用 `batch_user_info`，参数是 **`user_ids`（逗号分隔的数字 ID，不是用户名）** |
 | 推文最新互动数 | `twitter(action="tweets_by_ids", tweet_ids="id1,id2")` |

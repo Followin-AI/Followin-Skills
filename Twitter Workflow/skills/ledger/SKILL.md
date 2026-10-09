@@ -114,8 +114,8 @@ data.record_id_list = ["recXXXX", …]     ← 🔴 与 data.data 的行按下�
 | 父 Agent / lint 验收后 | `gate_log` 一行 | **通过也要写**，否则算不出打回率 |
 | topic-engine 出角度后 | `angles` 批量 + 回写 `candidates.是否P0` / `落地状态=已选题` | |
 | tweet-composer 出终稿后 | `tweets` 一行，`tweet_id` 暂空 | |
-| 用户确认已发后 | 补 `tweets.tweet_id` + `candidates.落地状态=已发布` | |
-| performance-review 回填 | 更新 `tweets` 的五个数据字段 + `回填轮次` | |
+| 用户确认已发后 | 补 `tweets.tweet_id` + `candidates.落地状态=已发布` | 本地选题记录照写：当日简报 `$BRIEF_DIR/YYYY-MM-DD 每日热点简报.md` 的 `published[]`（performance-review §5）|
+| performance-review 回填 | 更新 `tweets` 的五个数据字段 + `回填轮次` | 本地同步写同一份简报的 `data_tracking[]` |
 
 批量走 `+record-batch-create` / `+record-batch-update`，但**批量之前仍要逐条查重**（§1.2）。
 
@@ -189,8 +189,7 @@ ROUND((MIN([↔选题角度].[↔推文].[发布时间]) - [扫描时间]) * 24,
 3. **下一轮开工第一件事先补写 pending**，成功后删文件
 4. 读回失败 → 退回该查询原本的本地办法，**并在输出显式标注降级**
 
-不许静默跳过。`§0 公共铁律`那句「缺的东西照实写『本轮未取到』，不要留白、也不要编一个填上」，
-在这里同样适用。
+不许静默跳过：缺的东西照实写「本轮未取到」，不要留白、也不要编一个填上。
 
 ## 5. CLI 门禁（三个，全部实测撞过）
 
@@ -230,7 +229,7 @@ ROUND((MIN([↔选题角度].[↔推文].[发布时间]) - [扫描时间]) * 24,
 ## 6. 日更卡片
 
 `lark-cli im +messages-send --as bot`，目标群从 `LARK_BASE` 的 `chat_id` 读。
-内容口径见方案 §6。**bot 必须已在该群里**——实测未入群时 `+chat-list` 返回 `chats: null`，
+内容只放：今日候选数（首扫 / 刷新）、选题与角度数、发布条数；§3 ③ 的 P0 24h 落地率与距上次终稿小时数；未消费高分候选数与各节点打回率（`gate_log`）。**bot 必须已在该群里**——实测未入群时 `+chat-list` 返回 `chats: null`，
 发送会失败。
 
 ## 7. 自查

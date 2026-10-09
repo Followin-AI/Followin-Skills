@@ -67,7 +67,7 @@ NOW_MS=$(( $(date +%s) * 1000 ))
 ## 2. 数据源与调用规范（Followin MCP：metrics / news / signal / twitter）
 
 ### 2.1 metrics
-- **tradfi 必传 `asset_type="tradfi"`**，单 ticker 单调用并行（多 ticker 一次塞会被路由到 fundamentals）。
+- **tradfi 必传 `asset_type="tradfi"`**，多 ticker 走 `keywords` 数组批量（每批 ≤5，N-105 / N-116；含影子代码的如 `BABA` 单独一批）；批量返回后**逐个核对每个标的都有行**，缺的单独补调，仍缺标「未取到一手价」。
 - **crypto 批量必传 `asset_type="crypto"`**（防同名 tradfi 污染，如 BTC→某 ETF）+ **`verbosity="detail"`**：24h 涨跌幅 `change_percent_24h` 只在 detail 下返回，standard 只有价格和成交量（N-170，2026-10-09 复测仍如此）；旧写法 `time_range="1d", limit=2` 不会多返日线，别再用它凑涨跌幅。
 - 🔴 **`change` 字段是「美元变动量」不是「百分比」**（实测 META `change:-9.18` / `previousClose:593.41` → 真实 **−1.55%**）。
   百分比必须自己算：`change / previousClose × 100`。**危险在于数值会巧合吻合**——META 的 −9.18 与新闻标题「crashes −9%」看着对上，
@@ -98,7 +98,7 @@ NOW_MS=$(( $(date +%s) * 1000 ))
   - 🔴 **先用 `tg_category` 字段做结构过滤，再按内容判断**（实测返回自带此字段，之前没用它）：每条 TG item 带 `tg_category` ∈ {交易信号 / Meme打新 / 链上数据 / 叙事追踪 / 市场结构 / 宏观研判 / 项目研究 / 实盘跟踪}。
     **保留**：链上数据 / 市场结构 / 宏观研判（资金流与结构信号在这里）；**默认剔**：Meme打新 / 实盘跟踪（喊单晒单）。这比纯凭内容判断稳定得多——实测 25 条广拉里靠内容判断砍掉 15 条"软性"，占 60%，而"软性"无量化判据；用 `tg_category` 分流可复现。
   - **只拉 1 次**：TG feed 是 bot 不是 KOL，`distinct_authors` 聚合前提不成立；多 category 路由几乎不分流（10 次 ≈ 1 次信息量）。链上突发走 §8，不靠日常 TG 兜底。
-- **CT firehose（浏览模式，仅首扫）**：`news(sources=["twitter"], asset_type="tradfi", time_range="1d", limit=20)` + **空 query**（2026-10-01 实测 `sources=["twitter"]` 可用，返回纯推特条目、按时间排，恢复「无差别浏览」）。客户端不接受数组入参时退回主题引导写法：`news(asset_type="tradfi", query="<当日 3-5 个宽主题词空格拼，如 semiconductor memory oil Fed earnings>", time_range="1d", limit=20)`，Twitter 条目在 `social[]`，**主题外盲区如实认**。无完整 author/viewCount → 剔个人喊单 / 引流 / 闲聊 / 纯 TA，保留基本面异动 / 产业链 / 地缘 / 高密度框架。刷新模式不启用本层。
+- **CT firehose（浏览模式，仅首扫）**：`news(sources=["twitter"], asset_type="tradfi", time_range="1d", limit=20)` + **空 query**（2026-10-01 实测 `sources=["twitter"]` 可用，返回纯推特条目、按时间排，恢复「无差别浏览」）。客户端不接受数组入参时退回主题引导写法（搜索模式不传 `asset_type`，传 tradfi 召回大降，N-145）：`news(query="<当日 3-5 个宽主题词空格拼，如 semiconductor memory oil Fed earnings>", time_range="1d", limit=20)`，Twitter 条目在 `social[]`，**主题外盲区如实认**。无完整 author/viewCount → 剔个人喊单 / 引流 / 闲聊 / 纯 TA，保留基本面异动 / 产业链 / 地缘 / 高密度框架。刷新模式不启用本层。
 - 媒体频道走 web news 不走 TG；同 username 去重 ≤3 条。
 
 ### 2.3 twitter（list_timeline 三栈）
@@ -304,7 +304,7 @@ FAIL 必须补做，**不准下传 topic-engine**。建议固化成脚本 + 一�
 > 于是一天里出现**第二个**突发事件时，事件 1 的候选会被静默归到事件 2 名下——
 > 归组错了，后续的跨轮追踪、弧线计数、回填全跟着错。
 > 共享文件只当"当前最新事件"的指针用；**归属关系落在候选自己身上**。
-工具：`advanced_search` Latest（最有价值）+ 主 list 关键词过滤 + 当事人 `user_tweets` + replies/quotes 看反应 + 相关 metrics + media news。**keyword 拆 2-3 个独立词并行，禁 AND 长 query**——零结果本身是信号（抢先窗口仍在）。≥2 源确认才标"已验证"。SLA 5 分钟。
+工具：`twitter(action="search", query=…, query_type="Latest", time_range="1h")`（最有价值；返回后仍按 `createdAt` 自己核窗口）+ 主 list 关键词过滤 + 当事人 `user_tweets` + replies/quotes 看反应 + 相关 metrics + media news。**keyword 拆 2-3 个独立词并行，禁 AND 长 query**——零结果本身是信号（抢先窗口仍在）。≥2 源确认才标"已验证"。SLA 5 分钟。
 
 ## 9. 信号不足 / 维护
 
