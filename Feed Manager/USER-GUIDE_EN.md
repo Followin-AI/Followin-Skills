@@ -44,7 +44,8 @@ Add to `~/.claude/settings.json`:
 |-------|-------|
 | `Daily-Index.md` / `Macro.md` / `_Sectors-Index.md` touched today | the three files that change every batch |
 | `Portfolio.md` touched today | **only enforced when you actually hold something**; no positions reported → no block |
-| Two count lines at the end of the brief: `账号覆盖：N/M（✅a ⚪b ❌c）` (account coverage) and `完整性审查：遗漏 X · 落盘 ticker T · 落盘 sector S` (completeness review: missed / tickers written / sectors written) | the coverage arithmetic must add up, missed must be 0, and the declared ticker / sector files must really have been touched today — a bare heading no longer passes |
+| `_last-pull.md` touched today, and its window start is a valid timestamp (e.g. `2026-10-08T15:09:03Z`) | the next pull uses it to know where to pick up; a leftover placeholder or a missed update means the next batch skips or re-pulls tweets |
+| Two count lines at the end of the brief: `账号覆盖：N/M（✅a ⚪b ❌c）` (account coverage) and `完整性审查：遗漏 X · 落盘 ticker T · 落盘 sector S` (completeness review: missed / tickers written / sectors written) | the coverage arithmetic must add up, missed must be 0, and the declared ticker / sector files must really have been touched today — a bare heading no longer passes. **Keep the Chinese field labels exactly as shown** (`账号覆盖`, `完整性审查`, `遗漏`, `落盘`) even if the rest of your brief is in English: the gate script parses those labels, and a translated line is treated as missing |
 | Sector files named in the brief's `sector-sync` line really were updated | prevents "bumped the index date but never touched the sector note" |
 
 **Verify your install once**: deliberately backdate `Macro.md` (`touch -t 202601010900 $KOL_VAULT/Macro.md`), then end a session in which you ran the daily — **getting blocked means it works**. If you're not blocked, the hook isn't firing; check the path.
@@ -63,6 +64,8 @@ It will:
    `references-roster` · `Portfolio` · `Decisions-Journal` · `Pre-Trade-Checklist` · `Macro` · `Daily/Daily-Index` · `Sectors/_Sectors-Index` · `_last-pull`
 2. Ask for your **holdings, cash (incl. money-market), and timezone**
 3. Pull the list once and produce the first daily brief
+
+`Macro.md` ships with default macro red-light thresholds (VIX above 25, the 10-year Treasury yield up 0.25 percentage points within a week, the dollar index 2% above its 50-day average, your sector ETF down 8% in a week, crude oil up 15% in a week), each marked "default, editable" — just change the numbers to suit your style. When 3 or more are lit, the pre-trade checklist suggests holding off on new positions.
 
 After that it's one sentence a day.
 
@@ -123,7 +126,7 @@ After that it's one sentence a day.
 | What to check before trading | `Pre-Trade-Checklist.md` |
 | This week's review | `Weekly/YYYY-W##.md` |
 
-The daily brief itself has two zones: **the top is "current state"** (overwritten to the latest values on every pull) and **the bottom is "what happened"** (appended per batch, never deleted). So if you pull three times a day, the top always reflects the latest read and the middle holds the full signal log.
+The daily brief itself has three zones: **the top is "current state"** (overwritten to the latest values on every pull), **the middle is "what happened"** (appended per batch, never deleted), and **the bottom holds the pull log and the two gate count lines** (overwritten each time). So if you pull three times a day, the top always reflects the latest read and the middle holds the full signal log.
 
 ---
 

@@ -157,10 +157,10 @@ grep -nE "回顾（[0-9]{4}-[0-9]{2}-[0-9]{2} prompt）" "$VAULT/Decisions-Journ
 mcp__followin__twitter(action="user_tweets", user_name="<handle>", include_replies=false, verbosity="detail")
 ```
 
-⚠️ **`verbosity="detail"` 必传**（2026-10-08 实测）：不传默认 `standard`，**推文正文截在 600 字**——某宏观账号 20 条里 8 条停在 600 字、话说一半（同一条 detail 下 1045 / 1359 / 1753 字）。`detail` 上限 2000 字，仍可能截；被截的推文带 `content_truncated: true`（嵌套的被引原文被截也会让外层带这个标），Step 3 脚本会标 `[⚠️截断]`。detail 下仍截断的，关键数字回原推 URL 核对。（这条只在 followdao-test 端点实测过，生产端当天连不上未验证；若生产端报 `unexpected additional properties ["verbosity"]`，说明它还没这个参数，去掉重拉，并用 Step 3 的 `[⚠️截断]` 计数确认正文没被截。）
+⚠️ **`verbosity="detail"` 必传**（2026-10-08 实测）：不传默认 `standard`，**推文正文截在 600 字**——某宏观账号 20 条里 8 条停在 600 字、话说一半（同一条 detail 下 1045 / 1359 / 1753 字）。`detail` 上限 2000 字，仍可能截；被截的推文带 `content_truncated: true`（嵌套的被引原文被截也会让外层带这个标），Step 3 脚本会标 `[⚠️截断]`。detail 下仍截断的，关键数字回原推 URL 核对。（2026-10-08 正式端实测：接受 `verbosity="detail"`，返回 `meta.verbosity:"detail"`，5 个账号单页 9.1–15.1 万字符；29 条窗口内推文只有 1 条本人正文停在 2000 字。若你的端点报 `unexpected additional properties ["verbosity"]`，说明它还没这个参数，去掉重拉，并用 Step 3 的截断计数确认正文没被截。）
 
 全部账号**并行调用**。返回 JSON 常超 token 限制被落盘到 tool-results（实测每页 9-17 万字符）——正常现象，不要重试；3 个以下账号失败 → 只重试这几个。**没被落盘、结果直接显示在对话里的**（体积小 = 近况很少或空数组）喂不进 Step 3 脚本，在覆盖表手工标，别为了喂脚本去手抄 JSON；空数组先按 N-90 查账号状态（销号 / 封号也返回 success + 空数组）。
-⚠️ **配额意识**：`twitter` 调用有月度配额（返回的 `meta.quota` 里有 `used/limit/remaining`，实测某账户 limit=2500）。`metrics` 与 `signal` 另有一个共用的月度池（2026-10-08 在 followdao-test 实测 limit=5000，两者 `used` 连续累加），**按调用计、不按标的计**——一次 ≤5 个标的的报价只扣 1。每批 twitter 消耗 ≈ roster 数 + 翻页数，`remaining` 低于当月预估用量时提醒用户，别默默烧完。
+⚠️ **配额意识**：`twitter` 调用有月度配额（返回的 `meta.quota` 里有 `used/limit/remaining`，实测某账户 limit=2500）。`metrics` 与 `signal` 另有一个共用的月度池（2026-10-08 在 followdao-test 实测 limit=5000，两者 `used` 连续累加；同日正式端某账户 `twitter` limit=10000、`metrics` limit=999,999,999——额度随账户不同，以返回的 `meta.quota` 为准），**按调用计、不按标的计**——一次 ≤5 个标的的报价只扣 1。每批 twitter 消耗 ≈ roster 数 + 翻页数，`remaining` 低于当月预估用量时提醒用户，别默默烧完。
 **P2**：所有账号统一 `include_replies=false`，A+ 也不例外。2026-10-08 实测带回复拉某 A+ 账号：20 条里 7 条是回复，几乎都是 "lol" / "👏" 一类寒暄，还占掉翻页名额。想看某条推下面的反方回复 → 对那一条单独 `tweet_replies`，不在全量拉取里带。
 
 ⚠️ **P2.5 — 一次调用只返一页（实测 20 条），必须处理翻页**：高产账号或宽窗口（断档补拉）时，这 20 条**盖不住整个窗口**，剩下的会被**静默漏掉**——覆盖表照样显示"✅ 已拉 N 条"，看不出缺口。
@@ -173,7 +173,7 @@ mcp__followin__twitter(action="user_tweets", user_name="<handle>", include_repli
 > 落盘门禁只保证"拉到的都写了"，保证不了"该拉的都拉了"。输入端的漏更隐蔽——日报看起来完整，实际单边信息。
 
 - **默认拉满整个 roster**，除非用户明确说"只看 X"。
-- 列**覆盖表**，每个账号显式标 ✅ 已拉 / ⚪ 已拉无信号 / ❌ 拉取失败，**不许有账号缺席**。A+ 账号漏拉零容忍。日报收尾门禁段写成一行 `- 账号覆盖：N/M（✅a ⚪b ❌c）—— <逐账号清单>`（M = roster 数，N = 拉到的 = a+b，a+b+c = M）——hook 会核这道算术。
+- 列**覆盖表**，每个账号显式标 ✅ 已拉 / ⚪ 已拉无信号 / ❌ 拉取失败，**不许有账号缺席**。⚪ = 拉取成功但窗口内 0 条、或窗口内全部判为跳过（段子 / 纯 RT / 无关）；有 ≥1 条干货才标 ✅，逐账号清单里 ✅ 后写"条数(干货数)"，如 `@x ✅9(干4)`——只写条数会让"全是段子"的账号也算有货。A+ 账号漏拉零容忍。日报收尾门禁段写成一行 `- 账号覆盖：N/M（✅a ⚪b ❌c）—— <逐账号清单>`（M = roster 数，N = 拉到的 = a+b，a+b+c = M）——hook 会核这道算术。
 - **来源可追溯**：引用某账号 = 本次必须有实际 `user_tweets` 调用；用户手动喂的标 `[用户提供，非当日拉取]`。
 - ⚠️ **search ≠ 拉取**：`twitter search` 只作补充，绝不替代 user_tweets 全量（`$cashtag` 检索对不带 $ 标签的中文 KOL 系统性失效）。
 - 认知冲突对必须成对拉。
@@ -186,14 +186,15 @@ python3 ~/.claude/skills/stock-kol-watch/scripts/filter_tweets.py \
 ```
 
 脚本递归找 tweet 对象（跳过置顶推 `pin_tweet`）→ 按 `author.userName` 多数票识别主账号 → 过滤去重（**跨文件共享**，同账号被重试成两个 dump 不会重复）→ 每条带 UTC+本地双时戳 + `[RT]/[QT]/[reply]/[⚠️截断]` 标记 + URL → stderr 输出 digest 字符数 + 每账号计数（直接喂覆盖表）+ 空 dump 清单。
-- **`[⚠️截断]` 的推文不是全文**：引用它的数字前先确认那段没被截掉；整批大量截断 = Step 2 漏传 `verbosity="detail"`，重拉。
+- **`[⚠️截断]` 的推文不是全文**：引用它的数字前先确认那段没被截掉。脚本按 dump 回显的 `meta.verbosity` 判断：不是 detail 的账号会被点名要求重拉；已是 detail 的 = 2000 字上限，回原推 URL 核对。
+- **`[⚠️被引原文截断]`**：外层也带截断标，但其实是被引 / 被转的原文被截，本人正文是全的（2026-10-08 实测 4 例），不用重拉。
 - 第二时戳默认用**本机时区**；跑在别的时区（如服务器 UTC）想要固定口径 → 加 `--tz-offset 8 --tz-label SGT`。
 - **`[QT]`/`[自引 QT]` 标记要认真读**：实测宏观类账号 7-11 成的推文是引用推——被引原文是数字的出处（"同源不是共识"靠它判），**自引**则是该账号在回看自己早先的判断（跨批验证/改口的最强信号）。没有标记的才是纯原创。
 - schema 变了改脚本本身（`find_tweets()`/`parse_dt()`/`dedupe_key()`/`mark_of()`），别回退内联重写。
 
 **📦 digest 太大就外包深读**：主 agent 全读宽窗口 digest 会吃掉一大块上下文。
-**规则（单一阈值，别留空档）**：digest **>15K 字符 → 派 1 个 reader 子代理**（按字符计，看脚本 stderr 打的字符数；**别用 `wc -c`**——那是字节，中文一字 3 字节，2026-10-08 实测 13.1K 字符的 digest `wc -c` 报 23.4K）做逐条提炼，主 agent 不读全文（契约见 [references/advanced-extensions.md](references/advanced-extensions.md) §4）；**≤15K 主 agent 直读**。拿不准就派。**裁决/落盘不可外包**，落盘前抽查 3 个关键数字回 digest verbatim 核对。
-（2026-10-08 实测参考，按字符：5 账号 / 33 条 / 24h = 13.1K 字符，那次没传 detail、正文截在 600 字；同一个宏观长文账号换 detail 后从约 4.8K 涨到 7.5K。→ 按 Step 2 传 detail 后 **5 个账号就大概率过线**，8-15 个账号的 roster 基本每批都派。）
+**规则（两个条件满足其一就派，脚本 stderr 直接给结论）**：本批拉取 **≥8 个账号，或 digest ≥25K 字符 → 派 1 个 reader 子代理**（字符按脚本 stderr 打的数；**别用 `wc -c`**——那是字节，中文一字 3 字节，2026-10-08 实测 13.1K 字符的 digest `wc -c` 报 23.4K）做逐条提炼，主 agent 不读全文（契约见 [references/advanced-extensions.md](references/advanced-extensions.md) §4）；**两个都不满足 → 主 agent 直读**。**裁决/落盘不可外包**，落盘前抽查 3 个关键数字回 digest verbatim 核对。
+（2026-10-08 实测参考，按字符：5 账号 / 29 条 / 24h、传 detail = 15.1K 字符，主 agent 直读即可；那次按旧阈值 15K 派了 reader，结论与直读一致，但 reader 自己吃掉约 9.4 万 token、交回约 8K 字，省下的主上下文有限——这是阈值上调到"≥8 账号或 ≥25K 字符"的依据。）
 
 ### Step 4 — 识别投资内容
 
@@ -208,7 +209,8 @@ python3 ~/.claude/skills/stock-kol-watch/scripts/filter_tweets.py \
 mcp__followin__metrics(keywords=["<T1>","<T2>",…], query="行情", asset_type="tradfi", verbosity="concise")
 ```
 
-`asset_type="tradfi"` 必传；每批 ≤5 个 ticker（2026-10-01 实测批量正常，超出的在 `meta.warnings` 报 `keyword_count_over_max`），同时并行 ≤4 批。非交易时段返回的是上一常规收盘，标"最近收盘"。判断方法：**以 `as_of` 为主**——早于今天或不在该标的交易所的常规时段内（美股 = 美东 9:30–16:00；`.KS` / `.T` / `.HK` 等按当地时段）一律标"最近收盘"。`_quote_session` 字段有就参考（`regular_inactive` = 最近收盘），但别指望它：N-139 记它只有部分大盘股有，2026-10-08 美东盘中实测 TSM / AVGO 在 concise 和 standard 下也都没有，同批 14 个标的无一带它。返回 `price / change / open / previousClose / dayHigh / dayLow / yearHigh / yearLow / marketCap / volume`。
+`asset_type="tradfi"` 必传；每批 ≤5 个 ticker（2026-10-01 实测批量正常，超出的在 `meta.warnings` 报 `keyword_count_over_max`），同时并行 ≤4 批。非交易时段返回的是上一常规收盘，标"最近收盘"。判断方法：**以 `as_of` 为主**——早于今天或不在该标的交易所的常规时段内（美股 = 美东 9:30–16:00；`.KS` / `.T` / `.HK` 等按当地时段）一律标"最近收盘"。`_quote_session` 字段有就参考（`regular_inactive` = 最近收盘），但别指望它：N-139 记它只有部分大盘股有，2026-10-08 美东盘中实测 TSM / AVGO 在 concise 和 standard 下也都没有，同批 14 个标的无一带它。在常规时段内的标"盘中 <当地时区> HH:MM"（如"盘中 美东 11:09"）。返回 `price / change / open / previousClose / dayHigh / dayLow / yearHigh / yearLow / marketCap / volume`。
+**调用后逐个比对"请求代码 vs 返回 `symbol`"**（N-159）：代码会被静默改写，`status:"ok"`、无 warning。2026-10-08 实测 `DX-Y.NYB` → `DXUSD`、`CL=F` → `CLUSD`（同一资产换了写法，可用，落盘注明返回代码）；若改写成了别的资产（N-159 记有 `NG`→天然气期货、`ANTA`→港股安踏），该标的标"未取到数据"，不顶替。
 
 ⚠️ **三个必踩的坑（全部实测过）**：
 1. **`change` 是绝对美元，不是百分比**。实测 META `change: 31.13` / `previousClose: 556.71` → 真实涨幅 **+5.59%**，不是 +31%。**涨幅要自己算** `change / previousClose`，直接把 `change` 当 % 报出去 = 编数字（违反铁律 2）。
@@ -310,7 +312,7 @@ signal(keywords=["<TICKER>"], categories=["kol_call"], query="consensus", asset_
 > ⚡ **提速铁律**：不同文件的 Edit/Read 同一条消息并行发（满落盘应是 2-3 个并行批次，不是十几次串行往返）；先 Read 再 Edit；报价等数据拉取一个并行批次发全。
 
 **A. 主日报** `Daily/YYYY-MM-DD.md`——按 [references/output-templates.md](references/output-templates.md)（跨本地 0 点的批次见「时间窗口」）。
-**B. 每标的** `Tickers/<TICKER>.md`——**新建门槛**：当日日报里 **≥2 位不同 roster 账号提及**（同一人多条算 1 位，纯 RT 无评论不算），**或用户持仓/挂单** → 按模板创建；不够门槛的只记在日报里，不建文件（日后够门槛建档时，可回查日报把之前的提及补进「KOL 观点」）。已存在的：价格快照追加一行 + KOL 观点追加新日期小节 + **不动"我的仓位"段**（单人提及也照常追加）。frontmatter 的 `sector: [[Sectors/<板块>]]` 反链**只在该板块文件已存在时写**；板块还没建档就不写这一行，建档后补上。
+**B. 每标的** `Tickers/<TICKER>.md`——**新建门槛**（满足其一）：① 当日日报里 **≥2 位不同 roster 账号提及**；② **A+ 账号单人提及且带硬数据**——财报数字（营收 / 利润 / 指引 / 月营收等具体数）、目标价、明确价位（入场 / 止损 / 目标的具体数字），转述别人的数字要标来源，问句和传闻不算硬数据；A+ 以 `references-roster.md` 的档位列为准，试用期账号（B / A待）不适用；③ 用户持仓 / 挂单。①②的计数口径（同一人多条算 1 位，纯 RT 无评论不算；**只算本人正文**——只出现在被引原文里的不算，包括自引的旧帖：2026-10-08 实跑某账号自引旧帖里的"大股东是亚马逊"差点把 AMZN 凑成 2 位；非投资语境顺带提到的公司名也不算，如"苹果新 CEO 在 X 上发帖"。临界情况在日报写一句排除理由） → 按模板创建；不够门槛的只记在日报里，不建文件（日后够门槛建档时，可回查日报把之前的提及补进「KOL 观点」）。已存在的：价格快照追加一行 + KOL 观点追加新日期小节 + **不动"我的仓位"段**（单人提及也照常追加）。frontmatter 的 `sector: [[Sectors/<板块>]]` 反链**只在该板块文件已存在时写**；板块还没建档就不写这一行，建档后补上。
 **C. 每板块** `Sectors/<板块>.md`——**已建档的**满足任一必更新（不只是日报里写一笔；未到建档阈值的只记 `_Sectors-Index`，见 Step 6.5）：① 当日板块汇总出现 ② 用户对该板块标的有买卖 ③ 重大 KOL thesis/反方 ④ 代表标的财报/事件。必更新段：强度评级历史追加一行 / thesis 追加 / 代表标的价格 / 反方信号（不删旧）。
 
 ### Step 10.5 — 决策摘要（日报 Part 6）⚠️ 有持仓时强制
@@ -345,7 +347,7 @@ Posture（7 选 1）：🟢 ADD / HOLD-conviction｜🟡 HOLD-attention / TAKE-P
 1. 持仓现价 + 浮盈重算（Ticker 价格快照追加 + Portfolio 更新，含挂单小表 trigger 距离）
 2. Risk Budget 占比重算（单标的/单板块/现金 ratio）→ 突破红线 → 警报进决策摘要
 3. Sectors 强度按当日走势 + thesis + 反方重评，追加评级行
-4. Macro 红灯重检（利率/VIX/DXY/行业 ETF）
+4. Macro 红灯重检：按 `Macro.md` 红灯表的触发列逐行判 🔴/🟢，数红灯个数（喂 Pre-Trade gate #1，≥3 暂停新仓）。种子文件自带默认阈值（VIX >25 / 10Y 5 个交易日 +25bp / DXY 高于 50 日均线 2% / 行业 ETF 5 个交易日 −8% / WTI 5 个交易日 +15%，均标"默认，可改"），用户改过的以用户为准。取数一次调用：`metrics(keywords=["^VIX","^TNX","DX-Y.NYB","SOXX","CL=F"], query="历史走势", asset_type="tradfi", time_range="90d", limit=60, verbosity="concise")`（2026-10-09 实测 ^TNX / DX-Y.NYB / SOXX 三个同批返回日线，1 额度）。⚠️ 三个坑：① 美元指数返回成 `DXUSD`，日线**含周末行**（60 行里 10 行是周六 / 周日），算 50 日均线先剔掉周末行；② 美股盘中最新一行是当天未收盘的一根（N-158），算均线和 5 日变动剔除；③ 10Y 的变动用前后两天 `close` 相减换算 bp，别用 `changePercent`（那是收益率本身的百分比变化）。
 5. `Daily-Index.md` 追加当日行 TLDR（日期/关键事件/用户决策/价格节点）
 
 ### Step 10.9 — 🚪 收尾门禁 ⚠️ 强制
@@ -358,10 +360,10 @@ Posture（7 选 1）：🟢 ADD / HOLD-conviction｜🟡 HOLD-attention / TAKE-P
 |------|------|
 | 持仓 ticker | 有价变/新信号 → mtime=当天；确无 → 汇报点名"X 无新信号故未改" |
 | **Sectors 全板块扫描** | 逐行过 `_Sectors-Index`，每行落 ✅已更新 / ⚪无信号 / 🆕有信号未到建档阈值，**不许沉默跳过**。日报底部写机器可读声明 `<!-- sector-sync: 板块A, 板块B -->`（**逗号分隔**，无则 `none`；文件名带空格的板块必须用逗号）——hook 逐个验声明文件 mtime。板块名就是文件名，**不能含 `/`**（"能源/原油" 会被当成子目录，hook 报不存在），写成"能源-原油"。⚠️ 只改 index 日期 ≠ sweep |
-| dashboard | **Daily-Index / Macro 每批必更新**；**Portfolio 仅在有持仓时必更新**（Step 10.8 要重算现价/浮盈/Risk Budget）。无持仓的用户 Portfolio 没东西可改，hook 不强制——**别为了过门禁去 touch 空文件** |
+| dashboard | **Daily-Index / Macro / `_last-pull` 每批必更新**（`_last-pull` 的 `last_cutoff_utc` 还必须是合法 ISO 时间戳，如 `2026-10-08T15:09:03Z`，占位符没换会被拦）；**Portfolio 仅在有持仓时必更新**（Step 10.8 要重算现价/浮盈/Risk Budget）。无持仓的用户 Portfolio 没东西可改，hook 不强制——**别为了过门禁去 touch 空文件** |
 
 **硬规则**：漏掉 ≠ 判定无信号——每个持仓 ticker + 相关 Sector 都必须被显式 touch 一次思考；mtime 实测优先于记忆；写不进时建桥接文件 `Tickers/_<标的>-待补-<日期>.md` 标红"待补"。
-配了 hook 的，结束会话时 `daily-gate-check.sh` 会机械复核这一切。
+配了 hook 的，结束会话时 `daily-gate-check.sh` 会机械复核这一切。23:xx 开跑、0 点后才结束会话时，hook 找不到当天日报，会转而检查 3 小时内改过的昨天那份日报（昨天、今天的修改日期都算数）。
 
 ### Step 10.95 — 🔬 完整性审查 critic — 条件触发
 
@@ -370,7 +372,7 @@ Posture（7 选 1）：🟢 ADD / HOLD-conviction｜🟡 HOLD-attention / TAKE-P
 **✅ 派 subagent**：当日首个完整拉取 / 财报·政策事件日 / 新建 ≥1 ticker 或 sector / 信号量大。**⏭️ 内联自查**：同日瘦增量批（主 agent 对照 dump 与落盘扫一遍，汇报"内联自查 0 遗漏"）。拿不准 → 派。
 
 spawn prompt 用 [references/critic-prompt.md](references/critic-prompt.md) 模板填空。任务：反扫 dump 列全部材料信号 → 对照落盘找遗漏（特查：非持仓板块信号 / 反方信号 / 被一句带过的数字）+ P4 一致性（同一事实在 Daily/Portfolio/Ticker/Sector 四处一致）+ P9 数字抽查（4-6 个回 dump verbatim 比对）+ 板块同步交叉校验。
-遗漏非空 → 补落盘 + 再跑门禁；为空 → 在日报收尾门禁段写一行 `- 完整性审查：遗漏 0 · 落盘 ticker T · 落盘 sector S`（T = 本批写过的 `Tickers/` 文件数，S = `sector-sync` 声明的板块数；内联自查同样写这一行）。hook 会核：遗漏必须为 0、`Tickers/` 今天动过的文件 ≥ T、S 等于 sector-sync 声明数——只写"完整性审查"四个字不算。
+**这一行等 critic 返回（或内联自查做完）再写，别预填 0**（2026-10-08 复跑：预填的"遗漏 0"在 critic 报出 3 条遗漏后才改）。遗漏非空 → 补落盘 + 再跑门禁；为空 → 在日报收尾门禁段写一行 `- 完整性审查：遗漏 0 · 落盘 ticker T · 落盘 sector S`（T = 本批写过的 `Tickers/` 文件数，S = `sector-sync` 声明的板块数；内联自查同样写这一行）。hook 会核：遗漏必须为 0、`Tickers/` 今天动过的文件 ≥ T、S 等于 sector-sync 声明数——只写"完整性审查"四个字不算。
 
 ### Step 11 — 简短汇报
 

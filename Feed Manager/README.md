@@ -107,6 +107,6 @@ cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 - **进阶层 7 节**（实盘源 / 卖方研报 ingest / 独立研究 / reader 外包 / 候选挖掘 / 归档审计 / 一条实测否决项）→ [`references/advanced-extensions.md`](./skills/stock-kol-watch/references/advanced-extensions.md)
 - 数据侧已知问题 → [`references/followin-mcp-caveats.md`](../references/followin-mcp-caveats.md)
 
-> ⚠️ **验证状态**：主链（拉取→过滤→提炼→落盘→门禁）已在真实数据上端到端实跑验证；**reader / completeness-critic 两个子代理路径和 5 节周报仅验证了模板、尚未实跑**——早期用户可能撞上，欢迎反馈。
+> ⚠️ **验证状态**：主链（拉取→过滤→提炼→落盘→门禁）已在真实数据上端到端实跑验证；reader / completeness-critic 两个子代理 2026-10-08 各实跑过一次（critic 抓出 3 条遗漏、9 处不一致）；**5 节周报仅验证了模板、尚未实跑**——早期用户可能撞上，欢迎反馈。
 
 > ⚠️ 输出是**信息整理与决策辅助**，不是买卖建议。所有 KOL 观点只引用不背书，判断权永远在你手里。

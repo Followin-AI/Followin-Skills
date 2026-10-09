@@ -39,7 +39,8 @@ args: ticker
 - `default_fanout_fallback` 这条 warning 是提示不是错误：它说明"没指定主题，返回核心基本面集合"，数据是齐的，不要重试。
 - 如果客户端不接受数组入参（报 `-32602`），把 ticker 并进 query 串：`query="<T> 分析师评级 同行 DCF"`。
 - **财报通常盘后发布**：`metrics` 在非交易时段返回的是上一个常规收盘（`_quote_session:"regular_inactive"`），**盘后那根跳涨或跳水不在返回里**。此时 `price` 标"常规收盘"，盘后涨跌取自新闻并标"据 [来源]·盘后"，两个数分开写。`_quote_session` 不是每只都有（2026-10-08 实测 ACN、MU 的快照都没有这个字段），缺失时按 `as_of` 是否落在美东常规时段（9:30–16:00）判"实时 / 常规收盘"。
-- **盘中运行时，日线最后一行是当天还没收盘的 K 线**（2026-10-08 实测：美东 10 点调用，第 4 路最后一行 `date` 就是当天，成交量只有平日的零头）。用它算的 1D / 5D 等动量和"至今累计"一律标"盘中"。
+- **盘中运行时，日线最后一行是当天还没收盘的 K 线**（2026-10-08 实测：美东 10 点调用，第 4 路最后一行 `date` 就是当天，成交量只有平日的零头）。用它算的 1D / 5D 等动量和"至今累计"一律标"盘中"。当天这一行的 `close` 与调用 A 快照的 `price` 不一致（2026-10-08 实测 PEP 同一批调用：日线当天 125.86、快照 125.16，1D 读成 +1.72% 对 +1.16%），盘中的"最新收盘"一律换成调用 A 的 `price`，保证基本信息里的价格和动量表对得上。
+- **盘中估值按前收算**：`ratios_ttm` / `key_metrics_ttm` / `dcf` 盘中仍按前收计算（2026-10-08 实测 PEP `dcf["Stock Price"]` 123.73 = `previousClose`，快照已是 125.16），引用 PE / PS / DCF 时写"按前收"。
 
 ## 返回结构（字段名以这里为准）
 
@@ -52,7 +53,7 @@ args: ticker
 | `fundamentals.concise[].fiscal_quarters[0].financial_statement` | 同一季的 `revenue` / `eps`（基本 EPS）/ `epsDiluted`（GAAP 稀释 EPS）/ `netIncome` / `period_end` |
 | `…macro.calendar` | 忽略：ticker 会被模糊匹配到无关事件（实测 MU 匹配成 "Fed Musalem Speech"）|
 | `…eps_trend[]` | 最近 4 季**基本** EPS（与 `financial_statement.eps` 相同，不是 GAAP 稀释；2026-10-08 实测 ACN 3.31、MU 33.36）。趋势表的 EPS 用调用 B 的 `epsDiluted` |
-| `…balance_sheet[]` / `cash_flow[]` | 最近 4 季 |
+| `…balance_sheet[]` / `cash_flow[]` | 最近 4 季（财报发布后 3 天内现金流不引用，见维度一）|
 | `…profile_block` | sector / industry / ceo / beta / ipoDate / description |
 | `…valuation_block.ratios_ttm` | PE / PS / PB / PEG / 毛利率 / 净利率 / D/E 等 |
 | `…consensus_price` | 目标价共识 / 最高 / 最低 / 中位 |
@@ -72,10 +73,11 @@ args: ticker
 1. **只有最新一季有"实际对预期"**。`fiscal_quarters` 只返回一季，所以"是否连续超预期"无从判断——不要从 `eps_trend` 里推。
 2. **两个 EPS 口径不同**。`earnings_surprise.actual_eps` 是分析师口径（通常是调整后），**财报口径一律取 `financial_statement.epsDiluted`（GAAP 稀释）**——`eps` 是基本 EPS，只作参考（实测 MU 分析师口径 33.42、基本 33.36、稀释 32.87，用基本 EPS 会把口径差距低估成几乎为零）。实测 NVDA 同一季分析师口径 2.22、财报口径 2.46。两者不相等时：Beat/Miss 用前者判，并标注"调整后口径"；两者**符号相反**（一正一负）时必须点明"该超预期为调整后口径，本季 GAAP 为亏损"。不要把两个序列混在一张趋势里。
 3. **缺失会伪装成 -100%**。`actual_revenue` 为 null 时，`revenue_surprise_pct` 会显示 -100——那是缺数据不是营收归零。`actual_revenue` 非 null 才读 surprise。
-4. **财报当晚或次日数据可能还没更新**。满足任一条就判"未更新"：① `earnings_surprise` 整块不存在；② `next_earnings_estimate.date` ≤ 今天，且不等于 `report_date`（说明预定的财报日已过、但这里还是上一季）。
+4. **财报当晚或次日数据可能还没更新**。满足任一条就判"未更新"：① `earnings_surprise` 整块不存在；② `next_earnings_estimate.date` ≤ 今天，且不等于 `report_date`（说明预定的财报日已过、但这里还是上一季）；③ `next_earnings_estimate.date` 比 `report_date` 晚 150 天以上（N-163：下次财报日往往先滚到下一季，`fiscal_quarters` 还停在上一季，这时 ② 不触发；正常间隔约 3~4 个月，2026-10-08 实测 PEP 10-08 → 2027-02-02 为 117 天）。
+   三条都不满足才算已更新（2026-10-08 实测 PEP 盘前发布、美东上午 11 点调用时 `report_date` 已是 10-08，与财报日历逐项一致）。
    未更新时按顺序回退，**不要拿上一季顶替**：
    - **财报日历**：`metrics(query="earnings calendar", asset_type="tradfi", date_from=<财报日>, date_to=<财报日>, limit=50)`。`keywords` 对日历不起过滤作用，在返回里**按 `symbol=="<T>"` 自己筛**；不要传 `country="US"`（它按注册地过滤，会漏掉 ACN 这类爱尔兰注册的美股）。用 `epsActual / epsEstimated`、`revenueActual / revenueEstimated` 自算 surprise，标"据财报日历·基本面块未更新"。日历行和基本面块同属一个数据源（实测 MU 两者逐项一致）。
-     日历按代码字母序排，**单页 50 行常常翻不完一天**：本页没有 <T> 且 `meta.pagination` 里 `has_more` 为 true 时，带 `next_cursor` 原样重发、其余参数不变，直到找到或翻完，**最多翻 5 页**（含第 1 页），每页 1 额度（2026-10-08 实测：10-01 共 37 行，ACN 在第 1 页；09-30 超过 200 行，MU 在第 4 页）。同一公司的外国挂牌行（ACN 的 `0Y0Y.L`、MU 的 `MU.TO`）数字不同，只认 `symbol` 完全等于 <T> 的那行。
+     日历按代码字母序排，**单页 50 行常常翻不完一天**：本页没有 <T> 且 `meta.pagination` 里 `has_more` 为 true 时，带 `next_cursor` 原样重发、其余参数不变，直到找到或翻完，**最多翻 5 页**（含第 1 页；2026-10-08 用户拍板维持这个上限，不放宽），每页 1 额度（2026-10-08 实测：10-01 共 37 行，ACN 在第 1 页；09-30 超过 200 行，MU 在第 4 页；10-08 超过 250 行，PEP 在第 5 页第 6 行，第 5 页末行已排到 S 开头——T 以后的代码在这种日子翻满 5 页也到不了，直接转新闻）。同一公司的外国挂牌行（ACN 的 `0Y0Y.L`、MU 的 `MU.TO`）数字不同，只认 `symbol` 完全等于 <T> 的那行。
    - **新闻原文**：日历翻满 5 页仍找不到 <T>，或日历里没有时，转 `news()`：先核实财报日（是否已发布、哪天发布），再取媒体原文的实际值和预期值，标来源；新闻里的预期值可能和接口口径不同（实测 MU 媒体 EPS 预期 31.52、接口 31.77），不要混算。
 5. **4 季窗口算不出同比**。最新季的去年同期不在返回里，趋势表只做环比；同比需要外部来源，别把 3 季前那季当去年同期。
 
@@ -103,6 +105,7 @@ args: ticker
 8. metrics(keywords=["<T>"], query="research reports", categories=["fundamentals"],
            asset_type="tradfi", time_range="30d", verbosity="concise")        # 机构研报
 ```
+- **财报日在 3 天内时，第 5 路再补一次 `time_range="1d"`**（其余参数不变；`news()` 不扣额度），两次结果按 `source_url` 合并。2 周窗口按相关度排，财报当天的报道会被前两周的旧稿挤掉：2026-10-08 实测 PEP 盘前发布后 5 小时，2w 的 10 条里只有 1 条财报后的报道，"下调利润展望"（Bloomberg）一条都没有；1d 的 10 条里去掉模板稿还有 4 条与这次财报相关，包括这条。公司指引、盘前 / 盘后涨跌取自这批。
 - `news()` 的 query 用"公司名 + 代码"两个词（如 `"Apple AAPL"`），不写"earnings 影响 解读"这类词。
 - `news()` 查不到相关内容时不会返回空，而是返回一批不相关的热门内容。**返回里一条都不含目标公司名或代码，就是没查到**，记数据缺口，不要重试，也不要拿这些内容做情绪判断。
 - `signal()` **必须显式传 `categories`**——只传 ticker 现在返回空（旧记载"省略 categories 自动展开"已失效）。多类一起传仍只计 1 次额度。
@@ -137,11 +140,12 @@ args: ticker
 EPS：    Beat = eps_surprise_pct > +2%；Miss = < −2%；其余 In-line
 营收：   Beat = revenue_surprise_pct > +2%；Miss = < −2%；其余 In-line
 ```
-用调用 B 的 4 季利润表算营收和 EPS 的环比，看是加速还是减速。利润表里 `incomeBeforeTax` / `incomeTaxExpense` 偶有错误（实测 MU 营业利润 443 亿而税前利润 148 亿、所得税 −229 亿），不引用这两项。
+用调用 B 的 4 季利润表算营收和 EPS 的环比，看是加速还是减速。相邻两季 `date` 间隔与其他季相差 20 天以上时（财季长短不一，如 PEP 前三季各 12 周、第四季 16 周），那一格环比标"季长不同"，不判加速减速（2026-10-08 实测 PEP Q1 对 Q4 营收环比 −33.7%，主要是少了 4 周）。
+**财报发布后 3 天内（按 `report_date` 算），不引用 EBITDA 和现金流相关数字**（`ebitda`、`key_metrics_ttm` 里的 EV/EBITDA 与自由现金流收益率、`cash_flow[]` 各项）：新季度初版数据常缺项、符号反（2026-10-08 实测 PEP 发布当天：利润表折旧与利息支出为 0，`ebitda` 3,904 百万低于营业利润 4,260 百万；现金流资本开支符号为正，`freeCashFlow` 6,851 百万 = 经营现金流 5,585 + 资本开支 1,266，被高估）。这些位置写"财报初版数据未齐，暂不引用"。营收、净利润、EPS 不受影响，照常引用。利润表里 `incomeBeforeTax` / `incomeTaxExpense` 偶有错误（实测 MU 营业利润 443 亿而税前利润 148 亿、所得税 −229 亿），不引用这两项。
 
 #### 维度二：媒体覆盖与情绪
 
-对第 5 路返回的文章，先剔掉与该公司无关的，再剔掉不算"相关报道"的两类：没有正文的行情页（如 Barron's 的个股报价页）和 Zacks / GuruFocus 等模板稿（标题套路固定、`category` 常标 `research`）——它们不计入篇数，也不参与情绪统计。再逐篇判断：情绪偏向、高频话题、代表性报道（标题 + 来源 + 链接）。情绪结论标"Claude 推断"。
+对第 5 路返回的文章，先剔掉与该公司无关的，再剔掉不算"相关报道"的两类：没有正文的行情页（如 Barron's 的个股报价页）和 Zacks / GuruFocus 等模板稿（标题套路固定，按来源名认；`source_quality` 标 `research`，`category` 有时标 `research`、有时为空——2026-10-08 实测 PEP 的 Zacks 财报速递稿 `category` 为空。247 Wall St 这类有正文的评论稿也标 `research`，不要按这个字段一刀切）——它们不计入篇数，也不参与情绪统计。再逐篇判断：情绪偏向、高频话题、代表性报道（标题 + 来源 + 链接）。情绪结论标"Claude 推断"。
 
 #### 维度三：宏观一致性 + 价格动量
 
@@ -199,7 +203,8 @@ CEO: [ceo] | IPO: [ipoDate] | Beta: [beta]
 > 4 季窗口算不出同比；历史各季的"实际对预期"接口不提供。
 
 ### 关键比率 (TTM)
-PE: XX.X | PS: X.X | PEG: X.X | ROE: XX.X% | D/E: X.X | 毛利率: XX.X%
+PE: XX.X | PS: X.X | PEG: X.X | ROE: XX.X% | D/E: X.X | 毛利率: XX.X%  [盘中运行时注明"按前收"]
+EV/EBITDA: X.X | 自由现金流收益率: X.X%  [财报发布后 3 天内写"财报初版数据未齐，暂不引用"]
 
 ### 📈 分析师预期（analyst_estimates）
 | 财年截止 | 预期 EPS | 预期营收 | 覆盖分析师数 |
@@ -242,5 +247,6 @@ PE: XX.X | PS: X.X | PEG: X.X | ROE: XX.X% | D/E: X.X | 毛利率: XX.X%
 
 - Beat/Miss 注明口径（分析师口径 EPS）
 - 情绪判断标"Claude 推断"
+- 财报发布后 3 天内，EBITDA 和现金流相关数字一律写"财报初版数据未齐，暂不引用"
 - 取不到的字段写"数据不可用"并列入数据缺口，不要留空让人以为是零，更不要凭印象填
 - 这是"值得进一步研究"的线索，不是交易建议；不给买卖结论，不预测价格

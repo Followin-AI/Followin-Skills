@@ -125,7 +125,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 **`time_std.type` 实测 22 种取值**（不是初版写的 12 种），且**同义异写严重**：
 `relative`(9) `year`(8) `quarter`(6) `month`(4) `datetime`(4) `date`(3) `event_relative`(3) `null`(2) `range`(2) `relative_period`(2) `rolling_window`(2) `deadline`(2) `recurring`(2) `relative_event`(2) `fiscal_quarter`(2) `half-year`(1) `half_year_range`(1) `relative_year`(1) `date_range`(1) `quarter_range`(1) `half_year`(1) `period`(1)
-**2026-10-05 起又见到 12 种**：`relative_window` `quarter_end` `fiscal_year`（MU/AVGO 实跑）· `relative_range` `half` `month_range` `reporting_period`（r4 查 TSM 实跑）· `fiscal_period`（NVDA 首页）· `approximate_date` `deadline_month` `earnings_event` `conditional`（NVDA 30d / MU 第 2 页）· 2026-10-08 r4 查 AVGO 又见 `year_range` `approximate`；`sort` 为 `9999` 的条目 `time_std` 里没有 `type` 键。取值集合**仍在增长**，见下方自检②。
+**2026-10-05 起又见到 12 种**：`relative_window` `quarter_end` `fiscal_year`（MU/AVGO 实跑）· `relative_range` `half` `month_range` `reporting_period`（r4 查 TSM 实跑）· `fiscal_period`（NVDA 首页）· `approximate_date` `deadline_month` `earnings_event` `conditional`（NVDA 30d / MU 第 2 页）· 2026-10-08 r4 查 AVGO 又见 `year_range` `approximate`；10-08 r4 查 NVDA 又见 `calendar_year` `open_ended` `after`，anchor 出现 `2026-12/2027-early`、`2026-Q4/2027` 这类写法；`sort` 为 `9999` 的条目 `time_std` 里没有 `type` 键。取值集合**仍在增长**，见下方自检②。
 
 **⚠️ 四组同义异写必须先合并**：`half-year` / `half_year` / `half_year_range` / `half` ｜ `event_relative` / `relative_event` ｜ `quarter` / `quarter_range`（`fiscal_quarter` / `fiscal_period` 单走财季，不并进自然季）｜ `deadline` / `deadline_month`
 
@@ -154,13 +154,15 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
    |---|---|---|
    | `year` / `relative_year` | 年 | `sort="2028-01-01"` → 渲染成"2028 年 1 月 1 日"，实为"2028 年某时" |
    | `fiscal_year` | 年（标"**财年**"）| 2026-10-05 实测 AVGO "FY27" → `sort="2027-10"` → 渲染成"2027 年 10 月"，实为 FY27 全年 |
-   | `quarter` / `quarter_range` | 季 | **INTC 实测**：`sort="2026-09-30" type="quarter"` 与 `sort="2026-10-01" type="quarter"` → 渲染成"9 月 30 日""10 月 1 日"，实为"Q3 末 / Q4 内某时"。季号优先取 `anchor`（如 `"2026-Q4"`），anchor 不含 Q 时按月份换算 |
+   | `quarter` / `quarter_range` | 季 | **INTC 实测**：`sort="2026-09-30" type="quarter"` 与 `sort="2026-10-01" type="quarter"` → 渲染成"9 月 30 日""10 月 1 日"，实为"Q3 末 / Q4 内某时"。季号优先取 `anchor`（如 `"2026-Q4"`），anchor 不含 Q 时按月份换算。⚠️ **财报 / 业绩类**（event 写 "3Q26 results"、"September-quarter earnings" 等）的季级时间是**指标所属期间**，结果要到季末后 1–2 个月才公布：判已过期时按"季末 + 45 天"比，不按季末比（2026-10-08 r4 实测 Advantest、三星 3Q26E、富世达 3Q26 照字面会被误判成已过期）|
    | `fiscal_quarter` | **财季**（⛔ 不换算成自然季）| 2026-10-05 实测 AVGO "FQ426" → `sort="2026-10"`、anchor `"FY2026-Q4"`；写成"2026-Q4"就把财季当成了自然季（与上方形态表"财季≠自然季"的要求冲突）。anchor 也可能是季末日期（NVDA "FQ3" → anchor `"2026-10-31"`、不含 FY），财季号取 `time` 原文 + 公司财年推定。⚠️ **事件类型是财报 / 指引 / 营收兑现时，财季是指标所属期间、不是事件发生时间**（NVDA "Oct-quarter revenue reaches $108B"、JPM "guides F3Q27 revenue" 实为 08-26 电话会上给的指引）——展示成"FYxx-Qn 业绩（于该季财报日揭晓，日期未核）"，不要写成"10 月发生" |
    | `fiscal_period` | **财季**（anchor 为 `A to B` 时为**财季区间**）| 2026-10-05 实测 HSBC NVDA "2QFY27 and 3QFY27e" → `sort="2026-FY27-Q2"`、anchor `"FY2027-Q2 to FY2027-Q3"` |
    | `half-year` / `half_year` / `half_year_range` / `half` | 半年 | `sort="2026-07-01"` → 实为"2026 下半年" |
    | `month` / `month_range` / `reporting_period` | 月 | `sort="2026-10-01"` → 实为"10 月某时" |
    | `deadline` / `deadline_month` | 月（标"**截止**"）| 2026-10-05 实测 UBS "By November 2026" → `sort="2026-11-30"`，另一篇写同一件事给的是 `"2026-11"`；渲染成"11 月 30 日"是假精度，也会让两篇对不上 |
    | `date_range` / `range` / `year_range` | **区间**（取 `anchor` 的 `A/B` 或 `time` 原文）| 2026-10-05 实测 JPM "2026-2030" → `sort="2026"`，字面渲染成"2026 年"且落进窗口内；GS "late 2026" → `sort="2026-10"`，渲染成"10 月" |
+   | `calendar_year` | 年 | 2026-10-08 r4 查 NVDA 实测，同 `year` |
+   | `open_ended` / `after` | **模糊**（`after` 有 anchor 日期时写"<日期> 之后"，按区间起点处理）| 2026-10-08 r4 查 NVDA 实测；没有终点，不进日级、不判已过期 |
    | `relative*` 族 | 区间 / **模糊** | 见规则 1b |
    | `event_relative` / `relative_event` | 日（anchor 带日期时）／ 同 1b | 见规则 1c |
    | `quarter_end` | 日（标"**季末**"，不降级）| 2026-10-05 实测 Bernstein "from the end of 3Q26" → `sort="2026-09-30"`，季末日本身就是事件日 |
