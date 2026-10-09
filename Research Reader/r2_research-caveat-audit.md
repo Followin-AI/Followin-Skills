@@ -40,9 +40,9 @@ args: ticker(必填), focus(可选：报告标题关键词，只审匹配的那�
 
 ---
 
-## 执行流水线（1–3 额度）
+## 执行流水线（1–N 额度，通常 ≤3）
 
-### 步骤 1 · 拉报告（1–3 额度：首页 1 + subject 翻页每页 1）
+### 步骤 1 · 拉报告（1–N 额度，通常 ≤3：首页 1 + subject 翻页每页 1，翻到 90 天下限为止）
 
 ```
 metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", asset_type="tradfi")
@@ -50,15 +50,17 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 > 📦 **返回体积与游标位置（2026-10-05 实测）**：单页 `detail` 返回约 **85–90K 字符**（NVDA 首页 88,589 / 第 2 页 82,169），会超过工具输出上限被落盘——**用脚本按字段解析，不要整段读进上下文**。翻页游标在 `meta.pagination["fundamentals.research_reports"].next_cursor`（**键名本身含点**，不是 `meta.pagination.next_cursor`）；带 `cursor` 重查时 query / keywords / verbosity / limit 须与首页完全一致。
 
-> 📄 **翻页口径（2026-10-08 定）**：**subject 翻到尽头，mention 只取 1 页**。
+> 📄 **翻页口径（2026-10-08 定，2026-10-09 加 90 天下限）**：**subject 翻到尽头或 90 天下限，mention 只取 1 页**。
 > · 首页 `has_more=false` 或首页已出现 mention → 停（1 额度）
-> · 首页全是 subject 且 `has_more=true` → 带 cursor 翻下一页，直到某页出现 mention 或 `has_more=false`（通常 2–3 额度；第 3 页仍全是 subject 就继续翻到尽头，每页 +1，头部写实际额度）
+> · 首页全是 subject 且 `has_more=true` → 带 cursor 翻下一页，直到某页出现 mention、`has_more=false`，**或该页最旧一篇 subject 的 `report_date` 早于今天 −90 天**（下限）——三者先到为准（通常 ≤3 额度；每页 +1，头部写实际额度）
+> · 因下限停页时：那一页里早于下限的 subject 照常审，头部写"subject 翻到 90 天下限（<日期>），更早的未取"，subject 家数只算 90 天内全量；这时多半没带出 mention，写"mention 未取到（停在 90 天下限）"，**不为 mention 单独翻页**
+> · 下限的由来：不传窗口时 subject 随库龄只增不减（2026-10-08 实测 MSFT 07-16 起 10 周 13 篇、NVDA 10-05 已 19 篇），不设下限的话额度会随库龄线性上涨
 > · mention **只用 subject 见尽的那一页带出来的**（按日期倒序，就是最新的一批），不为 mention 单独翻页；产出头部写明"mention 只取 1 页，has_more=<值>"，mention 侧结论一律是下界
 
 > 🔴 **取数前先认块（N-86，2026-08-12 实测）**：解析层会静默扩展出额外候选 ticker，**每个候选都是一个平级结果块，顺序不保证主匹配在前**（实测 `ASML.AS` 的 `[0]` 是空块、数据在 `[1]`）。
 > ① ⛔ **禁止用 `research_reports[0]` 取数**　② 逐块比对 `query_ticker` == 本次标的，**只认相等的块**　③ ⛔ **禁止用 `meta.total` 判条数**（它数的是块）
 
-同 r1 步骤 1 的全部铁律：query 必带研报意图词（红线 12）／`time_range` 已于 2026-08-03 修复可传，`limit` 单页仍被 10 硬顶，但 **2026-08-12 起返回体带 `meta.pagination.next_cursor`，可翻页枚举完**（N-81 销案）——按上方翻页口径，subject 家数是全量，**mention 只取 1 页、标下界**（N-38 部分修复）／`default_fanout_fallback` 警告是假阴性别重试（N-21）／机构名先归一再按「机构+标题+日期」去重（N-38 + N-3）。
+同 r1 步骤 1 的全部铁律：query 必带研报意图词（红线 12）／`time_range` 已于 2026-08-03 修复可传，`limit` 单页仍被 10 硬顶，但 **2026-08-12 起返回体带 `meta.pagination.next_cursor`，可翻页枚举完**（N-81 销案）——按上方翻页口径，subject 家数是 90 天内全量，**mention 只取 1 页、标下界**（N-38 部分修复）／`default_fanout_fallback` 警告是假阴性别重试（N-21）／机构名先归一再按「机构+标题+日期」去重（N-38 + N-3）。
 
 > ⚠️ **快评 + 完整版合并要补一条（2026-10-05 实测）**：r1 的「同机构 + 同日 + 同 TP」判据**漏掉"快评后完整版当天上调 TP"**——实测 GS 2026-08-26《First Take: Solid quarter…》TP 285，同日完整版 TP 285→300，TP 不同所以不会被合并。追加：**同机构 + 同日 + 任一篇标题含 First Take / Quick Take → 计家数时合并，以非快评那篇为准**；逐篇地基里快评可保留，但须注"已被同日完整版取代，别引其 TP"。
 > 同批另见 N-3 复现：GS 两篇标题 / 日期 / TP 逐字相同、`event_id` 不同——服务端"按 event_id 去重"去不掉这种，客户端三元组去重照做。
@@ -94,6 +96,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 > ① mention 篇先判 `key_caveat` 是否涉及本标的；**不涉及 → 不进本标的打分**，④轴记"N 篇 caveat 指向报告主标的"
 > ② mention 篇只审 `mention_context` 那一句的基准（"is believed by BofA to be the customer" 是推测、"modeled capex" 是建模、"benchmark score" 是第三方跑分），逐篇地基**压成一行**
 > ③ ⛔ 不许把 mention 篇的 `rating_current` / `report_subject_target_price` 当本标的的评级 / TP
+> ④ mention 篇的③b（报告内数字对不上）若与本标的的那句同出一个模型（2026-10-08 实测 MSFT：Bernstein 10-01 的 2030 年 IT-GW 149 vs 160，MSFT 的 "modeled capex" 是同一模型的输入）→ 判**部分涉及、不计分**，在④轴注明，该篇 `mention_context` 那一行加"所在模型内部有数字对不上"
 
 | 轴 | 取自 | 回答什么 |
 |---|---|---|
@@ -177,7 +180,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 ```
 🔍 <TICKER> 研报口径审计 · <日期>
-可见 N 篇（去重后 M 家）｜报告日期 subject <最早>~<最新> ／ mention <最早>~<最新>｜time_scope=<值>｜额度 <实际次数>｜subject 已翻至尽头（共 K 页）｜mention 只取 1 页，has_more=<true/false>（mention 侧为下界）
+可见 N 篇（去重后 M 家）｜报告日期 subject <最早>~<最新> ／ mention <最早>~<最新>｜time_scope=<值>｜额度 <实际次数>｜subject <已翻至尽头 ／ 翻到 90 天下限 <日期>>（共 K 页）｜mention 只取 1 页，has_more=<true/false>（mention 侧为下界）
 <最新 subject 距今 >21 天时加一行：⚠️ 本批地基审计的是 <日期> 前的报告>
 
 【🔎 领读】（先写这段）
@@ -226,9 +229,9 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 · completeness 分布：high N 篇 / medium N 篇 / low N 篇
 · detail 截顶：caveats 每篇仅见 1/N 条；高危扫描覆盖 key_points 3/8、data_points 3/12（按实际填）
 · key_caveat 被流程备注占位 N 篇 ／ 书目缺失类 N 篇 ／ 类型声明 N 篇 ／ 字段缺失 N 篇（0 号分流剔出，不计分）
-· mention 篇 caveat 指向报告主标的 N 篇（不进本标的打分）；consensus_diff 未返回 N 篇
+· mention 篇 caveat 指向报告主标的 N 篇（不进本标的打分）；与本标的同一模型、部分涉及 N 篇（不计分，逐条列）；consensus_diff 未返回 N 篇
 · 库里缺的中间报告：<机构 old TP 对不上上一篇可见 new 的，逐条列>
-· 覆盖面：subject 全量（K 页）；mention 只取 1 页，has_more=<true/false>；榜单口径覆盖数需 r0（本轮未取）
+· 覆盖面：subject <全量 ／ 90 天内全量>（K 页）；mention 只取 1 页，has_more=<true/false>；榜单口径覆盖数需 r0（本轮未取）
 ```
 
 **可信度分档规则**（三档，🟢 分两级；只看①②③，**不看④**）：
@@ -236,7 +239,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 | 档 | 条件 |
 |---|---|
 | 🟢 可直接引用 | 基准是独立调研或披露数据；口径边界清晰；**且 `detail_sections.caveats` 所示的全部 caveat 都已读到、均不涉及①③** |
-| 🟢（可见范围内） | 前两条同上；**可见的 caveat 不涉及①③，但只见 1/N 条**（截顶下的常态）。必须带括注，写"仅见 1/N 条 caveat"——硬要求 5：未自陈 ≠ 没问题。`key_caveat` 未返回的篇不适用（最高 🟡）|
+| 🟢（可见范围内） | 前两条同上；**可见的 caveat 不涉及①③，但只见 1/N 条**（截顶下的常态）。必须带括注，写"仅见 1/N 条 caveat"——硬要求 5：未自陈 ≠ 没问题。`key_caveat` 未返回、或被 0 号分流剔出（书目缺失 / 流程备注 / 类型声明）的篇不适用——没有真实 caveat 可看，最高 🟡（2026-10-09 定；MSFT 按此 🟢（可见范围内）0/13，原给的 Citi 07-30、GS 07-29 两篇 key_caveat 都是书目缺失类）|
 | 🟡 引用须带限定 | 基准是管理层口径或建模估算；**或**口径边界不清；**或** ③b 只涉及辅助表格（注"引用该表前核对正文"）| 
 | 🔴 别引结论 | ③b 涉及**目标价、上行幅度或核心预测**；**或**核心论点建立在未验证的代理指标上 |
 
@@ -274,5 +277,5 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 | 不传窗口时 subject 整层在前 | **2026-10-05 实测**：首页全是 subject，最新可能已是一个多月前；**2026-10-08 实测** subject 不足一页（META 6 篇）时首页尾部即接最新 mention | 头部写日期区间 + `time_scope`；>21 天领读首句声明；不再补 30d——首页全是 subject 时按翻页口径翻到出现 mention 为止（2026-10-08 实测 MSFT：首页 subject 10，第 2 页 subject 3 + mention 7） |
 | mention 篇字段的归属 | **2026-10-08 实测**：`key_caveat` / `rating_current` / `report_subject_target_price` 属报告主标的（META 14 篇 mention 里多数如此）| 见步骤 2 mention 规则：只审 `mention_context`，不涉及本标的的 caveat 不计分 |
 | 内部校验器抓不到报告自身的推断错误 | 已知（外部核验首轮 3/6 命中全属此类）| 靠步骤 3 三类规则 + 步骤 4 外部核验，**不承诺自动化能兜住** |
-| 单页只有 10 篇，且不一定给满 | 上游单页硬顶（N-38）| **subject 翻到尽头、mention 只取 1 页**（N-81 + 2026-10-08 翻页口径）。mention 侧结论标下界。实测 F 首页只返回 3 篇且全是 mention |
+| 单页只有 10 篇，且不一定给满 | 上游单页硬顶（N-38）| **subject 翻到尽头或 90 天下限、mention 只取 1 页**（N-81 + 2026-10-08 翻页口径 + 2026-10-09 下限）。mention 侧结论标下界。实测 F 首页只返回 3 篇且全是 mention |
 | `subject_reports=0` 时仍可审 | 实测 F 全 mention | mention 报告同样带 `key_caveat` / `coverage_flag` / `consensus_diff`，**照样可审**——F 的两条 🔴 基准问题就出自 mention 报告。但先判 caveat 说的是不是本标的（见上一行）|

@@ -193,8 +193,8 @@ python3 ~/.claude/skills/stock-kol-watch/scripts/filter_tweets.py \
 - schema 变了改脚本本身（`find_tweets()`/`parse_dt()`/`dedupe_key()`/`mark_of()`），别回退内联重写。
 
 **📦 digest 太大就外包深读**：主 agent 全读宽窗口 digest 会吃掉一大块上下文。
-**规则（单一阈值，别留空档）**：digest **>15K 字符 → 派 1 个 reader 子代理**（按字符计，看脚本 stderr 打的字符数；**别用 `wc -c`**——那是字节，中文一字 3 字节，2026-10-08 实测 13.1K 字符的 digest `wc -c` 报 23.4K）做逐条提炼，主 agent 不读全文（契约见 [references/advanced-extensions.md](references/advanced-extensions.md) §4）；**≤15K 主 agent 直读**。拿不准就派。**裁决/落盘不可外包**，落盘前抽查 3 个关键数字回 digest verbatim 核对。
-（2026-10-08 实测参考，按字符：5 账号 / 33 条 / 24h = 13.1K 字符，那次没传 detail、正文截在 600 字；同一个宏观长文账号换 detail 后从约 4.8K 涨到 7.5K。→ 按 Step 2 传 detail 后 **5 个账号就大概率过线**，8-15 个账号的 roster 基本每批都派。）
+**规则（两个条件满足其一就派，脚本 stderr 直接给结论）**：本批拉取 **≥8 个账号，或 digest ≥25K 字符 → 派 1 个 reader 子代理**（字符按脚本 stderr 打的数；**别用 `wc -c`**——那是字节，中文一字 3 字节，2026-10-08 实测 13.1K 字符的 digest `wc -c` 报 23.4K）做逐条提炼，主 agent 不读全文（契约见 [references/advanced-extensions.md](references/advanced-extensions.md) §4）；**两个都不满足 → 主 agent 直读**。**裁决/落盘不可外包**，落盘前抽查 3 个关键数字回 digest verbatim 核对。
+（2026-10-08 实测参考，按字符：5 账号 / 29 条 / 24h、传 detail = 15.1K 字符，主 agent 直读即可；那次按旧阈值 15K 派了 reader，结论与直读一致，但 reader 自己吃掉约 9.4 万 token、交回约 8K 字，省下的主上下文有限——这是阈值上调到"≥8 账号或 ≥25K 字符"的依据。）
 
 ### Step 4 — 识别投资内容
 
@@ -312,7 +312,7 @@ signal(keywords=["<TICKER>"], categories=["kol_call"], query="consensus", asset_
 > ⚡ **提速铁律**：不同文件的 Edit/Read 同一条消息并行发（满落盘应是 2-3 个并行批次，不是十几次串行往返）；先 Read 再 Edit；报价等数据拉取一个并行批次发全。
 
 **A. 主日报** `Daily/YYYY-MM-DD.md`——按 [references/output-templates.md](references/output-templates.md)（跨本地 0 点的批次见「时间窗口」）。
-**B. 每标的** `Tickers/<TICKER>.md`——**新建门槛**：当日日报里 **≥2 位不同 roster 账号提及**（同一人多条算 1 位，纯 RT 无评论不算；**只算本人正文**——只出现在被引原文里的不算，包括自引的旧帖：2026-10-08 实跑某账号自引旧帖里的"大股东是亚马逊"差点把 AMZN 凑成 2 位；非投资语境顺带提到的公司名也不算，如"苹果新 CEO 在 X 上发帖"。临界情况在日报写一句排除理由），**或用户持仓/挂单** → 按模板创建；不够门槛的只记在日报里，不建文件（日后够门槛建档时，可回查日报把之前的提及补进「KOL 观点」）。已存在的：价格快照追加一行 + KOL 观点追加新日期小节 + **不动"我的仓位"段**（单人提及也照常追加）。frontmatter 的 `sector: [[Sectors/<板块>]]` 反链**只在该板块文件已存在时写**；板块还没建档就不写这一行，建档后补上。
+**B. 每标的** `Tickers/<TICKER>.md`——**新建门槛**（满足其一）：① 当日日报里 **≥2 位不同 roster 账号提及**；② **A+ 账号单人提及且带硬数据**——财报数字（营收 / 利润 / 指引 / 月营收等具体数）、目标价、明确价位（入场 / 止损 / 目标的具体数字），转述别人的数字要标来源，问句和传闻不算硬数据；A+ 以 `references-roster.md` 的档位列为准，试用期账号（B / A待）不适用；③ 用户持仓 / 挂单。①②的计数口径（同一人多条算 1 位，纯 RT 无评论不算；**只算本人正文**——只出现在被引原文里的不算，包括自引的旧帖：2026-10-08 实跑某账号自引旧帖里的"大股东是亚马逊"差点把 AMZN 凑成 2 位；非投资语境顺带提到的公司名也不算，如"苹果新 CEO 在 X 上发帖"。临界情况在日报写一句排除理由） → 按模板创建；不够门槛的只记在日报里，不建文件（日后够门槛建档时，可回查日报把之前的提及补进「KOL 观点」）。已存在的：价格快照追加一行 + KOL 观点追加新日期小节 + **不动"我的仓位"段**（单人提及也照常追加）。frontmatter 的 `sector: [[Sectors/<板块>]]` 反链**只在该板块文件已存在时写**；板块还没建档就不写这一行，建档后补上。
 **C. 每板块** `Sectors/<板块>.md`——**已建档的**满足任一必更新（不只是日报里写一笔；未到建档阈值的只记 `_Sectors-Index`，见 Step 6.5）：① 当日板块汇总出现 ② 用户对该板块标的有买卖 ③ 重大 KOL thesis/反方 ④ 代表标的财报/事件。必更新段：强度评级历史追加一行 / thesis 追加 / 代表标的价格 / 反方信号（不删旧）。
 
 ### Step 10.5 — 决策摘要（日报 Part 6）⚠️ 有持仓时强制
@@ -347,7 +347,7 @@ Posture（7 选 1）：🟢 ADD / HOLD-conviction｜🟡 HOLD-attention / TAKE-P
 1. 持仓现价 + 浮盈重算（Ticker 价格快照追加 + Portfolio 更新，含挂单小表 trigger 距离）
 2. Risk Budget 占比重算（单标的/单板块/现金 ratio）→ 突破红线 → 警报进决策摘要
 3. Sectors 强度按当日走势 + thesis + 反方重评，追加评级行
-4. Macro 红灯重检（利率/VIX/DXY/行业 ETF）
+4. Macro 红灯重检：按 `Macro.md` 红灯表的触发列逐行判 🔴/🟢，数红灯个数（喂 Pre-Trade gate #1，≥3 暂停新仓）。种子文件自带默认阈值（VIX >25 / 10Y 5 个交易日 +25bp / DXY 高于 50 日均线 2% / 行业 ETF 5 个交易日 −8% / WTI 5 个交易日 +15%，均标"默认，可改"），用户改过的以用户为准。取数一次调用：`metrics(keywords=["^VIX","^TNX","DX-Y.NYB","SOXX","CL=F"], query="历史走势", asset_type="tradfi", time_range="90d", limit=60, verbosity="concise")`（2026-10-09 实测 ^TNX / DX-Y.NYB / SOXX 三个同批返回日线，1 额度）。⚠️ 三个坑：① 美元指数返回成 `DXUSD`，日线**含周末行**（60 行里 10 行是周六 / 周日），算 50 日均线先剔掉周末行；② 美股盘中最新一行是当天未收盘的一根（N-158），算均线和 5 日变动剔除；③ 10Y 的变动用前后两天 `close` 相减换算 bp，别用 `changePercent`（那是收益率本身的百分比变化）。
 5. `Daily-Index.md` 追加当日行 TLDR（日期/关键事件/用户决策/价格节点）
 
 ### Step 10.9 — 🚪 收尾门禁 ⚠️ 强制
@@ -360,7 +360,7 @@ Posture（7 选 1）：🟢 ADD / HOLD-conviction｜🟡 HOLD-attention / TAKE-P
 |------|------|
 | 持仓 ticker | 有价变/新信号 → mtime=当天；确无 → 汇报点名"X 无新信号故未改" |
 | **Sectors 全板块扫描** | 逐行过 `_Sectors-Index`，每行落 ✅已更新 / ⚪无信号 / 🆕有信号未到建档阈值，**不许沉默跳过**。日报底部写机器可读声明 `<!-- sector-sync: 板块A, 板块B -->`（**逗号分隔**，无则 `none`；文件名带空格的板块必须用逗号）——hook 逐个验声明文件 mtime。板块名就是文件名，**不能含 `/`**（"能源/原油" 会被当成子目录，hook 报不存在），写成"能源-原油"。⚠️ 只改 index 日期 ≠ sweep |
-| dashboard | **Daily-Index / Macro 每批必更新**；**Portfolio 仅在有持仓时必更新**（Step 10.8 要重算现价/浮盈/Risk Budget）。无持仓的用户 Portfolio 没东西可改，hook 不强制——**别为了过门禁去 touch 空文件** |
+| dashboard | **Daily-Index / Macro / `_last-pull` 每批必更新**（`_last-pull` 的 `last_cutoff_utc` 还必须是合法 ISO 时间戳，如 `2026-10-08T15:09:03Z`，占位符没换会被拦）；**Portfolio 仅在有持仓时必更新**（Step 10.8 要重算现价/浮盈/Risk Budget）。无持仓的用户 Portfolio 没东西可改，hook 不强制——**别为了过门禁去 touch 空文件** |
 
 **硬规则**：漏掉 ≠ 判定无信号——每个持仓 ticker + 相关 Sector 都必须被显式 touch 一次思考；mtime 实测优先于记忆；写不进时建桥接文件 `Tickers/_<标的>-待补-<日期>.md` 标红"待补"。
 配了 hook 的，结束会话时 `daily-gate-check.sh` 会机械复核这一切。23:xx 开跑、0 点后才结束会话时，hook 找不到当天日报，会转而检查 3 小时内改过的昨天那份日报（昨天、今天的修改日期都算数）。

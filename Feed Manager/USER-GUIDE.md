@@ -44,6 +44,7 @@ export KOL_VAULT="/你的笔记库路径/Stock-Watch"
 |------|------|
 | `Daily-Index.md` / `Macro.md` / `_Sectors-Index.md` 今天动过 | 每批必然会变的三个文件 |
 | `Portfolio.md` 今天动过 | **仅当你确有持仓时**才要求；还没报持仓不会被拦 |
+| `_last-pull.md` 今天动过，且窗口起点是合法时间戳（如 `2026-10-08T15:09:03Z`） | 下一次拉取靠它定从哪儿接着拉；占位符没换、或这次没更新，下一批就会漏拉或重拉 |
 | 日报收尾段的两行计数：`账号覆盖：N/M（✅a ⚪b ❌c）`、`完整性审查：遗漏 X · 落盘 ticker T · 落盘 sector S` | 覆盖算术要对得上、遗漏必须是 0、声明的标的 / 板块文件今天真的动过——只写个标题糊弄不过去 |
 | 日报底部 `sector-sync` 声明的板块文件确实动过 | 防"只改索引日期不改板块笔记" |
 
@@ -63,6 +64,8 @@ export KOL_VAULT="/你的笔记库路径/Stock-Watch"
    `references-roster` · `Portfolio` · `Decisions-Journal` · `Pre-Trade-Checklist` · `Macro` · `Daily/Daily-Index` · `Sectors/_Sectors-Index` · `_last-pull`
 2. 问你**持仓、现金（含货基）、时区**
 3. 拉一遍名单，产出第一份日报
+
+`Macro.md` 自带一套宏观红灯的默认阈值（VIX 高于 25、10 年期美债一周内涨 0.25 个百分点、美元指数高出 50 日均线 2%、行业 ETF 一周跌 8%、原油一周涨 15%），都标着"默认，可改"——按你的风格改数字就行。亮了 3 盏以上，买卖前检查会建议先别开新仓。
 
 之后每天就一句"跑一下 KOL"。
 

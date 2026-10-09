@@ -23,7 +23,7 @@ filter_tweets.py — Stock KOL Watch Step 3 固化脚本（framework v1.6）
   - [⚠️被引原文截断]：外层也带 content_truncated=true，但本人正文远没到上限、是被引 / 被转的原文被截
     （2026-10-08 正式端实测 4 例：本人正文 50 / 140 / 706 字，被引原文 2000 字）——本人这条是全的，重拉没用
   - 跳过 data.pin_tweet（置顶推常是几个月前的旧推，混进来会让"窗口未回溯"告警永远不响）
-  - stderr 打印 digest 字符数（Step 3 外包阈值 15K 字符）+ 每账号 in-window 计数（直接喂 Step 2 覆盖表）；
+  - stderr 打印 digest 字符数与账号数，并直接给出是否外包（Step 3：≥8 个账号或 ≥25K 字符 → 派 reader）+ 每账号 in-window 计数（直接喂 Step 2 覆盖表）；
     空 dump 单列，提示查账号状态；窗口跨本地 0 点时按本地日期分列条数（拆日报用）
 
 schema 变了 → 改这个脚本，不要回退到内联重写。
@@ -124,6 +124,8 @@ def nested(t, *keys):
 
 
 CAPS = {"concise": 200, "standard": 600, "detail": 2000}   # 推文正文字数上限（N-172）
+READER_MIN_ACCOUNTS = 8     # Step 3 外包阈值：账号数 ≥8 或 digest ≥25K 字符（2026-10-09 用户拍板）
+READER_MIN_CHARS = 25_000
 
 
 def mark_of(t, cap=None):
@@ -253,7 +255,11 @@ def main():
     Path(args.out).write_text(digest, encoding="utf-8")
     print(args.out)
     # Step 3 外包阈值按「字符」算，不是 wc -c 的字节（中文一字 3 字节，会把 13K 字符报成 23K）
-    print(f"--- digest {len(digest):,} 字符（>15,000 → 派 reader 子代理，SKILL Step 3）---", file=sys.stderr)
+    n_acc = len(merged) + len(empty)   # 本批拉取的账号数（含空 / 读不了的 dump——它们也是拉过的账号）
+    outsource = n_acc >= READER_MIN_ACCOUNTS or len(digest) >= READER_MIN_CHARS
+    print(f"--- digest {len(digest):,} 字符 · {n_acc} 个账号 → "
+          + ("派 reader 子代理" if outsource else "主 agent 直读")
+          + f"（≥{READER_MIN_ACCOUNTS} 个账号或 ≥{READER_MIN_CHARS:,} 字符就派，SKILL Step 3）---", file=sys.stderr)
     print("--- in-window counts（喂覆盖表）---", file=sys.stderr)
     for name, n in sorted(summary, key=lambda x: -x[1]):
         t = truncated.get(name, 0)

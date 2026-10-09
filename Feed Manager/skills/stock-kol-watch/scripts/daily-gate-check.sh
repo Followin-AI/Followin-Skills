@@ -4,6 +4,7 @@
 #   (1) Daily-Index / Macro / _Sectors-Index mtime=今天；
 #       Portfolio.md **仅在确有持仓时**才要求 mtime=今天（无持仓的用户没东西可改，
 #       强制它只会训练出"为过门禁而 touch 文件"——正是本门禁要消灭的行为）
+#       _last-pull.md：last_cutoff_utc 必须是合法 ISO 时间戳（如 2026-10-08T15:09:03Z），且 mtime=今天
 #   (2) 日报「✅ 收尾门禁」段的两行计数字段（格式见 references/output-templates.md 模板 A）：
 #       - 账号覆盖：N/M（✅a ⚪b ❌c）   → 要求 a+b+c=M、a+b=N、M>0（算术对不上 = 覆盖表是糊的）
 #       - 完整性审查：遗漏 X · 落盘 ticker T · 落盘 sector S
@@ -79,6 +80,18 @@ if has_holdings "$VAULT/Portfolio.md"; then
     || MISS+=("mtime过期: Portfolio.md（有持仓 → Step 10.8 必须重算现价/浮盈/Risk Budget）")
 elif [ ! -f "$VAULT/Portfolio.md" ]; then
   MISS+=("缺文件: Portfolio.md（Step 0.0 种子文件未建）")
+fi
+
+# _last-pull.md：下一批靠它定窗口下界（Step 1 / P3）。2026-10-08 复跑时它停在半截占位符
+# "2026-10-08THH:MM:SSZ" 照样过了旧门禁——坏了下一批就定不了窗口，所以查格式 + 今天动过。
+LP="$VAULT/_last-pull.md"
+if [ ! -f "$LP" ]; then
+  MISS+=("缺文件: _last-pull.md（Step 0.0 种子文件未建）")
+else
+  CUT=$(sed -n 's/^last_cutoff_utc:[[:space:]]*//p' "$LP" | head -1 | tr -d '\r' | sed -E 's/[[:space:]]+$//')
+  printf '%s' "$CUT" | grep -qE '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\.[0-9]+)?(Z|[+-][0-9]{2}:?[0-9]{2})$' \
+    || MISS+=("_last-pull.md 的 last_cutoff_utc 不是合法 ISO 时间戳（现为『${CUT:-空}』）→ 写本批 Step 2 发起拉取的 UTC 时刻，如 2026-10-08T15:09:03Z")
+  fresh "$LP" || MISS+=("mtime过期: _last-pull.md（Step 11 必须更新窗口起点）")
 fi
 
 # (2) 收尾门禁段的计数字段

@@ -151,6 +151,7 @@ metrics(keywords=[<T1>…<T5>], categories=["market","fundamentals"], asset_type
 #### 四道硬闸（全过才进 Step 3）
 
 **闸① 营收**：营收 surprise ≥ **+2%**。不过直接淘汰，不看 EPS。
+> 打分一律用 Followin 的数（基本面块 / 日历行，财报口径营收）。营收 surprise ≥ +100% 时不改分，但在观察区和判定表里写明口径：「Followin 财报口径 +X%」，媒体给了公司调整后口径的实际值与预期值时并列「公司调整后口径 +Y%」。2026-10-08 实测 APLD：财报口径 3.419 亿对 1.163 亿（+194%）；公司调整后营收 3.004 亿（剔除 ChronoScale 4,150 万）对 Benzinga 预期 1.322 亿（+127%）。
 > 低基数的 EPS 会骗人：实测 AAL 的 EPS surprise 是 +400%（预期只有 $0.03），营收只超 0.2%；T 的 EPS +10% 而营收 −0.7%。两者都该淘汰。
 
 **闸② 市值** ≥ **20 亿美元**
@@ -192,7 +193,7 @@ metrics(keywords=[<T1>…<T5>], categories=["market","fundamentals"], asset_type
 - WebFetch 返回的是小模型加工过的文本：同一页抓两次给出的引语集合不同，还会有省略号和拼接错误。摘录标"WebFetch 摘取、未逐字核对"。
 - 每只票预算：WebFetch ≤ 2 次。gurufocus 的实录页 WebFetch 返回 403（2026-10-08 实测），搜到了也别花预算。
 
-**来源 B：MCP 逐字稿**
+**来源 B：MCP 逐字稿（1 额度，默认不跑）**——只在来源 A 拿不到实录、要判断"已发但实录未上网"时才跑。
 ```
 metrics(keywords=["<T>"], query="earnings call transcript", asset_type="tradfi", verbosity="detail", limit=1)
 ```
@@ -247,7 +248,7 @@ metrics(query="earnings calendar", asset_type="tradfi",
 
 按下方口径打分排序。业绩闸分数在 Step 2 已算出，直接沿用。
 
-**成本参考**：日历 1~2 + 活跃榜 1 + 新闻 0 + 取数 ⌈候选数 ÷ 5⌉ + 深扫来源 B 每只 1 + watchlist ⌈只数 ÷ 5⌉（前瞻日历默认不跑）。WebSearch 另计：新闻取不到预期值的票各 1 次，深扫每只 ≤1 次。上下文的大头是 Step 3 的网页原文，候选多时建议独立会话跑。
+**成本参考**：日历 1~2 + 活跃榜 1 + 新闻 0 + 取数 ⌈候选数 ÷ 5⌉ + watchlist ⌈只数 ÷ 5⌉（前瞻日历、深扫来源 B 默认不跑；来源 B 只在来源 A 拿不到实录时每只 1）。WebSearch 另计：新闻取不到预期值的票各 1 次，深扫每只 ≤1 次。上下文的大头是 Step 3 的网页原文，候选多时建议独立会话跑。
 
 ---
 
@@ -315,6 +316,8 @@ metrics(query="earnings calendar", asset_type="tradfi",
 | 欠测 | 👀 观察：业绩过线，没拿到管理层原话 |
 | 只有新闻稿（< 20）| 👀 观察：业绩过线，仅新闻稿、实录未上网（见 Step 3）|
 
+营收 surprise ≥ +100% 的票，判定后面加注口径（「Followin 财报口径 +X% / 公司调整后口径 +Y%」，见 Step 2 闸①）。
+
 Step 2 淘汰的不进明细；其中**窗口内已发财报、只是业绩闸没过**的，列进输出里的"窗口内已发、业绩闸未过"表——淡季时这张表往往是主要信息。
 
 ---
@@ -346,7 +349,7 @@ Step 2 淘汰的不进明细；其中**窗口内已发财报、只是业绩闸�
 **一句话 thesis**：[综合判断]
 
 ### 👀 观察区（过了业绩闸、关键词闸不够或欠测）
-| 标的 | 业绩闸 | 关键词闸 | 说明 |
+| 标的 | 业绩闸 | 关键词闸 | 说明（营收 surprise ≥ +100% 时写口径：Followin 财报口径 / 公司调整后口径）|
 
 ### 窗口内已发、业绩闸未过
 | Ticker | 营收 Surprise | EPS Surprise | 业绩闸分 | 备注 |

@@ -48,7 +48,7 @@ args: ticker
 - `signal()` **必须显式传 `categories`**——只传 ticker 返回空。
 - 如果客户端不接受数组入参（报 `-32602`），把 ticker 并进 query 串（`query="<T> 分析师评级 同行 DCF"`）。
 - 非交易时段，行情快照是上一个常规收盘（`_quote_session:"regular_inactive"`），不是盘后价；标"常规收盘"。
-- 盘中跑时快照是实时价，但可能没有 `_quote_session`（2026-10-08 实测 AVGO 盘中无此字段），按 `as_of` 判断并标"实时"。`ratios_ttm` / `key_metrics_ttm` / `dcf` 仍按**前收**计算（实测 `dcf["Stock Price"]` = `previousClose`），盘中引用 P/E、P/S、DCF 安全边际时写明"按前收"，或用实时价自算。
+- 盘中跑时快照是实时价，但可能没有 `_quote_session`（2026-10-08 实测 AVGO 盘中无此字段），按 `as_of` 判断并标"实时"。`ratios_ttm` / `key_metrics_ttm` / `dcf` 仍按**前收**计算（实测 `dcf["Stock Price"]` = `previousClose`），盘中引用 P/E、P/S 时写明"按前收"，或用实时价自算；**DCF 安全边际一律用实时价自算**（`dcf ÷ 实时价 − 1`，与表头价格同一口径）。实测 MU 按前收 +24.3%、按实时价 +27.0%，正好跨过 ① 的 25% 线。
 
 ## 执行步骤
 
@@ -108,7 +108,7 @@ args: ticker
 10. news(query="<CompanyName> <TICKER>", sources=["twitter"], time_range="1w", limit=10)
 11. news(query="<CompanyName> <TICKER>", sources=["research"], time_range="2w", limit=10)
 ```
-研报窗口用 30 天、`concise`：研报库比公开新闻晚 1~4 天，7 天窗口常为空；`detail` 一次约 2.8 万字符且多为提及型，含金量低。第 9~11 路分别供 ⑱ 使用（媒体、推特、research 源文章）；第 7 路的 KOL 和 13F、第 8 路的研报（评级动作 / 目标价变动）供 ⑰ 使用，读法与权重见附件 ⑰。
+研报窗口用 30 天、`concise`：研报库比公开新闻晚 1~4 天，7 天窗口常为空；`detail` 一次约 2.8 万字符且多为提及型，含金量低。第 9~11 路分别供 ⑱ 使用（媒体、推特、research 源文章；正面率只算第 9 路，后两路只做叙事）；第 7 路的 KOL 和 13F、第 8 路的研报（评级动作 / 目标价变动）供 ⑰ 使用，读法与权重见附件 ⑰。
 
 **Batch D：宏观**
 ```
@@ -158,10 +158,10 @@ SMA50 / SMA200 = 最近 50 / 200 个收盘的平均
 | Revenue 3 年 / 5 年 CAGR | ✅ 第 1 路的 `financial_growth`：用最近 3 个财年的 `revenueGrowth` 连乘开方得 3 年 CAGR；5 年看 `fiveYRevenueGrowthPerShare`（**每股口径的五年累计增幅**，是倍数增量——12.12 即 +1212%，不是年化，引用时写明）|
 | 最近 4 季度 Beat 率 | ❌ 只有**最新一季**的实际对预期 |
 | 同比增速 | ⚠️ **年度**同比有（第 1 路的 `financial_growth`，4 个财年）；**季度**同比没有——4 季窗口里没有去年同期 |
-| DCF | ✅ `valuation_block.dcf`。与现价相差 5 倍以上判失效，不进任何输出（亏损期 DCF 会算崩）|
+| DCF | ✅ `valuation_block.dcf`。与现价相差 5 倍以上判失效，不进任何输出（亏损期 DCF 会算崩）。安全边际 = `dcf ÷ 实时价 − 1`，不用 `dcf["Stock Price"]`（那是前收）|
 | ROE / ROIC / EV/EBITDA / PE / PEG / 毛利率 / D/E / 流动比率 | ✅ `key_metrics_ttm` + `ratios_ttm` |
 | 分析师远期预期、Forward PE | ⚠️ `analyst_estimates` 可能缺当前财年、只有较远的财年，且远期数字不自洽（实测 NVDA FY2030 高于 FY2031，后者只有 9~10 位分析师）。Forward PE = 现价 ÷ 最近的、`numAnalystsEps ≥ 20` 的财年 epsAvg，并写明是哪个财年 |
-| PEG | ⚠️ 统一口径见 `01_agent-prompts.md` 开头：TTM P/E ÷（最近财年 epsgrowth × 100）；最近财年 epsgrowth < 0 或 > 100% 时改用 3 年 EPS CAGR 作分母，仍不可得、或 4 个财年里有一年 epsgrowth < −1（EPS 转负，连乘失真）时标"PEG 不适用"、不进 ⑥⑦⑲ 的判据。附注服务端值 |
+| PEG | ⚠️ 统一口径见 `01_agent-prompts.md` 开头：TTM P/E ÷（最近财年 epsgrowth × 100）；最近财年 epsgrowth < 0 或 > 100% 时改用 3 年 EPS CAGR 作分母，仍不可得、或 4 个财年里有一年 epsgrowth < −1（EPS 转负，连乘失真）、或 3 年 CAGR 仍 > 100% 时标"PEG 不适用"、不进 ⑥⑦⑲ 的判据。周期股改用分析师预期 EPS 增速作分母，取不到同样"不适用"（判定见附件开头）。附注服务端值 |
 | 行业相对估值 | ⚠️ 第 3 路只有同行的 `ratios_ttm`（P/E、P/S、P/B、利润率；服务端 PEG 不可比）；同行 EV/EBITDA 不返回，写"数据不足"。接口同行细分不符时可加"自定同业"（最多 3 只，写理由，分开展示）|
 | 维护性 CapEx | ❌ 只有总 CapEx，所有者盈余用总 CapEx 近似并注明 |
 | 净现金 / 净负债 | ⚠️ 不要用 `netDebt`（只扣现金等价物）。统一用 `cashAndShortTermInvestments − shortTermDebt − longTermDebt` |
@@ -229,7 +229,7 @@ SMA50 / SMA200 = 最近 50 / 200 个收盘的平均
 
 ### ⑳ 风控经理评估
 - 风险等级: Low / Medium / High
-- 仓位上限: **X%**（年化波动率 XX%[，估算值]；VIX XX）
+- 仓位上限: **X%**（年化波动率 XX%[，估算值]；VIX XX）［算出 < 2% 时写"**观望**（算出 X.X%）"，不硬凑到 2%］
 - 主要风险: [2-3 条]
 
 ### ㉑ 组合经理模拟决策

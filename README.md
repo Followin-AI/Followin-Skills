@@ -287,7 +287,7 @@ A separate bundle for **community operators** running a US-stock community for b
 | **c1** | Daily Brief | Morning report · pre-open preview · intraday refresh |
 | **c2** | Weekly | This week's market tone + main threads + next week's confirmed calendar (600–800 chars, Traditional Chinese) |
 | **c3** | Research Hot | Weekly research-report leaderboard + deep-dive notes |
-| **c4** | Social Pulse | Sentiment × real positions × insiders thermometer, or market-wide signal roundup |
+| **c4** | Social Pulse | Sentiment × insiders thermometer, or market-wide signal roundup |
 | **c5** | Hot Take | Event scan menu + 300–500 word flash post + earnings quick-read |
 | **c6** | Ticker Check | Internal triage memo — is this ticker worth writing about? *(not for posting)* |
 

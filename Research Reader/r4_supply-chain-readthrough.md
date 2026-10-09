@@ -1,6 +1,6 @@
 ---
 name: Research Supply-Chain Read-Through (r4 — 研报产业链读穿)
-description: 单标的产业链关联图。回答"这批研报把我的标的放在什么位置上、它的上下游谁在被改价、为什么被点名"。三层产出：关系边（为什么提到它）+ 同链修正（链上谁被改了目标价）+ 跨标的催化剂。数据来自 mention 报告，与 r1 共用同一次调用。
+description: 单标的产业链关联图。回答"这批研报把我的标的放在什么位置上、它的上下游谁在被改价、为什么被点名"。三层产出：关系边（为什么提到它）+ 同链修正（链上谁被改了目标价）+ 跨标的催化剂。数据来自 mention 报告，近 30 天窗口单独调用（不与 r1 共用）。
 trigger: 产业链、上下游、读穿、关联标的、谁受益、链上还有谁、被谁提到、供应链视角、supply chain、read-through
 not_trigger: 这个目标价能信吗（→ r1）、研报口径（→ r2）、催化剂时间线（→ r3）、研报榜（→ Community c3）、财报季扫描（→ Earnings Screener）
 mcp: mcp__followin__metrics
@@ -63,8 +63,10 @@ mention 一篇都挤不进来——而产业链信息全在 mention 里。
 ### 步骤 1 · 拉报告
 
 ```
-metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", asset_type="tradfi")
+metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", asset_type="tradfi", time_range="30d")
 ```
+
+> ⛔ **`time_range="30d"` 不要与 `date_from` / `date_to` 同传**（同传时绝对区间优先、`time_range` 被静默丢弃，N-153）。翻页带同一组参数加 `cursor`。
 
 > 🔴 **取数前先认块（N-86，2026-08-12 实测）**：解析层会静默扩展出额外候选 ticker，**每个候选都是一个平级结果块，顺序不保证主匹配在前**（实测 `ASML.AS` 的 `[0]` 是空块、数据在 `[1]`）。
 > ① ⛔ **禁止用 `research_reports[0]` 取数**　② 逐块比对 `query_ticker` == 本次标的，**只认相等的块**　③ ⛔ **禁止用 `meta.total` 判条数**（它数的是块）
@@ -72,21 +74,21 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 同 r1 步骤 1 的全部铁律（红线 12 研报意图词 ／ N-38 部分修复：`time_range` 已于 2026-08-03 生效可传，`limit` 单页仍被 10 硬顶，但 **2026-08-12 起返回体带 `meta.pagination["fundamentals.research_reports"].next_cursor`，可翻页枚举完**（N-81 销案）——**没翻页才需要把家数标下界** ／ N-21 假阴性警告别重试）。
 🔴 **本 Skill 尤其要翻页**：产业链读穿依赖 mention 层，而 mention 常被 subject 挤到首页之外。
 
-> ⚠️ **不加时间窗**（产业链需要样本量），但**报告会很旧**：2026-10-05 实测 TSM 26 篇跨 06-30~09-22，22 篇早于 9 月。
-> 所以表头必须写报告日期跨度，每条边、每条修正都标 `report_date`，催化剂按步骤 4 分「未来 / 已过期」。
+> ⚠️ **加 30 天窗口**（2026-10-08 用户拍板）：不加窗口时旧 subject 排在最前、白占页数——实测 NVDA subject 21 篇里 19 篇早于 30 天前，占掉第 1、2 页；同时刻加 `time_range="30d"` 首页即为 subject 2 + mention 8。代价是 30 天前的 mention 不再取（旧写法实测 TSM 26 篇跨 06-30~09-22，22 篇早于 9 月）。
+> 表头仍写报告日期跨度，每条边、每条修正都标 `report_date`，催化剂按步骤 4 分「未来 / 已过期」。
 
 > ⚠️ **`verbosity="detail"` 不能省**（2026-10-08 实测 NVDA）：`concise` 下整个 `detail` 块不返回（没有 `catalysts`），`revision_summary.by_name` 还会被截短（Bernstein《AI Value Chain》detail 7 行、concise 5 行，无截断标记）。每页约 83–96K 字符，会落盘，用脚本按字段解析。
 
-> ✅ **与 r1/r2/r3 同源**：本轮跑过任一支的话，**首页直接复用返回，0 额度**；翻页另计。
+> ⚠️ **不能复用 r1/r2/r3 的首页**：它们的步骤 1 不传窗口，与本 Skill 参数不同（游标也绑参数），本 Skill 首页照样计 1 额度。
 
 **先看 `mention_report_returned_count` 与 `meta.pagination["fundamentals.research_reports"].has_more`**（⚠️ 键名本身含点，不是 `meta.pagination.has_more`——N-142；2026-10-08 实测 AVGO 同）：
 
 - **还有下一页**（`has_more: true`）→ 带 `cursor=<同一对象里的 next_cursor>` 原参数重查，**每页 1 额度**（实测 TSM 3 页到尽头 = 3 额度）。mention 为 0 时也先翻，不要直接降级
 - **停翻条件（按日期下限，先到者为准）**：① `has_more: false`（到尽头）；② 本页 mention 最旧一篇的 `report_date` **早于今天 − 30 天**；③ **已满 5 页**。只看 mention 的日期——subject 排在前面，不能拿它判断（N-142）；**本页没有 mention 时 ② 不适用，接着翻**（2026-10-08 实测 NVDA：前 2 页全是 subject、日期 08-27~07-08，拿 subject 日期判 ② 会在第 1 页就误停）
-- **翻到尽头（或到页数上限）后 mention 仍为 0** → 走**降级分支**（见步骤 5），只能从 subject 报告的 `detail.catalysts[]` 里捞跨标的节点，产出很少。照实说明。
-- **mention ≥ 1** → 正常流程。口径声明写「已翻 P 页 / 共 N 篇」；因 ② 停的写「已翻 P 页，mention 已覆盖近 30 天」，因 ③ 停的写「已翻 5 页，未到尽头」
+- **翻到尽头（或到页数上限）后 mention 仍为 0** → 走**降级分支**（见步骤 5），只能从 subject 报告的 `detail.catalysts[]` 里捞跨标的节点，产出很少。照实说明，并写明是「近 30 天无 mention」。
+- **mention ≥ 1** → 正常流程。口径声明写「已翻 P 页 / 共 N 篇」；因 ② 停的写「已翻 P 页，mention 已覆盖近 30 天」，因 ③ 停的写「已翻 5 页，未到尽头，mention 只覆盖近 N 天（<最早 mention 日期> 之后）」——被大量提及的票接受这个结果，照实写
 - ⚠️ **没翻到尽头时，缺的是更早的 mention**：分页是 subject 全部排完、再按日期倒序排 mention（N-142）。2026-10-08 实测 AVGO：首页 subject 6 + mention 4，3 页拿到 mention 24 篇、只覆盖 09-18~10-05，第 3 页仍 `has_more: true`——旧的 3 页上限对被大量提及的票只够两周半，所以改成按日期下限。口径声明写明 mention 的日期下限
-- ⚠️ **专题多的票，5 页里有两页是 subject**（2026-10-08 实测 NVDA）：subject 21 篇（07-07~09-28，19 篇早于 30 天前）占掉第 1、2 页和第 3 页第 1 张，mention 从第 3 页才出现；满 5 页拿到 mention 29 篇、只覆盖 09-28~10-07（10 天），② 一次都没触发，按 ③ 停。被大量提及的票照此写「已翻 5 页，未到尽头，mention 只覆盖 <日期> 之后」，**不要写成"近 30 天"**
+- ⚠️ **加了窗口，被大量提及的票 5 页仍到不了 30 天前**（2026-10-08 实测 NVDA）：不加窗口时 5 页拿到 mention 29 篇、只覆盖 09-28~10-07；加窗口能省出约 2 页 subject，但单 09-24~09-27 就有 ≥10 篇 mention，近 30 天估计 80 篇以上。按 ③ 停，写「mention 只覆盖近 N 天」，**不要写成"近 30 天"**
 
 ### 步骤 1.5 · 自身别名集（SELF）
 
@@ -112,7 +114,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 | 形态 | 判定 | `by_name` 怎么用 |
 |---|---|---|
 | `subject_name` 或 `report_title` 是**汇编标题**：含 `morning news` / `portfolio` / `quant` / `weekly` / `daily` / `views` / `roundup` / `cross-sector` / `monitor` / `fund positioning` / `hedge fund positioning` / `conviction` / `selloff` / `newsletter` / `equity strategy` / `tech strategy` / `end of week` / `market intelligence` 等，**或跨行业的 `sector keys`**<br>**或**标题是「系列名 - 议题 A; 议题 B」这种**多个互不相关议题拼成的一篇**（2026-10-08 实测 NVDA：J.P. Morgan《China Tech & APAC Internet - read-through from four China stimulus scenarios; cooling components update》，中国刺激政策与台湾散热件同篇；同系列 09-29 一篇同理）<br>**或** `by_name` 横跨 ≥3 个互不相关行业（如银行 + 制药 + 半导体；实测 BofA《European Equity Strategy》的保险 / 公用事业 / 化工 / 矿业）<br>实测样例：`"Asia Morning News and Research Views"`、`"Asia Quant + Fundamental Portfolio for 2H26"`、`"Global and Asian cross-sector research roundup"`、`"Hedge fund positioning and the AI trade"`、`"AI infrastructure selloff opportunities"`、`"APAC Tech Strategy: Sector Keys September 2026 v4"`（UBS，正文 200+ 页）、`"End of Week Market Intelligence: here comes AI..."`（高盛周度策略，2026-10-08 实测） | 🚫 **同框噪音** | **整个丢弃。** 同一份晨报 / 选股篮子里的名字之间没有产业链关系 |
-| **单一行业的定期汇编**——`subject_name` 是一个行业覆盖范围而不是研究命题：周报（如 `"North America Semiconductors Weekly"`）、单行业 `Sector Keys`（`"Asia Semiconductors: Sector Keys"`）、`Tearsheet`、`SemiBytes`、路演纪要（`"Notes from the road"`）、行业追踪 / 月度前瞻（`"Global Semicap Tracker"`、`"Taiwan ODM/Brands: 3-month preview"`）、整个板块重排评级（`"Re-assessing sector positioning … our preferred names"`）| ⚠️ **部分保留** | 只保留 rationale / context_snippet 里点名的公司（实测 Amkor 封装边是真链；2026-10-08 AVGO：UBS 亚洲半导体 Sector Keys 的 16 行只留被点名的联发科；2026-10-08 NVDA：伯恩斯坦 Semicap Tracker 12 行只留 Advantest），其余丢弃。rationale 只点名本标的时等于全丢 |
+| **单一行业的定期汇编**——`subject_name` 是一个行业覆盖范围而不是研究命题：周报（如 `"North America Semiconductors Weekly"`）、单行业 `Sector Keys`（`"Asia Semiconductors: Sector Keys"`）、`Tearsheet`、`SemiBytes`、路演纪要（`"Notes from the road"`）、行业追踪 / 月度前瞻（`"Global Semicap Tracker"`、`"Taiwan ODM/Brands: 3-month preview"`）、整个板块重排评级（`"Re-assessing sector positioning … our preferred names"`）| ⚠️ **部分保留** | 只保留 rationale / context_snippet 里点名的公司（实测 Amkor 封装边是真链；2026-10-08 AVGO：UBS 亚洲半导体 Sector Keys 的 16 行只留被点名的联发科；2026-10-08 NVDA：伯恩斯坦 Semicap Tracker 12 行只留 Advantest），其余丢弃。rationale 只点名本标的时等于全丢。**例外：带真修正（old 与 new 均有值且 old ≠ new）的行一律保留进同链修正**，即使 rationale 没点名，标注「来自 <机构>《<汇编 / 行业追踪标题>》」（2026-10-08 用户拍板；实测 NVDA 高盛《Taiwan ODM/Brands》的纬创 281→295、英业达 56→61）；只有当前价位、没有变动的行仍丢弃 |
 | `subject_name` 是**具体公司或具体产业主题**<br>实测样例：`"Global AI memory strategic partnerships"`、`"Taiwan mature-node foundries and semiconductor design"`、`"Nokia"`、`"Apple Inc."` | ✅ **真产业链** | 全部可用 |
 
 > ⚠️ **主题具体、名单却是选股表的篇，人工判**（2026-10-08 AVGO）：伯恩斯坦《China Next Winners》主题是 NPO / SuperPod，rationale 点名 H3C、锐捷，`by_name` 却是大立光 / 舜宇 / 台达 / 广达——按"有没有统一研究主题"的原则降为 ⚠️ 部分保留。
@@ -218,7 +220,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 ```
 🔗 <TICKER> 研报产业链读穿 · <日期>
-可见 N 篇（subject M / mention K，<已翻 P 页至尽头 ／ 已翻 P 页未到尽头>）｜报告日期跨度 <最早>~<最晚>
+可见 N 篇（近 30 天窗口；subject M / mention K，<已翻 P 页至尽头 ／ 已翻 P 页未到尽头，mention 只覆盖近 N 天>）｜报告日期跨度 <最早>~<最晚>
 关系边 E 条｜同链修正：真修正 R 条（合并多地上市后）/ 当前价位 Q 条｜跨标的催化剂 C 条（未来 C1 / 已过期 C2）
 ⚠️ 汇编报告已过闸，丢弃 X 篇汇编报告的 Y 条名单｜SELF = {<本标的全部代码>}
 
@@ -237,6 +239,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 · 真修正（old→new 且 old ≠ new）
   2303.TW 联电    47→88   (+87.2%)  reiterate Underperform  〔Bernstein《台湾成熟制程》〕
   5347.TWO VSMC   94→146  (+55.3%)  reiterate Market-Perform
+  3231.TW 纬创   281→295  (+5.0%)   reiterate              〔Goldman Sachs《Taiwan ODM/Brands》·⚠️ 行业追踪篇〕
 · 当前价位（只有 new，或 old == new，非修正；rating_action 含 upgrade / downgrade 的标出）
   NVDA TP 315 ｜ AVGO TP 550 ｜ AAPL TP 350   〔Bernstein《全球AI内存伙伴关系》〕
   ⚠️ 单家读数，非共识
@@ -286,7 +289,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 ## 额度
 
-**每页 1 额度，最多 5 额度**（停翻条件见步骤 1：到尽头 / mention 最旧一篇早于 30 天前 / 满 5 页，先到者为准；实测 TSM 翻 3 页到尽头 = 3 额度）。与 r1/r2/r3 共用同一次研报调用时**首页 0 额度**，翻页另计。
+**每页 1 额度，最多 5 额度**（停翻条件见步骤 1：到尽头 / mention 最旧一篇早于 30 天前 / 满 5 页，先到者为准；实测 TSM 翻 3 页到尽头 = 3 额度）。首页不能复用 r1/r2/r3 的返回（参数不同，见步骤 1）。
 
 ## 已知边界
 
