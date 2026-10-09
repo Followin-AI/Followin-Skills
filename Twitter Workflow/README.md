@@ -192,7 +192,7 @@ cp -rn "Twitter Workflow/skills/"* ~/.claude/skills/
 - **数据源单一。** 全部依赖 Followin MCP，它挂了整条链路就停
 - **输出是终稿不是发布。** 没有自动发推能力，也不打算加
 
-> **数据源的已知坑**记在仓库根 [`references/followin-mcp-caveats.md`](../references/followin-mcp-caveats.md)（N-47~N-58 是这套 Twitter 工作流端到端实跑时积累的：字段可空性、端点行为差异、命名不一致等——这些只有真调 API 才暴露）。
+> **数据源的已知坑**记在仓库根 [`references/followin-mcp-caveats.md`](../references/followin-mcp-caveats.md)（N-47~N-58 是这套 Twitter 工作流端到端实跑时积累的：字段可空性、端点行为差异、命名不一致等——这些只有真调 API 才暴露；后续推特相关的坑见 N-89 / N-178 / N-182 / N-186 / N-189：search 时间窗不严格、转推带原推时间、list 每页只显示 20 条等）。
 
 ## License
 
