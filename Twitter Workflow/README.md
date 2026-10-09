@@ -72,6 +72,8 @@ cp -rn "Twitter Workflow/skills/"* ~/.claude/skills/
 | `twitter-ops/references/operations-plan.md` | 运营目标、发布频次、内容配比、红线 | 调度器不知道该出多少条、什么能发 |
 | `engagement/references/kol-targets.md` | 你想建立关系的账号，分三层 | 互动模块没有目标 |
 
+> 🔴 **`voice-guide.md` 的「❌ 不能做」那节是必填**（你的内容红线）——没填时调度器会拦下不往下跑，与 `twitter-ops` 初始化判定表一致；voice-guide 其余节留空只降质量、不阻塞。
+
 另外两份**可以让 Claude 帮你生成**：
 
 | 文件 | 怎么生成 |

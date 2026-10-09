@@ -51,14 +51,26 @@ def load_api_json(filepath):
     tweets = []
     # Followin MCP 外层是 results[i].data.tweets[]；Twitter API v2 是 data[]
     # 多页合并成 results 数组时要逐页读——只读 results[0] 会静默丢掉第 2 页起的全部推文
+    # 另一种：results 直接就是推文数组（list_timeline 实测如此）——按页读会静默得 0 条，要单独认
     if isinstance(data, dict):
         r = data.get('results')
         if isinstance(r, list) and r and isinstance(r[0], dict):
-            items = [t for page in r for t in ((page.get('data') or {}).get('tweets') or [])]
+            if any(isinstance(p, dict) and 'data' in p for p in r):
+                items = [t for page in r for t in ((page.get('data') or {}).get('tweets') or [])]
+            else:
+                items = r
         else:
             items = data.get('data', data)
     else:
         items = data
+    if not isinstance(items, list):
+        items = []
+    # 只认像推文的对象（有 id 或 text），别把未知结构的条目当成全 0 的推文
+    items = [t for t in items if isinstance(t, dict) and ('id' in t or 'text' in t)]
+    if not items:
+        print(f"⚠️ 警告：从 {filepath} 解析出 0 条推文——请确认输入格式"
+              f"（支持 results[i].data.tweets[] / results 直接是推文数组 / data[] / 顶层数组）",
+              file=sys.stderr)
 
     for item in items:
         metrics = item.get('public_metrics', {})
