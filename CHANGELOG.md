@@ -4,6 +4,13 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+
+## 2026-10-09 — 盘前报价实测（08:27 ET）
+
+- **结论**：默认 08:30 ET 触发能取到盘前报价——NVDA / MU / TSLA 与 SPY / QQQ / DIA 都带 `extendedHoursQuote`，`timestamp` 在调用前 1 分钟内，买卖价差 ≤0.07%；PTC（第 4 次）、PCVX 和三大指数不带。盘前快照个股 / ETF 带 `_quote_session:"regular_inactive"`。
+- **盘前追踪修正（P1）**：取不到盘前报价的票，盘前涨跌写"盘前无报价"、不判异动、不参与按涨跌排序；快照自带 `changePercentage` 在盘前是上一交易日涨跌（MU 会被误判 −4.79% 异动，实为盘前 +1.81%）。删去"待盘前实测"，README 同步。盘前量比口径（04:00–07:00 四根已走完的小时线）实测可算。
+- caveats 订正 N-150、N-157。盘后报价仍待 10-10 05:13（北京）定时补测。
+
 ## 2026-10-09 — Twitter Workflow P2 收尾
 
 - performance-review 视频占比按 `extendedEntities.media[].type == "video"` 计；`tweet_analyzer.py` 兼容 results 直接是推文数组、解析出 0 条时警告。
