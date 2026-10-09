@@ -5,6 +5,11 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-10-09 — 盘后报价实测（17:13 ET）
+
+- **结论**：NVDA / MU / TSLA / SPY 带 `extendedHoursQuote`，`timestamp` 在 1 分钟内、价差 ≤0.05%；QQQ / DIA（盘前两只都有）、PTC / PCVX 与三大指数不带。盘后 `extendedHoursQuote.volume` 是含常规时段的全天累计，与盘前口径不同。
+- **c1 社群日报**：盤後价逐只看、缺的不写；步骤 7 的 SPY / QQQ / DIA 注释由"仅盘前"改为延长时段（台北早晨跑晨報即美东盘后）都需要。caveats N-150 补盘后实测。盘前追踪 16:00 后按"收盘后快照"用当天收盘，与实测不冲突，未改。
+
 ## 2026-10-09 — 盘前报价实测（08:27 ET）
 
 - **结论**：默认 08:30 ET 触发能取到盘前报价——NVDA / MU / TSLA 与 SPY / QQQ / DIA 都带 `extendedHoursQuote`，`timestamp` 在调用前 1 分钟内，买卖价差 ≤0.07%；PTC（第 4 次）、PCVX 和三大指数不带。盘前快照个股 / ETF 带 `_quote_session:"regular_inactive"`。
