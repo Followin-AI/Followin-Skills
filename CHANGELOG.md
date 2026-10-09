@@ -4,6 +4,12 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-09 — 审计 P2 收尾
+
+- **06**：大盘表 10 年期注明数据口径（Followin 日线，可能是美东 15:00 前的值）；新闻标题的收益率方向与表内不一致时以表内为准，标题照引、后注一句。
+- **内部人截短检测措辞降级**（01 / c4 / c6 / 盘前追踪）："申报行异常"改为"持股变化与申报行不符（原因未明）"——MU CBO 8/18 两份申报之间查不到任何其他行，持股差却多 1.8 万股，原因在 Followin 数据里查不出。c4 判为不符的申报不拆主动卖出 / 代扣。
+- **固定提示**：四个文件写到内部人卖出结论时句末加"内部人数据近期发现缺行，结论仅供参考"（c4 对外贴文用大白话、不带编号）。
+
 ## 2026-10-09 — 收尾核验
 
 - **c4 修正（P0）**：内部人持股差不再当卖出股数写。对照 SEC 原件：MU CEO 8/21 实卖 40,000 股（持股差 48,715 混进 7/24 同日第二份申报的 8,715 股，接口没返回那一份）；SNDK CEO 9/17 实卖 33,841 股（持股差 30,545 扣掉了被合并掉的 3,296 股授予）。对不上时改写"申報後持股較上一份申報減少約 N 股（申報行異常）"。caveats N-187 同步订正。
