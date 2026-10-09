@@ -68,9 +68,10 @@ description: "监控外部账号 — 对标账号（学 voice / hook / Pattern�
 | 批量粉丝对比 | `twitter(action="batch_user_info", user_ids="id1,id2")`（**传数字 ID，不是用户名**）|
 | 对方有没有提到你 | `twitter(action="search", query="from:对方 你的关键词", query_type="Latest")` |
 
-⚠️ 数据量大，**走 Agent 子进程 + jq 汇总**。`user_tweets` 首页只有约 20 条，高频号一周要翻好几页；翻不到窗口起点时改用 `twitter(action="search", query="from:账号", time_range=...)`。
+⚠️ 数据量大，**走 Agent 子进程 + jq 汇总**。`user_tweets` 首页只有约 20 条，高频号一周要翻好几页；翻不到窗口起点时改用 `twitter(action="search", query="from:账号")`——⚠️ `time_range` 被静默无视（10-09 实测传 `7d` 返回 16 天前的帖），窗口一律按 `createdAt` 自己裁；该结果不含转推、但含回复，仍要按 `isReply` 剔。
 
 **账号存活性检查（每次必做）**：**先判名单是否仍是占位符**（`@[账号1]` 这类）→ 是则记「未配置，去填 competitor-list.md」**不报停更**；名单已填的前提下，`user_info` 返回 not found，**或**最新推距今 >30 天 → 报警「疑似停更/改名，需人工核实 handle」，**禁止标 N/A 了事**。停更账号采到的是死数据，会连续多周被误读成"我们的采集出问题了"。核实后更新名单。
+🔴 **`ACCOUNT` 自己也要过这道检查**（自家一行、1.3x–10x 甜蜜区都锚在它上面）：`user_info` not found 或 `user_tweets` 空数组（`code:0` 照样报 success，N-90）→ 停下报「账号锚定失效」，**不许把自家记成 0 发文 / 中位 0**。
 
 ### 输出 schema
 
@@ -94,6 +95,8 @@ description: "监控外部账号 — 对标账号（学 voice / hook / Pattern�
   "best_learnable": [{"account": "X", "tweet": "...", "views": 0, "lesson": "一句可执行的启发"}]
 }
 ```
+
+`industry_verdict` 判据与 performance-review Step 0 同一口径：**≥3/5 账号中位 WoW ≤ -10% = 普跌**，其余按它的三类判定走——别在本文件另起一套。
 
 ### 兜底硬规则
 

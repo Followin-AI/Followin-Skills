@@ -83,9 +83,10 @@ NOW_MS=$(( $(date +%s) * 1000 ))
 1. **config.md 的 `ACCOUNT`** —— 你的 @handle。所有自家数据分析都锚在它上面（这是唯一权威，别填到别处）
 2. operations-plan.md §七「风险红线」—— 什么绝对不能发
 3. operations-plan.md §二「每日配额」—— 每天出几条
+4. voice-guide.md 的 ❌「不能做」那节 —— 你的内容红线
 
 强烈建议（决定产出质量）：
-4. voice-guide.md —— 你的人设语气
+5. voice-guide.md 其余节 —— 你的人设语气
 
 💡 这几份文件里都写了「怎么填」。voice-guide 如果你有 30 条以上历史推文，
    直接说「读一下我最近 50 条推文，帮我填 voice-guide」，我从你的实际用词里归纳，
@@ -112,7 +113,7 @@ NOW_MS=$(( $(date +%s) * 1000 ))
 
 ### MCP 数据源
 
-所有 MCP 调用走 `mcp__followin__*` 五工具：`metrics`（行情/宏观/基本面）· `news`（新闻/研报/推文）· `signal`（KOL 喊单/巨鲸/内部人）· `twitter`（账号级操作）· `subscription`（自选盯盘）。美股 / 大宗 / 宏观必传 `asset_type="tradfi"`，加密传 `"crypto"`；`news` 的 query **可空**（空 query = firehose 取 trending，实测正常返回）；`twitter` 走 `action` 路由（如 `action="user_tweets", user_name="[你的账号]"`）。
+所有 MCP 调用走 `mcp__followin__*` 五工具：`metrics`（行情/宏观/基本面）· `news`（新闻/研报/推文）· `signal`（KOL 喊单/巨鲸/内部人）· `twitter`（账号级操作）· `subscription`（自选盯盘）。美股 / 大宗 / 宏观必传 `asset_type="tradfi"`，加密传 `"crypto"`（例外：`news` 带 query 的搜索模式不传 `asset_type`，传了召回大降且不报警——caveats N-145）；`news` 的 query **可空**（空 query = firehose 取 trending，实测正常返回）；`twitter` 走 `action` 路由（如 `action="user_tweets", user_name="[你的账号]"`）。
 
 ## 1. 模式控制
 
@@ -155,11 +156,15 @@ NOW_MS=$(( $(date +%s) * 1000 ))
 
 ## 3. 节点验收 lint（缺项不准下传）
 
-**trend-scout**：① 简报分区齐（📊 实时数据区 / 📰 叙事摘要区，数字不混用）② candidates 落盘 `$STATE_DIR/trend-scout-candidates/$DATE.json`（刷新档 `-HHMM`）**且索引 `$DATE-latest.txt` 已写、内容指向的 json 真实存在** —— 只验 json 不验索引，会出现「lint PASS 但 topic-engine 的强制读当场扑空」③ 候选数达标（首扫 ≥12 / 刷新 ≥7）
+**trend-scout**：① 简报分区齐（📊 实时数据区 / 📰 叙事摘要区，数字不混用）② candidates 落盘 `$STATE_DIR/trend-scout-candidates/$DATE.json`（刷新档 `-HHMM`）**且索引 `$DATE-latest.txt` 已写、内容指向的 json 真实存在** —— 只验 json 不验索引，会出现「lint PASS 但 topic-engine 的强制读当场扑空」③ 候选数达标（首扫 ≥12 / 刷新 ≥7；候选池顶层 `concentrated_day=true` 时按独立事件数算、不判缺项，同 trend-scout §5.0 / topic-engine §2）
 
 **topic-engine**：① 5 个选题块 ② 每题 3 角度备选 A/B/C ③ 每角度 5 要素齐（核心观点 / 反共识维度 / Hook / 反向风险 / 结尾金句）④ 每角度标 Pattern 编号 + 内容类型（**两轴都标**：轴 A 形态 + 轴 B 角色，见 operations-plan §三）⑤ 主推角度有打分明细 + 3 角度对比表 ⑥ 不与近 7 天已发选题撞角度 —— **数据源 = `twitter(action="user_tweets")` 现拉自家近 7 天原创推**（剔 reply 与 `RT @` / `RT@`），不依赖任何本模板不产出的历史清单文件；拉不到就记 WARN「查重未执行」，**不许当 PASS 划过去**
 
 **tweet-composer**：① 7 项入参齐 ② 字符预算（单推 ≤280 加权；Thread 逐条核）③ 反向风险在**正文**里而不只在 metadata ④ 配图方案 + 首评草稿齐（**完整终检见 tweet-composer §9 的 [阻塞]/[披露] 清单，条数以那里为准，本处不复述**——写死条数就是漂移源，同 performance-review 那条原则）
+
+**台账（可选）**：`config.md` 配了 `LARK_BASE` → 每个节点验收后按 `ledger/SKILL.md` §2 那张表调 `ledger` 写入（别的 Skill 不直接调 lark-cli）；
+此时 7 天撞题查重 / Pattern「≥2 次」/ P0 落地率**以 ledger §3 回读为准**，本地办法（现拉 `user_tweets`、数 `patterns.md`）只在回读失败时兜底并标降级（ledger §4）。
+没配 → 不调，终稿末尾标一行「本轮未写台账：LARK_BASE 未配置」。
 
 ## 4. 价格数据铁律（贯穿全流程）
 

@@ -4,6 +4,13 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-09 — Twitter Workflow 审计
+
+按退出标准（P0 结论错 / 跑不下去、P1 两种读法结论不同才修，P2 只记）在正式端只读实跑 8 个 skill，修 P0 5 处、P1 约 23 处，最后一次核验无新 P0。
+- **P0**：engagement 把转推当新帖（转推带原推时间与互动数）→ 剔转推、按原推时间判窗；自家账号失效时会静默得出"评论区没事 / 0 发文" → engagement、competitor-watch、config 加存活检查；`tweet_analyzer.py` 不剔回复、多页只读第 1 页 → 加 `drop_replies()` 并逐页读；config 承诺"按方案建台账表"但表结构不在本仓 → 如实说明、不让模型现编字段。
+- **P1（节选）**：trend-scout 加密行情带 detail 取 24h 涨跌、经济日历补 `sort_by="hot"` 并消除 §2.1 / §4 矛盾、热榜按同一事件首报时间判新旧、list Agent 模板补翻页与回执；topic-engine 轴 B 未配置时的 thesis 门槛；tweet-composer 草稿文件名加候选 ID 防同分钟覆盖；`search` 的 `time_range` 不严格 → 返回后按 `createdAt` 再滤；performance-review 周报与学习日志路径钉死；twitter-ops 补 ledger 调用时机；账号失效判据统一为"或"（N-90）；`/private/tmp` 也算 `/tmp`。
+- caveats 新增 N-189（计数 208），订正 N-89①。
+
 ## 2026-10-09 — 审计 P2 收尾
 
 - **06**：大盘表 10 年期注明数据口径（Followin 日线，可能是美东 15:00 前的值）；新闻标题的收益率方向与表内不一致时以表内为准，标题照引、后注一句。
