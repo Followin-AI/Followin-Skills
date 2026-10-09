@@ -4,6 +4,14 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-09 — 第五轮拍板（14 项）
+
+用户对第四轮复跑列出的 14 条"全按建议"：
+- **研报目标价**：c3 入选标的的提及层翻页加止损——翻到早于该标的最早一篇专题的日期就停（实测全翻 39 额度、NVDA 14 页；止损后 NVDA 约 5 页）；01 的 ⑰ 研报翻页改用 `detail`（`concise` 会把本标的那行截掉）；c3 去重只比首页、英文原标题不计入 1000 字、目标价没变时出处写专题。
+- **06**：撤销夜间跳过原油选题，改为夜间补查 1 次日线（`categories=["market"]`，剔未收盘行），WTI 或布伦特任一 >3% 即命中；"方向与预期相反"按相对前值的变化方向比。**c2**：数"同日多数"前同一事件多行合并。
+- **c4**：标看多的"跌了就接"不改判看空；代扣 / 行权认 F-InKind，卖出量超过归属量的部分算主动卖出；"同价"放宽到同日价差 ≤1%。
+- **盘前追踪**：评级库查不到事件日的新闻目标价变动不算新催化。**加密自选**：ETF 资金流按运行时已公布的最近交易日；团队解押后的场外大宗转让不算解锁。
+
 ## 2026-10-09 — 第四轮拍板后复跑
 
 - 第四轮改动分 6 组在正式端复跑。结果：MU ⑰ 计入花旗 1150→1300 后由 Neutral 翻 Bullish（+0.4），组合仍 Hold；c3 出 NVDA / AMD / META / 2330.TW，AMD 写花旗 $800；r4 NVDA 真修正 16 条与上轮一致；c6 📌 门槛两侧都验证（NBIS 5 条→c4、MTSI 1 条→c3）。
