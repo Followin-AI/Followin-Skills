@@ -45,7 +45,7 @@ args: watchlist
 
 ### Step 1: 数据拉取（每批 ≤4 路并行）
 
-**额度**（news 不扣）：Batch 1 共 5 次（第 4 路翻页多扣 1 次，2026-10-09 用户确认接受）+ Batch 2 共 4 次 + 补市值 ≤4 次 + watchlist ⌈只数/5⌉ 次，合计约 13＋⌈watchlist/5⌉；有疑似收购候选时再加日线 1 次（每 5 只 1 次）；美东 16:00 至次日 09:30 跑时再加原油日线 1 次（第 9 路选题第 4 条用）。
+**额度**（news 不扣）：Batch 1 共 5 次（第 4 路翻页多扣 1 次，2026-10-09 用户确认接受）+ Batch 2 共 4 次 + 补市值 ≤4 次 + watchlist ⌈只数/5⌉ 次，合计约 13＋⌈watchlist/5⌉；有疑似收购候选时再加日线 1 次（每 5 只 1 次）；美东 16:00 至次日 09:30 跑时再加原油日线 1 次（第 9 路选题第 4 条用，`^TNX` 并在同一次供第 2 条用）。
 
 > **数据源故障（2026-10-05 实测，N-156）**：行情快照、三张涨跌榜走同一个上游，挂掉时返回 `status:"degraded"` + `warnings[].severity=="source_dead"`（HTTP 403），**而且照样扣额度**。所以：① Batch 1 的第 3 路（三大指数）先单独发，当行情源探针；source_dead 就重试 1 次，仍失败则第 2 路、第 6–8 路和 Batch 4 全部跳过（发了也是白扣）。② 凡 source_dead 的段落按"缺数据"写，**不是"没有"**——大盘表对应格写"数据不可用（行情源故障）"，榜单一节和 Watchlist 一节写"行情数据暂缺"，**不能写"榜单内无大市值极端异动"或"无异动"**；数据缺口里注明，并提醒报给 dev。③ 经济日历、新闻不受影响，照跑；第 9 路选题规则里依赖行情的第 2–4 条跳过。
 
@@ -54,7 +54,7 @@ args: watchlist
 1. metrics(keywords=["DGS2","DGS10"], categories=["macro"], limit=5)                       # 利差用：两者同一天，FRED 比行情晚 1~2 个交易日
 2. metrics(keywords=["^VIX","DXUSD","CLUSD","BZUSD","^TNX"], query="行情", asset_type="tradfi")   # VIX / 美元指数 / WTI / 布油 / 10 年期收益率（当日）
 3. metrics(keywords=["^GSPC","^IXIC","^DJI"], query="行情", asset_type="tradfi")           # 三大指数
-4. metrics(query="economic calendar", country="US", date_from="<今天>", date_to="<今天+7天>", sort_by="hot", limit=30)   # 未来 7 天
+4. metrics(query="economic calendar", country="US", date_from="<今天>", date_to="<今天+7天>", sort_by="hot", limit=30)   # 未来 7 天；<今天> 取 UTC 日期（与日历 date 同口径），美东 20:00 后跑即美东次日，否则与第 5 路整天重叠
 ```
 - **10 年期收益率的头条数字用 `^TNX`**（与 VIX、原油同一天）；FRED 的 `DGS10` 比行情晚 1~2 个交易日（2026-10-08 美东上午实测最新只到 10-06），只用来和 `DGS2` 算利差，并在表里注明日期。实测 10-02 `^TNX` 为 +4bp，而 FRED 最新一天（10-01）是 −5bp，方向相反——混用会选错新闻题。
 
@@ -78,14 +78,14 @@ args: watchlist
 10. news(query="stock market",    sources=["media"], time_range="1d", limit=8, sort_by="relevance")
 ```
 第 9 路的 query 按优先级取第一条满足的（都不满足就用 `"Federal Reserve"`）：
-1. "最近已发布数据"里有 High 级数据，且 `actual` 偏离 `estimate` 超过 20%（或方向与预期相反；标"预期存疑"的行不算。方向按相对前值的变化比：预期较前值升、实际较前值降就算相反，如初请预期升到 20 万、实际降到 19.7 万）→ 用事件主题词，如 `"nonfarm payrolls"` / `"CPI inflation"`
-2. `^TNX` 日变化绝对值 ≥ 5bp → `"treasury yield"`
+1. "最近已发布数据"里有 High 级数据，且 `actual` 偏离 `estimate` 超过 20%（或方向与预期相反、且偏离 ≥ 3%；标"预期存疑"的行不算。方向按相对前值的变化比：预期较前值升、实际较前值降就算相反；偏离 = |实际 − 预期| ÷ |预期|，方向相反但偏离不到 3% 的不算，选题顺延到下一条——如初请预期升到 20 万、实际降到 19.7 万，方向相反但只差 1.5%，不算，选题顺延（2026-10-09 那次顺延后先由规则 2 的 10 年期日线 −5bp（取整后）命中，原油 WTI +3.6% / 布伦特 +4.1% 排在其后））→ 用事件主题词，如 `"nonfarm payrolls"` / `"CPI inflation"`
+2. `^TNX` 日变化绝对值 ≥ 5bp → `"treasury yield"`。**美东 16:00 至次日 09:30 跑时用日线、不用快照**（收盘后快照时间停在 14:58、前收与日线不符，N-179⑤）：`^TNX` 并进第 4 条的补查日线（同一次调用），剔掉未收盘行（未收盘行 close 三位小数、已收盘两位，N-175②），bp = 最近两根已收盘 `close` 之差 × 100，表里和选题都用这个数，bp 后注明"（取整后）"
 3. VIX > 25，或 VIX 日变化绝对值 > 10% → `"VIX volatility"`
 4. 原油日变化绝对值 > 3%（WTI 或布伦特任一超过即算）→ `"oil crude"`。**美东 16:00 至次日 09:30（美股收盘后到次日开盘前）跑时不用快照的日变化、也不跳过**：这时快照的原油日变化是夜盘值，不是上一交易日涨跌（见上方"运行时段"），改为补查 1 次日线取上一交易日涨跌：
    ```
-   metrics(keywords=["CLUSD","BZUSD"], query="历史走势", categories=["market"], time_range="1m", limit=5, asset_type="tradfi")   # 带 categories=["market"]、不带 interval 返回日 K（N-185②）
+   metrics(keywords=["CLUSD","BZUSD","^TNX"], query="历史走势", categories=["market"], time_range="1m", limit=5, asset_type="tradfi")   # 带 categories=["market"]、不带 interval 返回日 K（N-185②）；^TNX 供第 2 条用
    ```
-   先剔除未收盘行（北京上午 `CLUSD` 会多一根未收盘的当日行，N-179③；末行成交量远低于前几行的也按未收盘剔，同 N-185③），再拿最近两根已收盘日 K 的收盘价算涨跌。所用数字写进输出的"数据缺口"（见输出模板），否则读者看到表里原油日变化很小、新闻却在讲油价大涨，会以为选题判错了（2026-10-09 美东 21:58 实测：表里 WTI 夜盘 −0.8%，而 10-08 白天 WTI +2.8%、布油 +3.1%——按"任一超过"口径，布油即命中这一条）
+   先剔除未收盘行：返回按日期倒序，未收盘行排在每个代码的**最前**一行（`date` 晚于上一交易日、成交量远低于其后几行），`CLUSD` 和 `BZUSD` 都可能有（北京上午实测两个都多一根 10-09 行，成交量 7,746 / 1,190，前几行约 27 万 / 4.7 万；N-179③、N-185③）。再拿最近两根已收盘日 K 的 `close` 算涨跌（后一根 ÷ 前一根 − 1）——**不要用日线自带的 `change` / `changePercent`**，那是当日收盘对当日开盘（N-131）。所用数字写进输出的"数据缺口"（见输出模板），否则读者看到表里原油日变化很小、新闻却在讲油价大涨，会以为选题判错了（2026-10-09 美东 22:28 实测：表里 WTI 夜盘 −0.6%，而 10-08 收盘对 10-07 收盘 WTI +3.6%（91.49 / 88.28）、布油 +4.1%（104.28 / 100.20）；同一行的 `changePercent` 只有 +2.8% / +3.1%，上一轮记录的就是这个对开盘的数）
 5. 未来 2 个交易日内有 High 级日历事件 → 事件主题词，**去掉地名 / 机构名**，只留指标本身（如 `Michigan Consumer Sentiment` 写 `"consumer sentiment"`）。2026-10-09 实测 `"Michigan consumer sentiment"` 返回的 8 条全是密歇根州选举、诉讼新闻，0 条相关；`"consumer sentiment"` 能带回 AAII 情绪调查、消费股、关税推高物价等相关稿
 
 `news()` 的 query 写 2-3 个核心名词，纯英文；不写"影响 / 解读 / 分析"这类词。
@@ -139,7 +139,7 @@ args: watchlist
 | 标普 500 | X,XXX.XX | ±X.XX% | 最近收盘 / 盘中 美东 HH:MM / 今日收盘 |
 | 纳斯达克 | XX,XXX.XX | ±X.XX% | |
 | 道琼斯 | XX,XXX.XX | ±X.XX% | |
-| 10Y 国债（^TNX）| X.XX% | ±Xbp | |
+| 10Y 国债（^TNX）| X.XX% | ±Xbp[美东 16:00 至次日 09:30 跑时用日线，写"（取整后）"] | |
 | 10Y−2Y 利差（FRED）| XXbp | 正常 / 倒挂 | YYYY-MM-DD |
 | VIX | XX.X | ±X.X% | |
 | WTI 原油 | $XX.XX | ±X.X% | |

@@ -109,7 +109,7 @@ args: ticker
 10. news(query="<CompanyName> <TICKER>", sources=["twitter"], time_range="1w", limit=10)
 11. news(query="<CompanyName> <TICKER>", sources=["research"], time_range="2w", limit=10)
 ```
-研报窗口用 30 天、`detail`：研报库比公开新闻晚 1~4 天，7 天窗口常为空；`concise` 下 `by_name` 截到 5 行会截掉本标的（见下方"取数注意"），`detail` 与 `concise` 额度相同，但每页约 9~10 万字符，要用代码解析。第 9~11 路分别供 ⑱ 使用（媒体、推特、research 源文章；正面率只算第 9 路、且不算其中 `source_quality:"research"` 的篇目，后两路只做叙事）；第 7 路的 KOL 和 13F、第 8 路的研报（评级动作 / 目标价变动）供 ⑰ 使用，读法与权重见附件 ⑰。
+研报窗口用 30 天、`detail`：研报库比公开新闻晚 1~4 天，7 天窗口常为空；`concise` 下 `by_name` 截到 5 行会截掉本标的（见下方"取数注意"），`detail` 与 `concise` 额度相同，但每页约 9~11 万字符，要用代码解析。第 9~11 路分别供 ⑱ 使用（媒体、推特、research 源文章；正面率只算第 9 路、且不算其中 `source_quality:"research"` 的篇目，后两路只做叙事）；第 7 路的 KOL 和 13F、第 8 路的研报（评级动作 / 目标价变动）供 ⑰ 使用，读法与权重见附件 ⑰。
 
 **Batch D：宏观**
 ```
@@ -125,7 +125,9 @@ args: ticker
 - 研报（第 8 路）一页最多 10 篇，subject 卡排在前面，⑰ 要按 `next_cursor` 翻页取全（翻到 `has_more:false` 或卡片日期超出 30 天窗口为止；翻页时 `cursor` 原样回传，其余参数与首页一字不差）：mention 层卡片里带本标的 old→new 目标价变动的也算目标价动作（读卡片顶层的 `revision_summary.by_name[]` 里 `ticker == 本标的` 那一行，先按 `mention_context.mention_ticker` 确认是本标的；N-181①，2026-10-09 实测花旗 09-28 MU 1150→1300 在提及卡里），只看第一页会漏。
   字段路径是卡片顶层的 `revision_summary`，不是 `detail.revision_summary`：`detail` 里没有这个字段，`concise` 也不返回 `detail`（2026-10-09 美东收盘后 MU 两种 verbosity 各翻 5 页实测）。
   所以首页和翻页都用 `verbosity="detail"`（额度与 concise 相同）：`concise` 下 `by_name` 无标记截到 5 行（N-177①），本标的那一行可能被截掉——同次实测高盛 10-02 汇编稿 detail 有 22 行、含 MU 1100→1250，concise 只见 5 行、没有 MU（高盛已由 09-30 的 subject 篇计入上调，家数未受影响）。用 detail 后不再需要"by_name 可能被截断"的注明。
-  实测 MU 30 天窗口共 5 页 43 篇（subject 5 + mention 38），5 次额度；detail 每页约 9~10 万字符，要用代码解析，不要整段读进上下文。
+  实测 MU 30 天窗口共 5 页 43 篇（subject 5 + mention 38），5 次额度；detail 前 4 页每页 9.3~10.6 万字符、末页较短，要用代码解析，不要整段读进上下文（2026-10-09 美东 10-08 收盘后按 detail 重跑，页数、篇数、额度与 concise 相同）。
+  同次实测 detail 下 11 张卡带 MU 那一行，其中 2 张排在第 5 行之后（高盛 10-02 第 22/22 行 1100→1250、高盛 09-14 第 13/13 行 1100→1100），都没有新增可计的动作，⑰ 结果不变。
+  按机构去重时，`institution` 同一家有几种写法（实测 "UBS" / "UBS Securities LLC"、"Morgan Stanley" / "Morgan Stanley Research"），先按母公司归并再去重。同一机构后一篇里本标的目标价没变（old == new，如 1250→1250）不算动作，不覆盖它更早的上调 / 下调（见附件 ⑰）。
 - KOL 喊单先按 `symbol == <T>` 筛行（返回里会混入别的标的的帖子），再按 `source_url` 去重。喊单只覆盖最近 24 小时，tradfi 方向字段近乎恒为看多，只报条数和话题。
 - 第 7 路返回里**没有 `kol_call` 这一类**（`status` 仍是 `ok`、无 warning）时，是近 24 小时没有本标的喊单，不是调用失败：写"近一日无喊单"，不要重试，也不记数据缺口（2026-10-08 实测 AVGO：合并调用缺这一类，单独调返回 `no_match`，全市场喊单池正常）。
 - 内部人只认 Form 4：卖出 = `S-Sale`，买入 = `P-Purchase`，按 `transactionDate ≥ 今天 − 90 天` 过滤；`F-InKind` / `G-Gift` / `A-Award` / `M-Exempt` 不计。带 `_chamber` 的议员交易单列。
