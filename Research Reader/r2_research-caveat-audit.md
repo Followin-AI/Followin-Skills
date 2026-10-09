@@ -92,6 +92,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 > 2026-10-08 META 20 篇里 `key_caveat` 是流程备注的 **0 篇**；流程备注改出现在 `coverage_flag.missing` 尾部（*"The filename is rendered in English to comply with the English-only output requirement"*，2/20）——那本来就归④轴，不用另剔。
 > **但 0 号分流不能省**：2026-10-08 MSFT 20 篇里 `key_caveat` 又有 3 篇是流程备注（GS 09-20、UBS 10-01 的 filename 句 + DB 09-25 的新形态），出现与否随批次变。
+> 📌 **抽取器指出报告没给某项实质内容的，不归书目缺失**（2026-10-09 实测新形态，拍板；见 [N-181②](../references/followin-mcp-caveats.md)）：如 `key_caveat` 说报告没给催化剂——缺的是实质内容，不是前次 TP / 日期 / 评级。**不剔出，按②口径边界给 🟡**，转述时注明"抽取器所见、非报告自承"（不许写成报告自己承认的局限）。
 
 > 🔴 **mention 篇先认"这条 caveat 说的是谁"（2026-10-08 实测）**：mention 报告的 `key_caveat`、`rating_current`、`report_subject_target_price` 都属于**报告自己的主标的**，不是本标的——META 查询里 Nomura 的 Buy 是给 3406.TW 的、JPM 的 Overweight 是给 TSMC 的、GS 的 Buy 是给 SPCX 的；BofA 两份周报、Bernstein 数据中心报告的③b（指数回报、2030 年 IT-GW 两处对不上）都和 META 无关。本标的的东西只有 `mention_context`（一句话 + `mention_direction`）和 `matched_asset_target_price`（多数为 null，偶有值：Bernstein 10-01 给 META 800）。所以：
 > ① mention 篇先判 `key_caveat` 是否涉及本标的；**不涉及 → 不进本标的打分**，④轴记"N 篇 caveat 指向报告主标的"

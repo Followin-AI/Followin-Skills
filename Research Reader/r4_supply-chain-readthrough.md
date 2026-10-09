@@ -175,7 +175,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 |---|---|---|
 | `ticker` | **不恒有**（2026-10-05 实测）| 无 `ticker` 的行多为行业 / 市场 / 因子名（`"Taiwan market"`、`"Asia price momentum factor"`、行业框架名），**丢弃**；只有 `name` + `ticker`、**既无 `rating_action` 也无 TP** 的行是"提及名单"（实测花旗一篇 15 行），**不进同链修正** |
 | `name` | 96/96 | 恒有 |
-| `rating_action` | 94/96 | 常有，但多为 `reiterate`。⚠️ **是自由文本不是枚举**（2026-10-08 实测：`"downgrade from Buy to Sell; page 207"`、`"upgrade to Buy recently; action date and prior rating unavailable"`、`"not covered"`、`"reaffirmed as Top Pick in the research view"`）——含 `upgrade` / `downgrade` 的在所在行**标出评级变动**（没有 old TP 也要标，它不是"维持"；2026-10-08 NVDA 另见 `"recent downgrade to Neutral; prior rating and date not supplied"`，同样标）；含 `initiate` / `assume coverage` 的标"新覆盖"（实测 J.P. Morgan 接手散热件 3 家），同样不是"维持"；`not covered` 的行丢弃 |
+| `rating_action` | 94/96 | 常有，但多为 `reiterate`。⚠️ **是自由文本不是枚举**（2026-10-08 实测：`"downgrade from Buy to Sell; page 207"`、`"upgrade to Buy recently; action date and prior rating unavailable"`、`"not covered"`、`"reaffirmed as Top Pick in the research view"`）——含 `upgrade` / `downgrade` 的在所在行**标出评级变动**（没有 old TP 也要标，它不是"维持"；2026-10-08 NVDA 另见 `"recent downgrade to Neutral; prior rating and date not supplied"`，同样标；但⚠️ 部分保留篇里这类只有评级变动、没有 old→new 的行仍丢弃，见上方汇编行）；含 `initiate` / `assume coverage` 的标"新覆盖"（实测 J.P. Morgan 接手散热件 3 家），同样不是"维持"；`not covered` 的行丢弃 |
 | `new_target_price` | 89/96 | 常有 |
 | **`old_target_price` + `change_pct`** | **25/96（26%）** | **只有四分之一带真修正**——有 old→new 的才叫"被改价"，只有 new 的是"当前目标价" |
 

@@ -4,6 +4,16 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-09 — 第四轮拍板（21 项）
+
+用户对第三轮复跑列出的 21 条"全按建议"：
+- **研报提及层的目标价动作（A1，N-181①）**：01 的 ⑰ 研报维把提及卡里本标的的 old→new 也算上调 / 下调，研报翻页取全（花旗 MU 1150→1300 → ⑰ 由 Neutral 翻 Bullish）；c3 同一机构取最新目标价并注明出处（AMD 写花旗 10/6 的 $800，不写 9/28 的 $575），入选标的提及层翻到尽头。字段 = `detail.revision_summary.by_name[]` 本标的那行。c3 层 2 钻满 5 次、合格的全出。
+- **06**：夜间跑跳过"原油涨跌 >3%"选题。**财报季扫描**：新闻覆盖起点只按媒体稿。**c2**：只对与同日多数相差整 1 小时的发布时间只写日期。
+- **c4**："短线看跌、等低位再买"按看空计；全是清单帖的票进"並列"；代扣 / 行权窗口放宽到 2 个交易日。**c6**：📌 去 c4 需推特 48 小时 ≥3 条；删实盘持仓拉取。
+- **r0** 位移只比候选集；**r4** 只有评级变动的行不保留；**r2** "抽取器所见缺失"类 caveat 给 🟡 并注明。
+- **盘前追踪**：发布会展示稿、"据报道"类不算新催化。**加密自选**：重大事件门槛 = ETF 单日净流入 / 流出 ≥1 亿美元或解锁 ≥ 流通量 0.5%；MACD 不足 50 根一律标历史不足，数据头不是日线时用 200 日线 = 50 日线判定。**美股 KOL 追踪**：门禁核覆盖数 M 与名单行数（临时 vault 实测放行 / 拦截 / 缺名单三种）；建档门槛①跨 0 点按整批窗口计。
+- 维持不改：02 "3 天内"含第 3 天、06 的 3% 闸。
+
 ## 2026-10-09 — 第三轮拍板后复跑 + starter 预设档位
 
 - **美股 KOL 追踪**：5 人 starter 加"档位（预设）"列（@jukan05 A+、@aleabitoreddit A、@nft_hu A、@xiaomustock B+、@qinbafrank B），按 rubric 对照公开身份和 10-08 单日实跑给出，第一次周报复盘。复制名单须连档位列，否则"A+ 单人带硬数据建档"永不触发；🅱️ 模式用 starter 时按预设档位。复跑实例：@jukan05 发台积电 9 月营收 → 建 `Tickers/TSM`。
