@@ -127,7 +127,7 @@ args: ticker
   所以首页和翻页都用 `verbosity="detail"`（额度与 concise 相同）：`concise` 下 `by_name` 无标记截到 5 行（N-177①），本标的那一行可能被截掉——同次实测高盛 10-02 汇编稿 detail 有 22 行、含 MU 1100→1250，concise 只见 5 行、没有 MU（高盛已由 09-30 的 subject 篇计入上调，家数未受影响）。用 detail 后不再需要"by_name 可能被截断"的注明。
   实测 MU 30 天窗口共 5 页 43 篇（subject 5 + mention 38），5 次额度；detail 前 4 页每页 9.3~10.6 万字符、末页较短，要用代码解析，不要整段读进上下文（2026-10-09 美东 10-08 收盘后按 detail 重跑，页数、篇数、额度与 concise 相同）。
   同次实测 detail 下 11 张卡带 MU 那一行，其中 2 张排在第 5 行之后（高盛 10-02 第 22/22 行 1100→1250、高盛 09-14 第 13/13 行 1100→1100），都没有新增可计的动作，⑰ 结果不变。
-  按机构去重时，`institution` 同一家有几种写法（实测 "UBS" / "UBS Securities LLC"、"Morgan Stanley" / "Morgan Stanley Research"），先按母公司归并再去重。
+  按机构去重时，`institution` 同一家有几种写法（实测 "UBS" / "UBS Securities LLC"、"Morgan Stanley" / "Morgan Stanley Research"），先按母公司归并再去重。同一机构后一篇里本标的目标价没变（old == new，如 1250→1250）不算动作，不覆盖它更早的上调 / 下调（见附件 ⑰）。
 - KOL 喊单先按 `symbol == <T>` 筛行（返回里会混入别的标的的帖子），再按 `source_url` 去重。喊单只覆盖最近 24 小时，tradfi 方向字段近乎恒为看多，只报条数和话题。
 - 第 7 路返回里**没有 `kol_call` 这一类**（`status` 仍是 `ok`、无 warning）时，是近 24 小时没有本标的喊单，不是调用失败：写"近一日无喊单"，不要重试，也不记数据缺口（2026-10-08 实测 AVGO：合并调用缺这一类，单独调返回 `no_match`，全市场喊单池正常）。
 - 内部人只认 Form 4：卖出 = `S-Sale`，买入 = `P-Purchase`，按 `transactionDate ≥ 今天 − 90 天` 过滤；`F-InKind` / `G-Gift` / `A-Award` / `M-Exempt` 不计。带 `_chamber` 的议员交易单列。

@@ -522,7 +522,7 @@ Jhunjhunwala 核心: 市场恐慌 + 基本面强劲 + 增长可见 = 最佳买�
 3. 研报动作 (20%，第 8 路，近 30 天):
    - 研报要按 next_cursor 翻页取全（翻到 has_more:false 或卡片日期超出 30 天窗口），只看第一页会漏 mention 层的动作；
      第 8 路用 verbosity="detail"（额度相同；concise 下 revision_summary.by_name 截到 5 行，会截掉本标的那一行）
-   - 只计本标的自己的动作，按机构去重（机构名先按母公司归并，如 "UBS" 与 "UBS Securities LLC" 算一家；同一机构多篇取最新一篇，不分 subject / mention 层；本标的只有 new、没有 old，或根本没有本标的目标价的那篇不算动作，不覆盖同一机构更早的上调 / 下调——
+   - 只计本标的自己的动作，按机构去重（机构名先按母公司归并，如 "UBS" 与 "UBS Securities LLC" 算一家；同一机构多篇取最新一篇，不分 subject / mention 层；本标的只有 new、没有 old，old 与 new 相同（目标价没变，如 1250→1250），或根本没有本标的目标价的那篇不算动作，不覆盖同一机构更早的上调 / 下调——
      实测 MU：高盛 09-30 的 subject 篇把目标价 1100 上调到 1250，10-02 的 mention 篇在 concise 下只有 1250、没有旧值（detail 里是同一笔 1100→1250），仍计高盛上调；
      花旗最新一篇是 10-06 的 AMD 行业稿，里面没有 MU 目标价，不覆盖 09-28 提及卡的 1150→1300）:
      subject 层: rating_action 的 upgrade / downgrade；revision_summary.by_name 里 ticker == 本标的、且 old ≠ new 的目标价上调 / 下调；
