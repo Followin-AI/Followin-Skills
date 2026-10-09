@@ -22,7 +22,7 @@ Put it in `~/.zshrc` / `~/.bashrc` to persist. Everything lands under it. Once t
 
 ### 1.2 Where your account list lives
 
-The 5 built-in starters are at the top of [account-roster.md](skills/stock-kol-watch/references/account-roster.md). **Copy them into `$KOL_VAULT/references-roster.md`** — the copy inside the skill directory is a template; the running workflow reads the one in your vault. Edit that file to change your list.
+The 5 built-in starters are at the top of [account-roster.md](skills/stock-kol-watch/references/account-roster.md). **Copy them into `$KOL_VAULT/references-roster.md`** — the copy inside the skill directory is a template; the running workflow reads the one in your vault. Edit that file to change your list. **Copy the tier column too**: normally a stock gets its own file only once 2 or more accounts mention it; an A+ account is the exception — if it alone mentions a stock and gives earnings figures, a price target, or a specific buy/sell price, the file is opened too (questions, rumors, and numbers that only appear in a tweet it quotes don't count). Without the column, this exception never kicks in. The 5 tiers are presets; the first weekly review proposes changes, and nothing changes until you agree.
 
 ⚠️ Those 5 lean semiconductors and include **no bear voice**. Add 1–2 steady skeptics before real use, or your list will systematically show you only reasons to be long.
 

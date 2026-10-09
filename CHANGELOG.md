@@ -4,6 +4,12 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-09 — 第三轮拍板后复跑 + starter 预设档位
+
+- **美股 KOL 追踪**：5 人 starter 加"档位（预设）"列（@jukan05 A+、@aleabitoreddit A、@nft_hu A、@xiaomustock B+、@qinbafrank B），按 rubric 对照公开身份和 10-08 单日实跑给出，第一次周报复盘。复制名单须连档位列，否则"A+ 单人带硬数据建档"永不触发；🅱️ 模式用 starter 时按预设档位。复跑实例：@jukan05 发台积电 9 月营收 → 建 `Tickers/TSM`。
+- 第三轮改动的 14 个 Skill 分 7 组在正式端复跑，新规则均可执行；修执行层缺口约 40 处（01 / 02 / 06 / ES / c2 / c3 / c4 / c6 / r0 / r2 / r4 / 盘前追踪 / 加密自选 / KOL 追踪），取舍类问题另列待拍板。
+- caveats 新增 N-179~N-182，计数 201。
+
 ## 2026-10-09 — 第三轮拍板（52 项）
 
 用户对第二轮复跑列出的 52 条取舍"全按建议"。主要变化：

@@ -22,7 +22,7 @@ export KOL_VAULT="/你的笔记库路径/Stock-Watch"
 
 ### 1.2 关注名单落位
 
-内置的 5 个 starter 在 [account-roster.md](skills/stock-kol-watch/references/account-roster.md) 顶部。**把它们复制到 `$KOL_VAULT/references-roster.md`**——skill 目录里那份是模板，实际运行读的是 vault 里这份，改名单改这里。
+内置的 5 个 starter 在 [account-roster.md](skills/stock-kol-watch/references/account-roster.md) 顶部。**把它们复制到 `$KOL_VAULT/references-roster.md`**——skill 目录里那份是模板，实际运行读的是 vault 里这份，改名单改这里。**连「档位」那一列一起复制**：一只股票平时要有 2 个以上账号提到才会单独建一份笔记；标了 A+ 的账号是例外——它一个人提到某只股票，并且给出财报数字、目标价或明确的买卖价位，也会建（问句、传闻、只出现在它转引别人原文里的数字都不算）。没有这一列，这个例外就不起作用。5 个账号的档位是预设的，第一次周报会提议调整，你点头才改。
 
 ⚠️ 这 5 个偏半导体、**没有唱空账号**。正式用前补 1-2 个稳定质疑的声音，否则你的名单会系统性地只给你看多的理由。
 

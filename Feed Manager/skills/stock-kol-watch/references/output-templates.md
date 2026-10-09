@@ -154,7 +154,7 @@ created: YYYY-MM-DD
 
 ## 模板 C — 每板块笔记 `$VAULT/Sectors/<板块>.md`
 
-**新建触发**（见 SKILL Step 10.9 建档标准，满足任一才建，避免空文件）。
+**新建触发**（见 SKILL Step 6.5 建档标准，满足任一才建，避免空文件）。
 **已存在**只更新强度评级表 + 追加 thesis + 更新代表标的价格 + 追加 KOL 历史/反方（不删旧）。
 
 ```markdown

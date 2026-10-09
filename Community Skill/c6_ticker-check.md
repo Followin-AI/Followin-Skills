@@ -56,6 +56,7 @@ args: ticker(必填)
 3. signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading","trader_position"], asset_type="tradfi", limit=50, verbosity="concise")
    # 可选，仅热议标的才加：内部人/喊单/实盘三维钻取，做法同 c4 步骤 2、c5 步骤 5
    # limit=50 必带（N-151，同 c4 步骤 2）：limit 按类分别生效、默认 10 行，加大仍只计 1 点。2026-10-08 实测 MU：默认 10 行里 kol_call 只有 3 行 MU（另 6 行是一条不提 MU 的多票帖拆出来的），数成"3 帖／1 位 KOL"；limit=50 是"6 帖／3 位 KOL"。内部人默认 10 行只到 8/21，漏掉 8/18 高管卖出与 7/24 CEO 一串卖出——90 天内若有 P-Purchase 也可能被挤掉，🔥 ② 的内部人一条就判不准
+   # limit=50 也可能不够，截断自检同 c4 第 1 节：最旧一条公司内部人行（不带 `_chamber`）的 `transactionDate` 晚于 90 天窗口起点，就是没回溯完——信号面改写实际覆盖起点（如「內部人 9/25 以來只有賣出」），不写「近 90 天」。2026-10-09 实测 CBRS：COO 一份 9/29 的 Form 4 拆成 19 行，50 行只回溯到 9/25
    # 不拉 institutional（2026-10-05 起）：备忘信号面不用 13F，且 13F 是返回里体积最大的一块；实测还有两种脏数据——HUBG 选到尚未申报的 report_period 2026-09-30、holders 为空但 status 仍是 ok；MU 同一 CIK（Susquehanna）出现两行、股数不同。去掉后仍只计 1 点
    # 不带 time_range（喊单上游本来就只覆盖最近 24 小时；多类合并带窗口会让整类消失，N-118）；kol_call 行按 symbol == <TICKER> 自行筛（实测会混入别的标的）
    # trader_position 无活跃仓时在多类合并返回里**整类静默缺席**、status 仍为 ok（单独调用才返 degraded + no_match，N-124）——缺席 = 无活跃仓，不是调用失败，不重试
