@@ -97,7 +97,7 @@ Examples include:
 
 - RSI entering or leaving an extreme zone;
 - price crossing a major long-term moving average (only when that average passed the sanity check in SKILL.md; never for an asset whose 50/200-day values equal its 20-day band);
-- MACD direction reversing rather than merely remaining positive or negative (not for an asset with fewer than 35 daily bars);
+- MACD direction reversing rather than merely remaining positive or negative (not for an asset with fewer than 50 daily bars);
 - ATR or realized range expanding sharply;
 - price breaking or rejecting a Bollinger boundary (not for an asset with fewer than 20 daily bars).
 

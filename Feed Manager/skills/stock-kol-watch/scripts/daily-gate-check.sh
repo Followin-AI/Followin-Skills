@@ -7,6 +7,7 @@
 #       _last-pull.md：last_cutoff_utc 必须是合法 ISO 时间戳（如 2026-10-08T15:09:03Z），且 mtime=今天
 #   (2) 日报「✅ 收尾门禁」段的两行计数字段（格式见 references/output-templates.md 模板 A）：
 #       - 账号覆盖：N/M（✅a ⚪b ❌c）   → 要求 a+b+c=M、a+b=N、M>0（算术对不上 = 覆盖表是糊的）
+#         且 M = references-roster.md 表格里 `| @` 开头的行数（名单文件缺失也拦）
 #       - 完整性审查：遗漏 X · 落盘 ticker T · 落盘 sector S
 #         → X 必须为 0；Tickers/ 今天动过的文件数 ≥ T；S = sector-sync 声明的板块个数
 #       只查标题文字的旧版拦不住任何事——模板自带"完整性审查"四个字，照抄就过
@@ -105,6 +106,21 @@ else
   set -- $(printf '%s' "$COV" | grep -oE '[0-9]+')
   if [ $(( 10#$3 + 10#$4 + 10#$5 )) -ne "$2" ] || [ $(( 10#$3 + 10#$4 )) -ne "$1" ] || [ "$2" -eq 0 ]; then
     MISS+=("账号覆盖算术不对: $1/$2 但 ✅$3 ⚪$4 ❌$5（应 ✅+⚪=N、✅+⚪+❌=M）")
+  fi
+  COV_M=$2
+fi
+
+# M 必须等于名单里的账号数（references-roster.md 表格里 `| @` 开头的行）：
+# 整个漏掉一个账号时 ✅+⚪+❌=M 照样自洽，只有拿名单对数才看得出来
+ROSTER="$VAULT/references-roster.md"
+if [ ! -f "$ROSTER" ]; then
+  MISS+=("缺文件: references-roster.md（账号覆盖的 M 没法和名单对数；Step 0.0 种子文件未建，或名单不在 \$KOL_VAULT 根目录）")
+elif [ -n "${COV_M:-}" ]; then
+  RN=$(grep -c '^| @' "$ROSTER")
+  if [ "$RN" -eq 0 ]; then
+    MISS+=("references-roster.md 里没有『| @账号』开头的表格行，账号覆盖的 M 没法核对 → 按 vault-skeleton 的表格格式写名单")
+  elif [ "$COV_M" -ne "$RN" ]; then
+    MISS+=("账号覆盖写的 M=$COV_M，但 references-roster.md 有 $RN 个账号——有账号没进覆盖表（或名单改了没同步），补拉 / 补列后改成 N/$RN")
   fi
 fi
 

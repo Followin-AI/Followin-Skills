@@ -11,7 +11,7 @@ args: ticker(必填), focus(可选：报告标题关键词，只审匹配的那�
 
 **研报库不做速度，做口径。**
 
-> **版本**：v1.1 ｜ 实测验证于 2026-07-29（NVDA 10 篇全量字段统计）｜ **2026-10-05 端到端复测**（NVDA，首页 + 第 2 页 + 30d 窗口）｜ **2026-10-08 换标的复测**（META，首页 + 第 2 页 + 30d 窗口，20 篇）｜ **2026-10-08 拍板后复跑**（MSFT，按新翻页口径 2 页 2 额度，subject 13 + mention 7）
+> **版本**：v1.1 ｜ 实测验证于 2026-07-29（NVDA 10 篇全量字段统计）｜ **2026-10-05 端到端复测**（NVDA，首页 + 第 2 页 + 30d 窗口）｜ **2026-10-08 换标的复测**（META，首页 + 第 2 页 + 30d 窗口，20 篇）｜ **2026-10-08 拍板后复跑**（MSFT，按新翻页口径 2 页 2 额度，subject 13 + mention 7）｜ **2026-10-09 第三轮拍板后复跑**（NVDA，`29d0140a` / `00ad0b37` 2 页 2 额度：两页全是 subject、第 2 页最旧 07-08 早于下限 07-11 → 因 90 天下限停页，subject 20 篇（下限内 18 篇 / 8 家），mention 未取到；GS 08-26 First Take 两篇 key_caveat 均为书目缺失 → 🟡，旧规则下会给 🟢（可见范围内））
 >
 > **这支 Skill 存在的理由**（2026-07-22 实测定档）：研报端到端**落后公开新闻 1–4 天**，且卖方结论数日内即被媒体转述——同一篇伯恩斯坦韩国出口报告被 Investing.com 搬走，数字全对得上。
 > **速度赛道不可能赢。** 真正不可替代的是结论背后不会被转述的三样：**①基准是谁 ②口径边界 ③自陈与自相矛盾**。本 Skill 只做这三样。
@@ -52,6 +52,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 > 📄 **翻页口径（2026-10-08 定，2026-10-09 加 90 天下限）**：**subject 翻到尽头或 90 天下限，mention 只取 1 页**。
 > · 首页 `has_more=false` 或首页已出现 mention → 停（1 额度）
+> · 首页全是 subject、`has_more=true`，但首页最旧一篇 subject 已早于今天 −90 天 → 停（1 额度），按下面「因下限停页」写
 > · 首页全是 subject 且 `has_more=true` → 带 cursor 翻下一页，直到某页出现 mention、`has_more=false`，**或该页最旧一篇 subject 的 `report_date` 早于今天 −90 天**（下限）——三者先到为准（通常 ≤3 额度；每页 +1，头部写实际额度）
 > · 因下限停页时：那一页里早于下限的 subject 照常审，头部写"subject 翻到 90 天下限（<日期>），更早的未取"，subject 家数只算 90 天内全量；这时多半没带出 mention，写"mention 未取到（停在 90 天下限）"，**不为 mention 单独翻页**
 > · 下限的由来：不传窗口时 subject 随库龄只增不减（2026-10-08 实测 MSFT 07-16 起 10 周 13 篇、NVDA 10-05 已 19 篇），不设下限的话额度会随库龄线性上涨
@@ -91,6 +92,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 > 2026-10-08 META 20 篇里 `key_caveat` 是流程备注的 **0 篇**；流程备注改出现在 `coverage_flag.missing` 尾部（*"The filename is rendered in English to comply with the English-only output requirement"*，2/20）——那本来就归④轴，不用另剔。
 > **但 0 号分流不能省**：2026-10-08 MSFT 20 篇里 `key_caveat` 又有 3 篇是流程备注（GS 09-20、UBS 10-01 的 filename 句 + DB 09-25 的新形态），出现与否随批次变。
+> 📌 **抽取器指出报告没给某项实质内容的，不归书目缺失**（2026-10-09 实测新形态，拍板；见 [N-181②](../references/followin-mcp-caveats.md)）：如 `key_caveat` 说报告没给催化剂——缺的是实质内容，不是前次 TP / 日期 / 评级。**不剔出，按②口径边界给 🟡**，转述时注明"抽取器所见、非报告自承"（不许写成报告自己承认的局限）。
 
 > 🔴 **mention 篇先认"这条 caveat 说的是谁"（2026-10-08 实测）**：mention 报告的 `key_caveat`、`rating_current`、`report_subject_target_price` 都属于**报告自己的主标的**，不是本标的——META 查询里 Nomura 的 Buy 是给 3406.TW 的、JPM 的 Overweight 是给 TSMC 的、GS 的 Buy 是给 SPCX 的；BofA 两份周报、Bernstein 数据中心报告的③b（指数回报、2030 年 IT-GW 两处对不上）都和 META 无关。本标的的东西只有 `mention_context`（一句话 + `mention_direction`）和 `matched_asset_target_price`（多数为 null，偶有值：Bernstein 10-01 给 META 800）。所以：
 > ① mention 篇先判 `key_caveat` 是否涉及本标的；**不涉及 → 不进本标的打分**，④轴记"N 篇 caveat 指向报告主标的"
@@ -238,7 +240,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 | 档 | 条件 |
 |---|---|
-| 🟢 可直接引用 | 基准是独立调研或披露数据；口径边界清晰；**且 `detail_sections.caveats` 所示的全部 caveat 都已读到、均不涉及①③** |
+| 🟢 可直接引用 | 基准是独立调研或披露数据；口径边界清晰；**且 `detail_sections.caveats` 所示的全部 caveat 都已读到、均不涉及①③**。`key_caveat` 未返回或被 0 号分流剔出的篇同样不适用（`detail_sections.caveats` 为 1 时那唯一一条就是被剔出的那条），最高 🟡，见下一行 |
 | 🟢（可见范围内） | 前两条同上；**可见的 caveat 不涉及①③，但只见 1/N 条**（截顶下的常态）。必须带括注，写"仅见 1/N 条 caveat"——硬要求 5：未自陈 ≠ 没问题。`key_caveat` 未返回、或被 0 号分流剔出（书目缺失 / 流程备注 / 类型声明）的篇不适用——没有真实 caveat 可看，最高 🟡（2026-10-09 定；MSFT 按此 🟢（可见范围内）0/13，原给的 Citi 07-30、GS 07-29 两篇 key_caveat 都是书目缺失类）|
 | 🟡 引用须带限定 | 基准是管理层口径或建模估算；**或**口径边界不清；**或** ③b 只涉及辅助表格（注"引用该表前核对正文"）| 
 | 🔴 别引结论 | ③b 涉及**目标价、上行幅度或核心预测**；**或**核心论点建立在未验证的代理指标上 |

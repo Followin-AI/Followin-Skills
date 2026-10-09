@@ -22,7 +22,7 @@ Put it in `~/.zshrc` / `~/.bashrc` to persist. Everything lands under it. Once t
 
 ### 1.2 Where your account list lives
 
-The 5 built-in starters are at the top of [account-roster.md](skills/stock-kol-watch/references/account-roster.md). **Copy them into `$KOL_VAULT/references-roster.md`** — the copy inside the skill directory is a template; the running workflow reads the one in your vault. Edit that file to change your list.
+The 5 built-in starters are at the top of [account-roster.md](skills/stock-kol-watch/references/account-roster.md). **Copy them into `$KOL_VAULT/references-roster.md`** — the copy inside the skill directory is a template; the running workflow reads the one in your vault. Edit that file to change your list. **Copy the tier column too**: normally a stock gets its own file only once 2 or more accounts mention it; an A+ account is the exception — if it alone mentions a stock and gives earnings figures, a price target, or a specific buy/sell price, the file is opened too (questions, rumors, and numbers that only appear in a tweet it quotes don't count). Without the column, this exception never kicks in. The 5 tiers are presets; the first weekly review proposes changes, and nothing changes until you agree.
 
 ⚠️ Those 5 lean semiconductors and include **no bear voice**. Add 1–2 steady skeptics before real use, or your list will systematically show you only reasons to be long.
 
@@ -46,6 +46,7 @@ Add to `~/.claude/settings.json`:
 | `Portfolio.md` touched today | **only enforced when you actually hold something**; no positions reported → no block |
 | `_last-pull.md` touched today, and its window start is a valid timestamp (e.g. `2026-10-08T15:09:03Z`) | the next pull uses it to know where to pick up; a leftover placeholder or a missed update means the next batch skips or re-pulls tweets |
 | Two count lines at the end of the brief: `账号覆盖：N/M（✅a ⚪b ❌c）` (account coverage) and `完整性审查：遗漏 X · 落盘 ticker T · 落盘 sector S` (completeness review: missed / tickers written / sectors written) | the coverage arithmetic must add up, missed must be 0, and the declared ticker / sector files must really have been touched today — a bare heading no longer passes. **Keep the Chinese field labels exactly as shown** (`账号覆盖`, `完整性审查`, `遗漏`, `落盘`) even if the rest of your brief is in English: the gate script parses those labels, and a translated line is treated as missing |
+| The M in `账号覆盖` equals the number of account rows (rows starting with `\| @`) in the table in `references-roster.md` | dropping an account entirely still leaves the coverage arithmetic consistent; only a count against the roster catches it. A missing roster file is also blocked, with a message saying so |
 | Sector files named in the brief's `sector-sync` line really were updated | prevents "bumped the index date but never touched the sector note" |
 
 **Verify your install once**: deliberately backdate `Macro.md` (`touch -t 202601010900 $KOL_VAULT/Macro.md`), then end a session in which you ran the daily — **getting blocked means it works**. If you're not blocked, the hook isn't firing; check the path.

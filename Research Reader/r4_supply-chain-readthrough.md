@@ -11,7 +11,7 @@ args: ticker(必填)
 
 **别人的研报里，你的标的被放在什么位置上。**
 
-> **版本**：v1.0 ｜ **实测验证于 2026-07-29**（NVDA / INTC / GOOGL / 2330.TW 四标的交叉验证）
+> **版本**：v1.0 ｜ **实测验证于 2026-07-29**（NVDA / INTC / GOOGL / 2330.TW 四标的交叉验证）｜ **2026-10-09 第三轮拍板后复跑**（NVDA，`time_range="30d"` 5 页 5 额度：`075b9f1f` `4b5493a2` `c18b39ef` `858474a8` `7784152b`）
 >
 > ⚠️ 本 Skill 的设计**被实测推翻过两次**，两条都写在下面的「⛔ 两个反直觉前提」里。
 > 不先读那节就照直觉用，会得出系统性错误的结论。
@@ -114,7 +114,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 | 形态 | 判定 | `by_name` 怎么用 |
 |---|---|---|
 | `subject_name` 或 `report_title` 是**汇编标题**：含 `morning news` / `portfolio` / `quant` / `weekly` / `daily` / `views` / `roundup` / `cross-sector` / `monitor` / `fund positioning` / `hedge fund positioning` / `conviction` / `selloff` / `newsletter` / `equity strategy` / `tech strategy` / `end of week` / `market intelligence` 等，**或跨行业的 `sector keys`**<br>**或**标题是「系列名 - 议题 A; 议题 B」这种**多个互不相关议题拼成的一篇**（2026-10-08 实测 NVDA：J.P. Morgan《China Tech & APAC Internet - read-through from four China stimulus scenarios; cooling components update》，中国刺激政策与台湾散热件同篇；同系列 09-29 一篇同理）<br>**或** `by_name` 横跨 ≥3 个互不相关行业（如银行 + 制药 + 半导体；实测 BofA《European Equity Strategy》的保险 / 公用事业 / 化工 / 矿业）<br>实测样例：`"Asia Morning News and Research Views"`、`"Asia Quant + Fundamental Portfolio for 2H26"`、`"Global and Asian cross-sector research roundup"`、`"Hedge fund positioning and the AI trade"`、`"AI infrastructure selloff opportunities"`、`"APAC Tech Strategy: Sector Keys September 2026 v4"`（UBS，正文 200+ 页）、`"End of Week Market Intelligence: here comes AI..."`（高盛周度策略，2026-10-08 实测） | 🚫 **同框噪音** | **整个丢弃。** 同一份晨报 / 选股篮子里的名字之间没有产业链关系 |
-| **单一行业的定期汇编**——`subject_name` 是一个行业覆盖范围而不是研究命题：周报（如 `"North America Semiconductors Weekly"`）、单行业 `Sector Keys`（`"Asia Semiconductors: Sector Keys"`）、`Tearsheet`、`SemiBytes`、路演纪要（`"Notes from the road"`）、行业追踪 / 月度前瞻（`"Global Semicap Tracker"`、`"Taiwan ODM/Brands: 3-month preview"`）、整个板块重排评级（`"Re-assessing sector positioning … our preferred names"`）| ⚠️ **部分保留** | 只保留 rationale / context_snippet 里点名的公司（实测 Amkor 封装边是真链；2026-10-08 AVGO：UBS 亚洲半导体 Sector Keys 的 16 行只留被点名的联发科；2026-10-08 NVDA：伯恩斯坦 Semicap Tracker 12 行只留 Advantest），其余丢弃。rationale 只点名本标的时等于全丢。**例外：带真修正（old 与 new 均有值且 old ≠ new）的行一律保留进同链修正**，即使 rationale 没点名，标注「来自 <机构>《<汇编 / 行业追踪标题>》」（2026-10-08 用户拍板；实测 NVDA 高盛《Taiwan ODM/Brands》的纬创 281→295、英业达 56→61）；只有当前价位、没有变动的行仍丢弃 |
+| **单一行业的定期汇编**——`subject_name` 是一个行业覆盖范围而不是研究命题：周报（如 `"North America Semiconductors Weekly"`）、单行业 `Sector Keys`（`"Asia Semiconductors: Sector Keys"`）、`Tearsheet`、`SemiBytes`、路演纪要（`"Notes from the road"`）、行业追踪 / 月度前瞻（`"Global Semicap Tracker"`、`"Taiwan ODM/Brands: 3-month preview"`）、整个板块重排评级（`"Re-assessing sector positioning … our preferred names"`）| ⚠️ **部分保留** | 只保留 rationale / context_snippet 里点名的公司（实测 Amkor 封装边是真链；2026-10-08 AVGO：UBS 亚洲半导体 Sector Keys 的 16 行只留被点名的联发科；2026-10-08 NVDA：伯恩斯坦 Semicap Tracker 12 行只留 Advantest），其余丢弃。rationale 只点名本标的时等于全丢。**例外：带真修正（old 与 new 均有值且 old ≠ new）的行一律保留进同链修正**，即使 rationale 没点名，标注「来自 <机构>《<汇编 / 行业追踪标题>》」（2026-10-08 用户拍板；实测 NVDA 高盛《Taiwan ODM/Brands》的纬创 281→295、英业达 56→61）；只有当前价位的行（含 old == new、以及只有评级变动没有 old TP 的行，如 2026-10-09 NVDA J.P. Morgan《Humanoid Robot》里 3 行 `"recent downgrade to Neutral; prior rating and date not supplied"`、1 行 `"initiate Underweight"`）仍丢弃——例外只认目标价的 old→new |
 | `subject_name` 是**具体公司或具体产业主题**<br>实测样例：`"Global AI memory strategic partnerships"`、`"Taiwan mature-node foundries and semiconductor design"`、`"Nokia"`、`"Apple Inc."` | ✅ **真产业链** | 全部可用 |
 
 > ⚠️ **主题具体、名单却是选股表的篇，人工判**（2026-10-08 AVGO）：伯恩斯坦《China Next Winners》主题是 NPO / SuperPod，rationale 点名 H3C、锐捷，`by_name` 却是大立光 / 舜宇 / 台达 / 广达——按"有没有统一研究主题"的原则降为 ⚠️ 部分保留。
@@ -175,7 +175,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 |---|---|---|
 | `ticker` | **不恒有**（2026-10-05 实测）| 无 `ticker` 的行多为行业 / 市场 / 因子名（`"Taiwan market"`、`"Asia price momentum factor"`、行业框架名），**丢弃**；只有 `name` + `ticker`、**既无 `rating_action` 也无 TP** 的行是"提及名单"（实测花旗一篇 15 行），**不进同链修正** |
 | `name` | 96/96 | 恒有 |
-| `rating_action` | 94/96 | 常有，但多为 `reiterate`。⚠️ **是自由文本不是枚举**（2026-10-08 实测：`"downgrade from Buy to Sell; page 207"`、`"upgrade to Buy recently; action date and prior rating unavailable"`、`"not covered"`、`"reaffirmed as Top Pick in the research view"`）——含 `upgrade` / `downgrade` 的在所在行**标出评级变动**（没有 old TP 也要标，它不是"维持"；2026-10-08 NVDA 另见 `"recent downgrade to Neutral; prior rating and date not supplied"`，同样标）；含 `initiate` / `assume coverage` 的标"新覆盖"（实测 J.P. Morgan 接手散热件 3 家），同样不是"维持"；`not covered` 的行丢弃 |
+| `rating_action` | 94/96 | 常有，但多为 `reiterate`。⚠️ **是自由文本不是枚举**（2026-10-08 实测：`"downgrade from Buy to Sell; page 207"`、`"upgrade to Buy recently; action date and prior rating unavailable"`、`"not covered"`、`"reaffirmed as Top Pick in the research view"`）——含 `upgrade` / `downgrade` 的在所在行**标出评级变动**（没有 old TP 也要标，它不是"维持"；2026-10-08 NVDA 另见 `"recent downgrade to Neutral; prior rating and date not supplied"`，同样标；但⚠️ 部分保留篇里这类只有评级变动、没有 old→new 的行仍丢弃，见上方汇编行）；含 `initiate` / `assume coverage` 的标"新覆盖"（实测 J.P. Morgan 接手散热件 3 家），同样不是"维持"；`not covered` 的行丢弃 |
 | `new_target_price` | 89/96 | 常有 |
 | **`old_target_price` + `change_pct`** | **25/96（26%）** | **只有四分之一带真修正**——有 old→new 的才叫"被改价"，只有 new 的是"当前目标价" |
 
@@ -303,4 +303,4 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 | `catalysts[].security` 非规范 ticker | 数据特性 | 步骤 4 的五步清洗（缺失 / 逗号多值 / 板块名 / 公司名回填 / 代码格式归一）|
 | detail 下嵌套列表被截断 | 接口行为（2026-10-05 实测）| 每篇 `affected_names` 5 条、`catalysts` 2 条、`key_points` 3 条；`detail_sections` 是全量计数。按抽样口径表述 |
 | 跨标的以亚太股为主 | 数据特性 | 实测 47 个跨标的 ticker 里大半是 `.KS`/`.T`/`.TW`/`.NS`/`.JK`。**对只做美股的用户，多数不可直接交易**——但作为供应链信号仍有效，须标明市场 |
-| 产出量不可预测 | 结构性 | 实测关系边 0–4 条、真链修正 0–16 条；2026-10-08 AVGO 3 页未到尽头即得关系边 22 条（归并后）、真修正 3 条；同日 NVDA 5 页未到尽头得关系边 29 条、真修正 10 条。**不承诺产量**，跑完才知道 |
+| 产出量不可预测 | 结构性 | 实测关系边 0–4 条、真链修正 0–16 条；2026-10-08 AVGO 3 页未到尽头即得关系边 22 条（归并后）、真修正 3 条；同日 NVDA 5 页未到尽头得关系边 29 条、真修正 10 条（拍板后计入部分保留篇的例外为 14 条）；2026-10-09 NVDA 加 30d 窗 5 页（subject 2 / mention 48，mention 覆盖 09-24~10-07，未到尽头）得关系边 48 条、真修正 16 条（其中纬创、英业达、优必选、绿的谐波 4 条靠部分保留例外；16 条全落在 09-28~10-07）。**不承诺产量**，跑完才知道 |
