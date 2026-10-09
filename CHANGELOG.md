@@ -4,6 +4,12 @@ All notable changes to Followin Skills are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
+## 2026-10-09 — 第五轮拍板后复跑
+
+- 第五轮改动分 5 组在正式端复跑，新规则均生效。c3 提及层翻页止损后额度 39→21（NVDA 14→5 页），实测提及层按日期倒序，四只入选标的最新目标价无一遗漏；01 改用 `detail` 后 MU ⑰ 仍 +0.4 Bullish、组合 Hold；06 夜间补查原油日线跑通（WTI +3.6%、布伦特 +4.1%，按收盘对前收自算）；c4 代扣 / 超量卖出 / 同价 ≤1% 三条抽测通过。
+- **修正**：06 写明涨跌不用日线自带字段（那是收盘对开盘）、未收盘行在倒序首行两个原油代码都剔；c3 末张卡日期等于止损日时再翻一页；01 去重前归并机构名写法；盘前追踪查评级库传 `limit=20`（默认 10 行会漏）；加密自选补 ETF 资金流专项搜索；c4 补超量卖出的对外写法。
+- caveats 新增 N-187~N-188，计数 207；订正 N-134⑦、N-183⑤、N-185⑤。
+
 ## 2026-10-09 — 第五轮拍板（14 项）
 
 用户对第四轮复跑列出的 14 条"全按建议"：

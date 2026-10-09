@@ -54,7 +54,7 @@ args: watchlist
 1. metrics(keywords=["DGS2","DGS10"], categories=["macro"], limit=5)                       # 利差用：两者同一天，FRED 比行情晚 1~2 个交易日
 2. metrics(keywords=["^VIX","DXUSD","CLUSD","BZUSD","^TNX"], query="行情", asset_type="tradfi")   # VIX / 美元指数 / WTI / 布油 / 10 年期收益率（当日）
 3. metrics(keywords=["^GSPC","^IXIC","^DJI"], query="行情", asset_type="tradfi")           # 三大指数
-4. metrics(query="economic calendar", country="US", date_from="<今天>", date_to="<今天+7天>", sort_by="hot", limit=30)   # 未来 7 天
+4. metrics(query="economic calendar", country="US", date_from="<今天>", date_to="<今天+7天>", sort_by="hot", limit=30)   # 未来 7 天；<今天> 取 UTC 日期（与日历 date 同口径），美东 20:00 后跑即美东次日，否则与第 5 路整天重叠
 ```
 - **10 年期收益率的头条数字用 `^TNX`**（与 VIX、原油同一天）；FRED 的 `DGS10` 比行情晚 1~2 个交易日（2026-10-08 美东上午实测最新只到 10-06），只用来和 `DGS2` 算利差，并在表里注明日期。实测 10-02 `^TNX` 为 +4bp，而 FRED 最新一天（10-01）是 −5bp，方向相反——混用会选错新闻题。
 
@@ -85,7 +85,7 @@ args: watchlist
    ```
    metrics(keywords=["CLUSD","BZUSD"], query="历史走势", categories=["market"], time_range="1m", limit=5, asset_type="tradfi")   # 带 categories=["market"]、不带 interval 返回日 K（N-185②）
    ```
-   先剔除未收盘行（北京上午 `CLUSD` 会多一根未收盘的当日行，N-179③；末行成交量远低于前几行的也按未收盘剔，同 N-185③），再拿最近两根已收盘日 K 的收盘价算涨跌。所用数字写进输出的"数据缺口"（见输出模板），否则读者看到表里原油日变化很小、新闻却在讲油价大涨，会以为选题判错了（2026-10-09 美东 21:58 实测：表里 WTI 夜盘 −0.8%，而 10-08 白天 WTI +2.8%、布油 +3.1%——按"任一超过"口径，布油即命中这一条）
+   先剔除未收盘行：返回按日期倒序，未收盘行排在每个代码的**最前**一行（`date` 晚于上一交易日、成交量远低于其后几行），`CLUSD` 和 `BZUSD` 都可能有（北京上午实测两个都多一根 10-09 行，成交量 7,746 / 1,190，前几行约 27 万 / 4.7 万；N-179③、N-185③）。再拿最近两根已收盘日 K 的 `close` 算涨跌（后一根 ÷ 前一根 − 1）——**不要用日线自带的 `change` / `changePercent`**，那是当日收盘对当日开盘（N-131）。所用数字写进输出的"数据缺口"（见输出模板），否则读者看到表里原油日变化很小、新闻却在讲油价大涨，会以为选题判错了（2026-10-09 美东 22:28 实测：表里 WTI 夜盘 −0.6%，而 10-08 收盘对 10-07 收盘 WTI +3.6%（91.49 / 88.28）、布油 +4.1%（104.28 / 100.20）；同一行的 `changePercent` 只有 +2.8% / +3.1%，上一轮记录的就是这个对开盘的数）
 5. 未来 2 个交易日内有 High 级日历事件 → 事件主题词，**去掉地名 / 机构名**，只留指标本身（如 `Michigan Consumer Sentiment` 写 `"consumer sentiment"`）。2026-10-09 实测 `"Michigan consumer sentiment"` 返回的 8 条全是密歇根州选举、诉讼新闻，0 条相关；`"consumer sentiment"` 能带回 AAII 情绪调查、消费股、关税推高物价等相关稿
 
 `news()` 的 query 写 2-3 个核心名词，纯英文；不写"影响 / 解读 / 分析"这类词。
