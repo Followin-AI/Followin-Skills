@@ -49,11 +49,12 @@ def load_api_json(filepath):
         data = json.load(f)
 
     tweets = []
-    # Followin MCP 外层是 results[0].data.tweets[]；Twitter API v2 是 data[]
+    # Followin MCP 外层是 results[i].data.tweets[]；Twitter API v2 是 data[]
+    # 多页合并成 results 数组时要逐页读——只读 results[0] 会静默丢掉第 2 页起的全部推文
     if isinstance(data, dict):
         r = data.get('results')
         if isinstance(r, list) and r and isinstance(r[0], dict):
-            items = r[0].get('data', {}).get('tweets', [])
+            items = [t for page in r for t in ((page.get('data') or {}).get('tweets') or [])]
         else:
             items = data.get('data', data)
     else:
@@ -72,6 +73,9 @@ def load_api_json(filepath):
             # impressions 默认 0（默认 1 会算出 16200% 并标成互动率）；MCP 叫 viewCount
             'impressions': _pick(item, metrics, 'impression_count', 'viewCount'),
             'retweeted_tweet': item.get('retweeted_tweet'),  # 非空 = 转推（结构判据，比 text 前缀稳）
+            # reply 判据用 isReply / inReplyToId，不用 inReplyToUserId（31% 真 reply 上为 null，N-58）
+            'is_reply': bool(item.get('isReply') or item.get('inReplyToId')
+                             or item.get('in_reply_to_user_id')),
         })
     return tweets
 
@@ -97,6 +101,7 @@ def load_archive_js(filepath):
             'replies': 0,  # 归档格式不含评论数
             'quotes': 0,
             'impressions': 0,  # 归档格式不含印象数
+            'is_reply': bool(tweet.get('in_reply_to_status_id_str') or tweet.get('in_reply_to_status_id')),
         })
     return tweets
 
@@ -153,6 +158,17 @@ def drop_retweets(tweets):
         return s.startswith('RT @') or s.startswith('RT@')
 
     kept = [t for t in tweets if not is_rt(t)]
+    return kept, len(tweets) - len(kept)
+
+
+def drop_replies(tweets):
+    """剔除自己的 reply——口径是「非 reply 且非转推」的原创推（SKILL 采样总则）。
+
+    metrics-guide §1 要求 include_replies=true 拉全量再拆三堆；把这份原始拉取直接喂进来，
+    reply 会和原推一起排 S/A 级，被当成可复用爆款写进 vault.md。
+    CSV 没有 reply 字段，只能靠手动整理时先剔掉。
+    """
+    kept = [t for t in tweets if not t.get('is_reply')]
     return kept, len(tweets) - len(kept)
 
 
@@ -226,15 +242,15 @@ def _grade_cohort(tweets):
     return tweets
 
 
-def output_report(tweets, output_path=None, rt_dropped=0):
+def output_report(tweets, output_path=None, rt_dropped=0, reply_dropped=0):
     """输出分析报告。返回 True = 有产物，False = 无数据。"""
     total = len(tweets)
     if total == 0:
         # 仍然要落文件 + 非零退出码：静默 exit 0 且不产文件，
         # 会让自动化调用看起来成功而实际什么都没有
         msg = (f"# 推文分析报告\n\n**没有可分析的推文。**\n\n"
-               f"- 输入剔除转推 {rt_dropped} 条后剩 0 条\n"
-               f"- 若 rt_dropped 等于输入总数，说明输入全是转推\n")
+               f"- 输入剔除转推 {rt_dropped} 条、回复 {reply_dropped} 条后剩 0 条\n"
+               f"- 若两者之和等于输入总数，说明输入全是转推 / 回复\n")
         print(msg)
         if output_path:
             with open(output_path, 'w', encoding='utf-8') as f:
@@ -259,7 +275,7 @@ def output_report(tweets, output_path=None, rt_dropped=0):
     report.append(f"# 推文分析报告")
     report.append(f"")
     report.append(f"**分析时间**：{datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    report.append(f"**总推文数**：{total}（已剔除转推 {rt_dropped} 条）")
+    report.append(f"**总推文数**：{total}（已剔除转推 {rt_dropped} 条、回复 {reply_dropped} 条）")
     if is_mixed:
         report.append(f"**排序口径**：{metric_name}（分组分级，见下方说明；不给跨组平均值）")
     else:
@@ -340,10 +356,11 @@ def main():
 
     # 统一在这里剔转推——放在 loader 里就要写三遍，漏一个格式就前功尽弃
     tweets, rt_dropped = drop_retweets(tweets)
-    print(f"剔除转推 {rt_dropped} 条，进入打分 {len(tweets)} 条")
+    tweets, reply_dropped = drop_replies(tweets)
+    print(f"剔除转推 {rt_dropped} 条、回复 {reply_dropped} 条，进入打分 {len(tweets)} 条")
 
     tweets = analyze_tweets(tweets)
-    ok = output_report(tweets, args.output, rt_dropped=rt_dropped)
+    ok = output_report(tweets, args.output, rt_dropped=rt_dropped, reply_dropped=reply_dropped)
     if not ok:
         sys.exit(2)   # 无产物必须给非零退出码
 

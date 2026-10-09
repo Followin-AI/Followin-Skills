@@ -17,6 +17,8 @@
 | `<DATE>` | 主进程 §0 时钟取的 `DATE` |
 | `<TOP_N>` / `<TOP_M>` | 双轨条数，见下表 |
 | `<THRESHOLD_MS>` | 窗口起点 epoch ms |
+| `<MAX_PAGES>` | 翻页上限：首扫 主 3 / 科技 2 / 大师 1；刷新 1（SKILL.md §3 第 2 条） |
+| `<STATE_DIR>` | `config.md` 的 `STATE_DIR`（展开成绝对路径） |
 
 双轨条数：首扫 主 17+3 / 科技 10+3 / 大师 4+1；刷新 主 7+3 / 科技 5+2。
 
@@ -25,10 +27,15 @@
 ## 模板正文
 
 ```
+🚫 不要读 SKILL.md。
 任务边界：调 twitter(action="list_timeline", list_id=<LIST_ID>) → jq 汇总 → 只返回 ≤N 行精简文本，不解释。
 action 写死 list_timeline（本次只拉这一个端点；它与 list_tweets 各缺一半，合并策略是主进程的事，见下方端点铁律）。
 scan_ts_ms = <NOW_MS>（主进程刚取的，禁止自己取或复用历史值）
 DATE = <DATE>    THRESHOLD_MS = <THRESHOLD_MS>
+
+── 翻页（覆盖驱动）──
+游标在 meta.filters_applied.next_cursor / has_next_page（list_timeline 的 results 直接是推文数组，不在 results[0] 里；2026-10-09 实测）。翻到最老一条 createdAt 早于 THRESHOLD_MS，或达 <MAX_PAGES> 页为止；
+到上限仍不足 → 返回里写「⚠️ 覆盖不足：实覆盖 X.Xh（墙钟 Y.Yh）」（实覆盖 = 各页头块连续时长之和，不是最新减最老）。
 
 ── createdAt 解析规范（🔴 实测过，别改写）──
 返回格式：createdAt = "Fri Jul 17 06:30:30 +0000 2026" —— RFC-822 风格，非 ISO8601，offset 恒为 +0000。
@@ -71,6 +78,8 @@ jq 变量只用 as，不用 $ENV。
  "scan_ts_ms":<NOW_MS>,"top_velocity":<最高velocity>,
  "handles":["<本list筛出的去重@用户名，不带@>"]}
 + 每条候选一行：createdAt / handle / velocity_final / text(≤280字)
+
+扫完 + jq 后用 Bash 把上面那段 JSON 头写入回执 <STATE_DIR>/trend-scout-list-receipt-<LIST_NAME>-<DATE>.json（见下方 §回执）。
 
 只返回精简文本，不解释。
 ```

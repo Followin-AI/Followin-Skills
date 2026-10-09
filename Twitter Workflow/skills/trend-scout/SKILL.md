@@ -68,7 +68,7 @@ NOW_MS=$(( $(date +%s) * 1000 ))
 
 ### 2.1 metrics
 - **tradfi 必传 `asset_type="tradfi"`**，单 ticker 单调用并行（多 ticker 一次塞会被路由到 fundamentals）。
-- **crypto 批量必传 `asset_type="crypto"`**（防同名 tradfi 污染，如 BTC→某 ETF），`time_range="1d", limit=2`。
+- **crypto 批量必传 `asset_type="crypto"`**（防同名 tradfi 污染，如 BTC→某 ETF）+ **`verbosity="detail"`**：24h 涨跌幅 `change_percent_24h` 只在 detail 下返回，standard 只有价格和成交量（N-170，2026-10-09 复测仍如此）；旧写法 `time_range="1d", limit=2` 不会多返日线，别再用它凑涨跌幅。
 - 🔴 **`change` 字段是「美元变动量」不是「百分比」**（实测 META `change:-9.18` / `previousClose:593.41` → 真实 **−1.55%**）。
   百分比必须自己算：`change / previousClose × 100`。**危险在于数值会巧合吻合**——META 的 −9.18 与新闻标题「crashes −9%」看着对上，
   直接拿去和新闻交叉核实会得到**假的"核实通过"**（那 −9% 是盘后跌幅、−9.18 是美元，两个数毫无关系）。写进简报的涨跌幅一律用自算的 %，并注明基准。
@@ -77,10 +77,10 @@ NOW_MS=$(( $(date +%s) * 1000 ))
   盘后事件（财报后跳水）标注 `regular 收盘 X（−a%）｜盘后另跌约 b%（来源：新闻，未取到一手盘后价）`，两个数分开写、别混。
 - 🔴 **不带 `asset_type` 的 query 会同时返币和同名 ETF**：`query="BTC price"` 返回 BTC 币 64,140 **和** Grayscale Bitcoin Mini ETF 28.08 两条。
   必须按 `_asset_type` 筛（crypto vs tradfi），别把 28.08 当比特币价。crypto 一律显式传 `asset_type="crypto"`。
-  - 🚨 批量写法：`metrics(keywords=["BTC","ETH","SOL","BNB","XRP"], query="行情", asset_type="crypto")`，每批 ≤5（§2.5）。旧的 query 串写法 `query="BTC ETH SOL BNB XRP price"` 2026-10-01 实测对加密代码仍可用（一次全回），可作客户端不接受数组时的回退；**tradfi 的商品 / 指数代码没有可用的 query 串写法**（见下一条）。
+  - 🚨 批量写法：`metrics(keywords=["BTC","ETH","SOL","BNB","XRP"], query="行情", asset_type="crypto", verbosity="detail")`，每批 ≤5（§2.5）。旧的 query 串写法 `query="BTC ETH SOL BNB XRP price"` 2026-10-01 实测对加密代码仍可用（一次全回），可作客户端不接受数组时的回退；**tradfi 的商品 / 指数代码没有可用的 query 串写法**（见下一条）。
   - ⚠️ `time_range` <1d 有 bug（返一个月前数据），小时级用 `interval`。
 - 可用 tradfi symbol（**一律走 `keywords` 数组**，2026-10-01 实测）：`^GSPC ^IXIC ^DJI ^VIX ESUSD GCUSD SIUSD CLUSD BZUSD NGUSD DXUSD EURUSD USDJPY`（`USO` / `UUP` 这类 ETF 也可用，但已不需要拿它们当代理）。写法：`metrics(keywords=["GCUSD","CLUSD","BZUSD","DXUSD","^VIX"], query="行情", asset_type="tradfi")`，每批 ≤5。🔴 **`*USD` 商品代码写进 query 串整批返空且不报错**（实测 `query="GCUSD CLUSD BZUSD ESUSD 行情"` → 0 结果、`status:"ok"`）——旧记载"CLUSD 返 0 / BZUSD 静默丢弃 / 原油只有 USO"（N-30）只在 query 串路径成立，数组路径 WTI 与布油期货价直接可取（N-106）。`NGUSD` 不再是 402。⚠️ **`^DXY` 走数组也被静默丢弃且无 warning**，美元指数用 `DXUSD`。`GOLD` / `OIL` 别名仍会解析成同名美股，不要用。
-- 国债 / 经济日历 / CPI：国债曲线 `metrics(query="treasury yield curve")`（2026-10-01 实测返回干净的 1 行；旧写法 `"US 10 year treasury yield curve"` 会把 curve 误抽成 CRV 并返回多行重复，若仍用旧写法须按 `_resolved_from_keyword` 去重，细节见 `references/source-list.md` §MCP 坑位）。经济日历 `metrics(query="economic calendar", country="US")`——**`country="US"` 必传**，不传返回韩国 / 印度等地事件。FRED 指标走 `metrics(keywords=["CPIAUCSL",…], categories=["macro"])`。
+- 国债 / 经济日历 / CPI：国债曲线 `metrics(query="treasury yield curve")`（2026-10-01 实测返回干净的 1 行；旧写法 `"US 10 year treasury yield curve"` 会把 curve 误抽成 CRV 并返回多行重复，若仍用旧写法须按 `_resolved_from_keyword` 去重，细节见 `references/source-list.md` §MCP 坑位）。经济日历 `metrics(query="economic calendar", country="US", sort_by="hot", date_from=$DATE, date_to=$DATE+14天)`——**`country="US"` 必传**，不传返回韩国 / 印度等地事件；**`sort_by="hot"` 必传**，不带时按时间排、默认 10 行全是当天低重要度事件，下周的 CPI 根本排不进来（N-128，2026-10-09 复现）。事件名按 N-130 认（核心 CPI 环比叫 `Core Inflation Rate MoM`）。FRED 指标走 `metrics(keywords=["CPIAUCSL",…], categories=["macro"])`。
 - **商品一手价口径**：黄金 `GCUSD`、WTI `CLUSD`、布油 `BZUSD`、白银 `SIUSD` 均为期货价（返回行 `exchange:"COMMODITY"`），走 keywords 数组直接取，口径写"期货"。🔒 拿不到就按「价格数据铁律」标「未取到一手价」，**禁引用新闻里的涨跌幅当数据**。
 - **异动榜**：`metrics(query="most active stocks", asset_type="tradfi")`，🔴 **返回不含 `marketCap`，必须二次批量补市值再按 ≥$1B 过滤 + 按 name 剔 ETF/杠杆**（不做的话杠杆 ETF 会混进候选；正则见 §MCP 坑位）。`biggest gainers` / `biggest losers` 2026-10-01 实测数据已恢复正常（N-111，旧"禁用"撤销），但榜首仍多为仙股，同样要补市值过滤后才能用。
 - **tradfi 降级路径**：行情端点（quote / historical_chart / most_actives）同时 403 → 实时价改用 `mcp__tradingview__yahoo_price`（symbol 直传 `^GSPC ^IXIC ^VIX GC=F CL=F` 及个股；偶发 SSL 瞬断重试 1 次即恢复），简报实时数据区**必须标「替代源」**；异动榜无替代 → 留空标注。
@@ -210,20 +210,20 @@ Skill 侧只做内容级过滤，**不维护点名黑名单**。
 
 ### 周缓存（仅首扫）
 `$STATE_DIR/trend-scout-weekly-cache-$WEEK.json`（`$WEEK` = `$(date +%G-W%V)`，如 `2026-W31`；**和 §0 时钟、§首扫三查用的是同一个拼法**），**必须在 `$STATE_DIR` 不能在 `/tmp`**（`/tmp` 重启即清，周内合同活不过重启）。内容 = 议员 / 内部人快照。
-**不要调 earnings / econ calendar 端点**——连续多周返回垃圾（外币小票、关键词被误解析成 ticker）；改用 `$STATE_DIR/trend-scout-anchors.json` **事件锚点登记表**：已核实的 forward 事件（财报日 / 转换窗口 / 发布会）一次登记、每日首扫直接读、过期自动忽略。CPI / 非农逐月官方核实后写入，**禁按惯例直接发推**（曾因日期 churn 3 天翻车）。
+**不要调 earnings calendar 端点**——连续多周返回垃圾（外币小票、关键词被误解析成 ticker）；经济日历按 §2.1 的写法（带 `sort_by="hot"`）可用，只用来核宏观事件日期、核完写进下面的锚点表。改用 `$STATE_DIR/trend-scout-anchors.json` **事件锚点登记表**：已核实的 forward 事件（财报日 / 转换窗口 / 发布会）一次登记、每日首扫直接读、过期自动忽略。CPI / 非农逐月官方核实后写入，**禁按惯例直接发推**（曾因日期 churn 3 天翻车）。
 
 ---
 
 ## 5. 打分与候选池
 
-**5.0 age gate（落盘前硬闸，最先执行）**：每条算 `age = (scan_ts_ms − first_seen_ts_ms)/3600000`，**>48h 直接踢进 `removed_stale_violation` 不进池**。⚠️ firehose `time_range=1d` 的 trending feed 按**热度而非时间**返回，常混多日陈货，肉眼核会漏 → **必须机器核**。剔除后若 <floor，补**真新鲜**信号，**禁回填陈货**。
+**5.0 age gate（落盘前硬闸，最先执行）**：每条算 `age = (scan_ts_ms − first_seen_ts_ms)/3600000`，**>48h 直接踢进 `removed_stale_violation` 不进池**。⚠️ firehose `time_range=1d` 的 trending feed 按**热度而非时间**返回，常混多日陈货，肉眼核会漏 → **必须机器核**。⚠️ firehose 趋势榜条目的 `published_ts` 是**话题刷新时间**不是事件时间（N-146）——不能直接当 `first_seen_ts_ms`：用 `news(query=<事件关键词>, sort_by="relevance")` 取**报道同一事件的**最早一篇的 `published_ts`（实测 Orca 合并：趋势榜给 10h 前，首篇报道在 29.5h 前）。🔴 **不是返回里最早的一篇**：relevance 会带回同名项目的旧稿（10-09 实测 Starknet 转 L1：首报 15h 前，但同批返回里有 5 个月前的版本升级稿，加 `time_range="3d"` 仍混进 55h 前的运维公告）——照"最早一篇"取会把当天新事件误踢成陈货；逐条核标题 / 正文是同一事件再取最早。剔除后若 <floor，补**真新鲜**信号，**禁回填陈货**。
 
 🔴 **floor 与「🔗聚合事件」方向相反，必须给高集中度日一个可区分状态**（实测暴露）：
 big-news 日（Fed / 财报季 / 崩盘）list 出 18 条，按 §5.4 `🔗聚合事件`（同实体 ≥2 条合并）合并后可能只剩 8 个**独立事件** < floor 12。
 **这不是采集不足，恰恰是信息量最大**——要凑满 12 就得不合并、留一堆同一事件的碎片，那才是真降质。
 判别与动作：
 - 若 `原始候选数 ≥ floor` 且 `合并压缩比高`（原始 / 独立事件 ≥1.5）且**每个 `🔗聚合事件` 标签都成立** →
-  记 **`concentrated_day`**：候选数按独立事件算、**不判 FAIL、正常下传**，但简报顶部标
+  记 **`concentrated_day`**（写进 candidates json **顶层** `"concentrated_day": true`，与 `scan_ts_ms` 同级——topic-engine §2 与 twitter-ops §3 lint 都只读这个字段，只写在简报里等于没记）：候选数按独立事件算、**不判 FAIL、正常下传**，但简报顶部标
   「⚠️ 高集中度日：N 条原始合并为 M 个独立事件，未强凑 floor」。
 - 若原始候选就 < floor（真采集不足：源少 / 窗口空）→ 照常 FAIL、要求补采。
 **区别在于「合并前够不够」**：合并前够 = 集中不是缺，合并前不够 = 真缺。

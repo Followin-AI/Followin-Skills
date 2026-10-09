@@ -93,7 +93,7 @@ API 拿不到折叠区，精确 spam 比例测不出来。可用的间接证据�
 
 同样的 `user_tweets` + 分页，只取窗口内**非 reply 且非转推**（转推判据见 §1：首选 `retweeted_tweet` 非空，回退 `text` 前缀）的原创推，
 算日均发推数 / 中位 views / max views。**对标账号这一步比自家更要紧**——搬运型账号的首页可能大半是转推，
-不剔就等于拿别人的数据当同行基线。**走 Agent 子进程 + jq 汇总**，原始 payload 别进主上下文。高频号（单日 ≥10 推）翻页够不到窗口起点时改用 `twitter(action="search", query="from:账号", time_range=...)`。
+不剔就等于拿别人的数据当同行基线。**走 Agent 子进程 + jq 汇总**，原始 payload 别进主上下文。高频号（单日 ≥10 推）翻页够不到窗口起点时改用 `twitter(action="search", query="from:账号", time_range=...)`，返回后**按 `createdAt` 客户端再滤一遍窗口**（`time_range` 不是严格窗口，N-89）。
 
 ---
 

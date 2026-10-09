@@ -31,9 +31,9 @@ description: "Twitter 互动运营 — Outbound 抢热评换曝光 + Inbound 评
 
 | 用途 | 调用写法 |
 |---|---|
-| 某账号最新推文 | `twitter(action="user_tweets", user_name="X", include_replies=false)` |
+| 某账号最新推文 | `twitter(action="user_tweets", user_name="X", include_replies=false)`。🔴 **含转推**（`include_replies=false` 只滤回复）：转推的 `createdAt` 是转发时刻、互动数却是原推的——实测自转推把 14h 前的旧帖伪装成 2.2h 的新帖、互动 102 照样过闸。筛选前剔 `retweeted_tweet` 非空；要评就去原推，窗口按 `retweeted_tweet.createdAt` 算 |
 | 话题下高互动推文 | `twitter(action="search", query="关键词", query_type="Top")` |
-| 按窗口精确搜 | `twitter(action="search", query="from:X", time_range="...")`（高频号翻页翻不到窗口起点时用）|
+| 按作者搜 | `twitter(action="search", query="from:X")`（高频号翻页翻不到窗口起点时用）。⚠️ `time_range` 被静默无视（10-09 实测传 `7d` 返回 16 天前的帖），窗口按 `createdAt` 自己裁；结果不含转推、含回复 |
 | 拉自己推文的评论 | `twitter(action="tweet_replies", tweet_id="...")`；`tweet_replies_v2` 是另一口径备选。🔴 **返回里会混入根推自身**（同 id、`isReply=false`）——按 `isReply` 或 id 剔掉，否则把原推算进评论、虚增计数 |
 | 被 @ / 被提及 | `twitter(action="user_mentions", user_name="你的用户名")` |
 | 评论者/KOL 影响力 | `twitter(action="user_info", user_name="X")`；批量用 `batch_user_info`，参数是 **`user_ids`（逗号分隔的数字 ID，不是用户名）** |
@@ -51,8 +51,8 @@ description: "Twitter 互动运营 — Outbound 抢热评换曝光 + Inbound 评
 
 | 条件 | 为什么 |
 |---|---|
-| 发布 <2h | >4h 基本抢不到前排 |
-| 已有 ≥50 互动 | 说明在起势，值得押 |
+| 发布 <4h（<2h 优先，分档见 §1.1）| >4h 基本抢不到前排 |
+| 已有 ≥50 互动（❤️+🔁+💬+引用 合计）| 说明在起势，值得押 |
 | 评论数 <100 | 评论区没饱和，你的评论还能被看见 |
 | 作者粉丝 >10K | 曝光基数够 |
 | 话题与你账号定位相关 | 不蹭无关热点 |
@@ -117,6 +117,8 @@ description: "Twitter 互动运营 — Outbound 抢热评换曝光 + Inbound 评
 ---
 
 ## 2. Inbound（守自己评论区）
+
+🔴 **先验 `ACCOUNT` 活着**：`user_info` + `user_tweets` 交叉查（N-90）。`user_info` 返回 not found，或 `user_tweets` 返回空数组（`code:0` 照样报 success）= **账号锚定失效，停下报错**——不许往下拉评论再得出"今天评论区没事"（实测失效账号的 `user_mentions` 照样返回一条 2022 年的旧提及，看着像有数据）。
 
 ### 2.1 分级
 
