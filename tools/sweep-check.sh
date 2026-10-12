@@ -22,7 +22,8 @@
 #   (e) 经济日历 metrics(…economic calendar…) 没带 sort_by="hot"
 #       → 按时间排，国债拍卖、官员讲话把 50 行占满，CPI / 非农被挤出去（N-128）。
 #   (f) 财报日历 metrics(…earnings calendar…) 传了 country=
-#       → 按注册地过滤，漏掉 ACN 这类外国注册的美股（N-133）。不传 country，客户端过滤代码。
+#       → 先截 500 个候选再按注册地过滤，区间前几天整天丢失，还漏 ACN 这类外国注册的美股（N-114 / N-133）。
+#         不传 country，客户端过滤代码；重点标的用 next_earnings_estimate.date 核对。
 #   (g) news 搜索（query 非空）带 asset_type="tradfi"
 #       → 召回下降且挡不住加密噪音（N-145）。只在趋势模式（query=""）传。
 # (e)(f)(g) 只看同一行里写全的调用式；跨行拆开写的调用拦不到。
@@ -63,7 +64,7 @@ if [ -n "$HITS" ]; then
   echo "🛑 sweep 门禁：新增内容里有会静默取错数据的调用写法（N-106 / N-69 / N-113 / N-109 / N-128 / N-133 / N-145）：" >&2
   printf "%b\n" "$HITS" >&2
   echo "" >&2
-  echo "把标的放进 keywords=[...]，query 只留中文意图词；signal 显式传 categories；beat_miss / latest_quarter 改用 fiscal_quarters[0]；经济日历加 sort_by=\"hot\"；财报日历去掉 country；news 搜索去掉 asset_type=\"tradfi\"；确属反例 / 实测记录请在同行加 ❌ / 实测 / 已失效 等标记。误报可 git commit --no-verify。" >&2
+  echo "把标的放进 keywords=[...]，query 只留中文意图词；signal 显式传 categories；beat_miss / latest_quarter 改用 fiscal_quarters[0]；经济日历加 sort_by=\"hot\"；财报日历去掉 country（重点标的用 next_earnings_estimate 核对）；news 搜索去掉 asset_type=\"tradfi\"；确属反例 / 实测记录请在同行加 ❌ / 实测 / 已失效 等标记。误报可 git commit --no-verify。" >&2
   exit 1
 fi
 exit 0

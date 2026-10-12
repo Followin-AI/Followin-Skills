@@ -23,7 +23,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 | **[`Feed Manager/`](./Feed%20Manager/)** | 1 skill | **Reads the stock accounts you follow, so you stop forgetting what they said.** Every day their tweets become a brief, then get filed into a running note per ticker and per sector — "who was bullish at $85 three weeks ago" takes five seconds. Trades you report get logged with a *why* and dated review prompts. Three checks catch silent gaps: an account never pulled, a pull that didn't reach far enough back, something pulled but never written down. **No number goes in without a source** (incl. a [folder README](./Feed%20Manager/)) |
 | **[`Research Reader/`](./Research%20Reader/)** | 5 skills | Which ticker to read, then reading sell-side research on it — can you trust the call, how far, what date to watch next, who else gets pulled in (incl. a [folder README](./Research%20Reader/) and [sample outputs](./docs/研报投研台样张.md)) |
 | **[`Twitter Workflow/`](./Twitter%20Workflow/)** | 7 skills | Daily Twitter ops for a crypto/macro/US-stock content account — scan → topic → draft → engage → review, MCP-driven, human confirms every publish (incl. a [folder README](./Twitter%20Workflow/)) |
-| **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP call red-lines, agent prompts, post style |
+| **[`references/`](./references/)** | 4 files | Shared single-source-of-truth: official routing primer, MCP usage rules & known issues, agent prompts, post style |
 
 Everything is plain Markdown. There is no build step and no runtime dependency beyond the MCP server.
 
@@ -97,7 +97,7 @@ Skills are written in Claude Code's slash-command format (YAML frontmatter + Mar
 - **Structured broker research (研报) goes through `metrics`, not `news`.** `news(sources=["research"])` is for raw research-source *article* discovery; report cards, target prices, and thesis/catalyst fields come from `metrics` with an explicit research intent in the query (e.g. `metrics(keywords=["<T>"], query="research reports")` — red line 12).
 - **`signal()` needs explicit `categories`.** A bare ticker no longer fans out (it returns `no_match`); list the categories you want — `categories=["kol_call","insider_trading","institutional"]` in one call still costs a single quota unit (caveats N-113).
 
-Full call red-lines and the known-issues register live in [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md).
+Current usage rules (grouped by tool) and the known-issues register live in [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md).
 
 ---
 
@@ -323,7 +323,7 @@ Each skill's frontmatter carries explicit `trigger` and `not_trigger` lists — 
 
 ## Maintenance discipline
 
-`references/followin-mcp-caveats.md` is the **single source of truth** for MCP call red-lines and known upstream issues. Skills mirror the relevant caveats inline; **on conflict, the reference file wins.**
+`references/followin-mcp-caveats.md` is the **single source of truth** for current Followin MCP usage rules and known upstream issues. Skills mirror the relevant caveats inline; **on conflict, the reference file wins.**
 
 When MCP behavior changes: edit the reference file first, then sweep the inline mirrors in the affected skills. The register also records the rollback action for each issue, so workarounds can be removed once upstream ships a fix.
 

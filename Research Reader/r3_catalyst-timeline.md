@@ -15,7 +15,7 @@ args: ticker(必填，可多个，每个 1 额度), horizon(可选，默认 180d
 >
 > ⚠️ **"20 条"不是全量**：2026-10-05 实测每篇报告的 `detail.catalysts` **只返回前 2 条**（10 篇 × 2 = 20），真实条数在 `detail_sections.catalysts`（实测单篇 3–16 条）。本文所有基准统计都是这个截断样本上的。
 >
-> 📌 **这支 Skill 补的是一个真实的洞**：上游财报日历（`metrics(query="earnings calendar", asset_type="tradfi", date_from, date_to)`，不传 `country`——它按注册地过滤会漏掉 ACN 这类外国注册的美股，N-133）2026-10-01 实测已恢复返回美股代码（N-114，N-22 销案），但它**只有财报日**；不传 country 时混有 `.KS/.T/.L` 外国代码、需客户端只留 `^[A-Z]{1,5}$`，覆盖仍不保证全——产品量产、竞品发布会、融资付款这类节点它一个都没有。
+> 📌 **这支 Skill 补的是一个真实的洞**：上游财报日历（`metrics(query="earnings calendar", asset_type="tradfi", date_from, date_to)`，不传 `country`——带了会让区间前几天整天丢失，还会漏掉 ACN 这类外国注册的美股，N-114 / N-133）能返回美股代码，但它**只有财报日**，而且覆盖不全：不传 country 时混有 `.KS/.T/.L` 外国代码、需客户端只留 `^[A-Z]{1,5}$`，一页只盖住窗口最早的一两天（2026-10-12 复核：两种写法都漏掉了 10-13 的 JPM、GS）——产品量产、竞品发布会、融资付款这类节点它一个都没有。
 > 研报催化剂是另一条独立的前瞻腿，且覆盖**产品周期 / 竞品发布会 / 融资节点 / 客户导入**这些日历根本没有的类别。
 
 ## 参数
@@ -125,7 +125,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 
 **`time_std.type` 实测 22 种取值**（不是初版写的 12 种），且**同义异写严重**：
 `relative`(9) `year`(8) `quarter`(6) `month`(4) `datetime`(4) `date`(3) `event_relative`(3) `null`(2) `range`(2) `relative_period`(2) `rolling_window`(2) `deadline`(2) `recurring`(2) `relative_event`(2) `fiscal_quarter`(2) `half-year`(1) `half_year_range`(1) `relative_year`(1) `date_range`(1) `quarter_range`(1) `half_year`(1) `period`(1)
-**2026-10-05 起又见到 12 种**：`relative_window` `quarter_end` `fiscal_year`（MU/AVGO 实跑）· `relative_range` `half` `month_range` `reporting_period`（r4 查 TSM 实跑）· `fiscal_period`（NVDA 首页）· `approximate_date` `deadline_month` `earnings_event` `conditional`（NVDA 30d / MU 第 2 页）· 2026-10-08 r4 查 AVGO 又见 `year_range` `approximate`；10-08 r4 查 NVDA 又见 `calendar_year` `open_ended` `after`，anchor 出现 `2026-12/2027-early`、`2026-Q4/2027` 这类写法；`sort` 为 `9999` 的条目 `time_std` 里没有 `type` 键。取值集合**仍在增长**，见下方自检②。
+**2026-10-05 起又见到 12 种**：`relative_window` `quarter_end` `fiscal_year`（MU/AVGO 实跑）· `relative_range` `half` `month_range` `reporting_period`（r4 查 TSM 实跑）· `fiscal_period`（NVDA 首页）· `approximate_date` `deadline_month` `earnings_event` `conditional`（NVDA 30d / MU 第 2 页）· 2026-10-08 r4 查 AVGO 又见 `year_range` `approximate`；10-08 r4 查 NVDA 又见 `calendar_year` `open_ended` `after`，anchor 出现 `2026-12/2027-early`、`2026-Q4/2027` 这类写法；`sort` 为 `9999` 的条目 `time_std` 里没有 `type` 键；2026-10-12 caveats 复核又见 `date_window` `year_end` `by_date` `week` `as_of`（N-41 维护全量已见值清单）。取值集合**仍在增长**，见下方自检②。
 
 **⚠️ 四组同义异写必须先合并**：`half-year` / `half_year` / `half_year_range` / `half` ｜ `event_relative` / `relative_event` ｜ `quarter` / `quarter_range`（`fiscal_quarter` / `fiscal_period` 单走财季，不并进自然季）｜ `deadline` / `deadline_month`
 
@@ -163,6 +163,11 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
    | `date_range` / `range` / `year_range` | **区间**（取 `anchor` 的 `A/B` 或 `time` 原文）| 2026-10-05 实测 JPM "2026-2030" → `sort="2026"`，字面渲染成"2026 年"且落进窗口内；GS "late 2026" → `sort="2026-10"`，渲染成"10 月" |
    | `calendar_year` | 年 | 2026-10-08 r4 查 NVDA 实测，同 `year` |
    | `open_ended` / `after` | **模糊**（`after` 有 anchor 日期时写"<日期> 之后"，按区间起点处理）| 2026-10-08 r4 查 NVDA 实测；没有终点，不进日级、不判已过期 |
+   | `year_end` / `by_date` / `date_window` | 月（标"**截止**"，同 `deadline`）| 2026-10-12 实测："before mid-October" → `sort="2026-10"`；`year_end` / `by_date` 的 sort 是 12-31，是截止点不是事件日 |
+   | `week` | **区间**（该周）| 2026-10-12 实测 |
+   | `period` | **区间**（同 `date_range`）| 07-29 已见，原表漏收（初步处置，遇到实例再核对）|
+   | `recurring` | **模糊**（周期性事件，不进日级、不判已过期）| 07-29 已见，原表漏收（初步处置，遇到实例再核对）|
+   | `as_of` | 同 `9999` 处理（规则 1）| 2026-10-12 实测：sort 就是报告日，表示「截至报告时」，不是事件 |
    | `relative*` 族 | 区间 / **模糊** | 见规则 1b |
    | `event_relative` / `relative_event` | 日（anchor 带日期时）／ 同 1b | 见规则 1c |
    | `quarter_end` | 日（标"**季末**"，不降级）| 2026-10-05 实测 Bernstein "from the end of 3Q26" → `sort="2026-09-30"`，季末日本身就是事件日 |

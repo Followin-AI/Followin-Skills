@@ -160,13 +160,11 @@ metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价 历史走
 
 **闸 2 · null 伪装成极端真值（N-33）**：`actual_revenue` 为 null 时服务端**把 null 当 0 做减法**，输出 `revenue_surprise_pct: -100`。**见到 −100 一律先当缺失查证**（真实世界营收归零几乎不可能）。
 
-**闸 3 · 同季确认** ⚠️ **判据已于 2026-07-29 实测修正，别按直觉比日期**：
+**闸 3 · 同季确认** ⚠️ **判据已于 2026-10-12 改写（旧 gap 判据作废，见 caveats N-33②）**：
 
-> `earnings_surprise.report_date` 是**财报公布日**，`financial_statement.period_end` 是**财季结束日**——**这两个日期天然就不相等**。直接比日期会把每一个正常样本都判成"不同季"，从而**作废掉本该生效的闸 1**。
->
-> **正确判据 = 复用 N-34 的 gap**：`gap = earnings_surprise.report_date − financial_statement.period_end`，**gap < 90 天 = 同季**（90 天 = 一个完整财季，N-34 已用 42 样本验过这个分界）。
-> 实测 INTC：公布日 2026-07-23、财季结束 2026-06-27 → **gap = 26 天 < 90 → 同季**，闸 1 生效。若按朴素比日期则判为不同季，闸 1 被误作废。
-> gap ≥ 90 天才标"口径无法核对"并作废闸 1——跨季比对会让一盈一亏的相邻两季产生假阳性。
+> 服务端现在按 `fiscal_quarters[].fiscal_period` 把超预期数据和三表配成一组。**同一个元素里、且 `fiscal_period` 不为 null，`earnings_surprise` 和 `financial_statement` 就是同一季**，闸 1 生效。实测 INTC：`fiscal_period:"2026-Q2"` 内公布日 2026-07-23、财季结束 2026-06-27。
+> 配对失败时会拆成两个元素：一个只有 `financial_statement`，另一个只有 `earnings_surprise` 且 `fiscal_period:null`（2026-10-12 实测 JPM、HUBG，N-149②）。这种情况标"口径无法核对"并作废闸 1，不要跨元素拼——跨季比对会让一盈一亏的相邻两季产生假阳性。
+> 历史：07-29 到 10-01 用 `gap = 公布日 − 季末日 < 90 天` 判同季（N-34 的 42 样本验过）；10-01 结构换代后两个日期已在同一元素里，不再需要算 gap。
 
 **闸 1 · GAAP 口径错位（N-29）**：`earnings_surprise.actual_eps` 与 `financial_statement.epsDiluted`（GAAP 稀释 EPS）**差的绝对值 >0.01 即判定口径错位**（容差只为吸收舍入；2026-10-05 复测：NVDA 2.22 vs 2.46，MU 33.42 vs 32.87）——服务端始终不标 basis。`epsDiluted` 为 null 时退回 `eps` 比，并标「按基本 EPS 比对」。
 **速判**：`actual_eps > financial_statement.eps`（基本）时**必为非 GAAP**——稀释 EPS 恒 ≤ 基本 EPS（实测 MU 33.42 > 33.36，与新闻里公司指引「非 GAAP EPS 31±1」吻合）。
