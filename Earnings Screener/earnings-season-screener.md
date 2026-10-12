@@ -55,7 +55,7 @@ args: days, top, watchlist
 
 - `metrics` 的入参分工：**`keywords` 数组放 ticker，`query` 放意图词**。每次最多 5 个 keywords。
 - 所有 `metrics` 调用带 `asset_type="tradfi"`。
-- **财报日历不要传 `country="US"`**：它按公司**注册地**过滤，美国上市的外国注册公司会被漏掉（实测 10-01 发财报的 ACN 是爱尔兰注册，带 country 时不在名单里；同日的美国公司 HUBG 也因候选上限被漏）。不传 country 时结果里会混入 `.KS` / `.T` / `.L` 等外国代码和重复股类，客户端过滤即可。
+- **财报日历不要传 `country="US"`**：带 country 时，服务端先从全球候选里截 500 个、再按注册地过滤，**区间前面几天会整天丢失**（2026-10-12 实测查 10-13~10-16 只回 10-15、10-16 两天，10-13 发财报的 JPM、WFC、GS、C、JNJ 全缺），还会漏掉 ACN 这类外国注册的美股（N-114 / N-133）。不传 country 时结果里会混入 `.KS` / `.T` / `.L` 等外国代码和重复股类，客户端过滤即可，但也只盖住窗口最早的一两天（见下一条）。**两种写法都拿不全，重点标的一律用 `next_earnings_estimate.date` 核对。**
 - **财报日历的排序决定了单页能看到什么**（2026-10-08 实测）：传 `date_from` / `date_to` 时按日期**从早到晚**，传 `time_range` 时**从晚到早**；同一天内按代码字母序，`0`~`9` 开头的日、韩、港代码排最前，之后是 `.V` / `.L` / `.T` 和 F 结尾的 OTC 外国股。一个工作日有上百行，`limit=50` 的一页只盖住窗口最早的 1~2 天（淡季的周四、周五），`time_range` 写法则一页停在当天的 "AE…"。`keywords` 与 `sort_by` 都改不了排序（N-133 / N-148）。
 - 历史日线里每行的 `change` / `changePercent` 是**当日收盘减开盘**，不是对比前一天收盘，算涨跌一律用相邻两天的 `close`。
 - **每次调用后读 `meta.warnings` 和 `status`**。`keyword_count_over_max` = 有 ticker 被挤出本批；`status:"partial"` = 结果不完整。`default_fanout_fallback` 只是提示"没指定主题，返回核心集合"，数据是齐的，不要重试。

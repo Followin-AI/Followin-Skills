@@ -23,7 +23,7 @@
 | **[`Research Reader/`](./Research%20Reader/)** | 5 个 Skill | 研报投研台——r0 覆盖雷达（不点名标的的发现腿：这周卖方在写谁）+ r1-r4 单标的深读：能不能信 / 信到什么程度 / 接下来盯哪天 / 还有谁被卷进来（含[目录 README](./Research%20Reader/) 与[产出样张](./docs/研报投研台样张.md)）|
 | **[`Trader Diligence/`](./Trader%20Diligence/)** | 1 个 Skill | 实盘尽调台——谁在用真钱做这只票、他值不值得跟。六道闸拦住最会骗人的字段（幽灵仓/马甲/净方向/胜率/盈亏比/无价敞口），不算收益（含[目录 README](./Trader%20Diligence/)）|
 | **[`Twitter Workflow/`](./Twitter%20Workflow/)** | 7 个 Skill | 推特日运营——加密/宏观/美股内容账号的「扫热点→选题→写稿→互动→复盘」流水线，MCP 实时驱动，发布永远人工确认（含[目录 README](./Twitter%20Workflow/)）|
-| **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 调用红线、Agent 人设、贴文风格 |
+| **[`references/`](./references/)** | 4 个文件 | 共享单一事实源：官方路由 primer、MCP 现行用法与已知问题、Agent 人设、贴文风格 |
 
 全部为纯 Markdown，无构建步骤，除 MCP 服务器外无任何运行时依赖。
 
@@ -97,7 +97,7 @@ Skill 采用 Claude Code 的 slash-command 格式（YAML frontmatter + Markdown 
 - **结构化券商研报走 `metrics`，不走 `news`**。`news(sources=["research"])` 是研报来源的**原始文章**检索；报告卡、目标价、thesis/catalyst 这些结构化字段来自 `metrics` 且 query 必须带研报意图词（如 `metrics(keywords=["<T>"], query="research reports")`——红线 12）。
 - **`signal()` 必须显式传 `categories`**。只传 ticker 不再自动展开（返回 `no_match`）；把要的类别列出来 —— `categories=["kol_call","insider_trading","institutional"]` 一次调用**仍只计 1 次额度**（caveats N-113）。
 
-完整调用红线与已知问题登记见 [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md)。
+按工具分组的现行用法与已知问题登记见 [`references/followin-mcp-caveats.md`](./references/followin-mcp-caveats.md)。
 
 ---
 
@@ -314,7 +314,7 @@ cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 
 ## 维护纪律
 
-`references/followin-mcp-caveats.md` 是 MCP 调用红线与已知上游问题的**单一事实源**。各 Skill 内联的 caveat 是它的本地镜像，**冲突时以该文件为准**。
+`references/followin-mcp-caveats.md` 是 Followin MCP 现行用法与已知上游问题的**单一事实源**。各 Skill 内联的 caveat 是它的本地镜像，**冲突时以该文件为准**。
 
 MCP 行为变更时：**先改这个文件，再 sweep 各 Skill 的内联镜像**。登记表同时记录了每个问题的"Dev 修复后回滚动作"，上游修好后可以据此撤掉 workaround。
 

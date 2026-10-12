@@ -29,9 +29,8 @@ args: ticker(可选·模式①) / trader(可选·模式②，服务端不支持�
 > **隔一段时间再用，先花两分钟自查这 7 条**：
 > ① **逐组全扫**（不是只看最大那组）：比较每组 `long.count`:`short.count` 的方向与 `net_direction` → **任一组不一致 = N-59j 仍在**。
 >    ⚠️ 2026-08-03 实测：BTC 组 6:1 且 `net_direction=long`（**一致**），只看它会误判已修；真正复现的是 CXMT 组（3:1 偏多 → 报 `short`）
-> ② 找一组 `positions_returned > active_trader_count` 的（有人双向持仓），看 `agreement.dominant_direction` → 为 `"unknown"` = N-59k 仍在
->    ➕ 再找一组 `long.count == short.count` **且无人双向**的 → `agreement` 若也报 `unknown` = N-59r 的平局成因仍在
-> ③ 手算某组 `long.notional` 之和 vs `gross_notional_value_usd` → 对不上且差额等于某行 `entry_price` = N-59l 仍在
+> ② 找一组 `long.count == short.count` **且无人双向**的 → `agreement` 报 `unknown` = N-59r 的平局规则仍在（N-59k 已于 2026-10-12 并入 N-59r：`unknown` 的成因是可计票的人打平，双向持仓者只是弃权，不会单独让它退化）
+> ③ 手算某组 `long.notional` 之和 vs `gross_notional_value_usd` → 对不上且差额等于某行 `entry_price` = N-59l 回归（2026-10-12 确认已修并归档，工具描述也写明 "entry_price is never used as notional"；这条只防回归）
 > ④ 全榜找 `event_time` 最旧的一仓，看 `action` 有无 `close`、`is_active` 是否仍为 `true` → 仍 true 且无 close = **N-59m 幽灵仓风险仍在**（本批 33% 的仓位 ≥3 天未动）
 > ⑤ 比对同一次返回里各人的 `summary_refreshed_at` → 出现跨天差异 = N-59p 仍在（**别用 `as_of` 当时间锚**）
 > ⑥ 找一组 `positions_without_notional == positions_returned` 的，看 `net_direction` → 报 `"balanced"` = N-59q 仍在
@@ -216,7 +215,9 @@ agreement: {dominant_direction: "long", dominant_trader_count: 7, ratio: 0.875} 
 **7:1 的人数分歧，被一个人的仓位抹成 50:50 并翻成 short。**
 ⚠️ **这推翻了 N-59a 原来的 workaround**——它说"null 率为 0 时 notional 派生字段才可引用"，**实测 null 率 0 照样反向**。正确纪律是:**notional 方向任何时候都不单独用**。
 
-**形态 2 · 双向持仓打崩 agreement（N-59k，新）**
+**形态 2 · 双向持仓打崩 agreement（N-59k，2026-10-12 已并入 N-59r）**
+
+> ⚠️ 下面是 v1.3 时的原始判断，已被紧随其后的 N-59r 订正：`unknown` 的真实成因是可计票的人打平，双向持仓者只是弃权。保留原文作对照。
 
 实测 ETH 组：`active_trader_count: 3` 但 `positions_returned: 4`——**T1同时持有 ETH 多头 155 万与空头 95.7 万**（对冲腿）。结果：
 
@@ -492,8 +493,8 @@ long: {count: 2} / short: {count: 1}                      ← 三条腿全是 20
 | 边界 | 性质 | 处置 |
 |---|---|---|
 | 名义方向可与人数方向相反 | 上游（N-59j，null 率 0 也会）| 两个口径都给，附单人占比 |
-| `agreement` 退化为 `unknown` | 上游（N-59k/**N-59r**）| 两个成因：有人双向（`positions_returned > active_trader_count`）**或单向交易员平局**。一律读作「无多数方向」，按人数自判 |
-| **rollup 把 `entry_price` 当名义加总** | **上游疑似 bug（N-59l）** | **手算 `long.notional` 之和核对 `gross`**；对不上时以逐仓明细为准。2026-10-08 实测触发条件出现（两条 null 名义带 `entry_price`）而 rollup 算术干净——**可能已修，核对成本极低，保留** |
+| `agreement` 退化为 `unknown` | 上游（**N-59r**，N-59k 已并入）| 成因是可计票的人多空打平；双向持仓者弃权、不计票。一律读作「无多数方向」，按人数自判 |
+| rollup 把 `entry_price` 当名义加总 | 上游（N-59l，**2026-10-12 确认已修、已归档**）| 不再需要逐组核对；自查 ③ 保留作防回归 |
 | 不能按交易员姓名检索 | 上游（N-59e）| 拉全榜本地过滤；措辞用"当前榜上没有"。`query` 与 `keywords` 两条路都零过滤（2026-10-08）|
 | **「全榜」只有 5 组** | 数据形态（2026-10-08）| 组的入选随 `asset_type` / `sort_by` 变；按人聚合的敞口一律标「榜内可见下界」；模式② 不补拉别的榜；summary 提到的榜外仓只列为「摘要提及、未核实」线索 |
 | `time_range` 能挡掉陈旧仓 | 服务端行为（2026-10-08）| **不用**：组汇总按过滤后的行重算，剔了谁看不见；单标的 `limit=50` 时连 `partial` 都不报（正式端 2026-10-08 复核）；闸① 客户端判 |

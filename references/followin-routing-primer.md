@@ -46,7 +46,7 @@
 | 研报 | 尽调编排里写 `news(["research"])` | `news` 的 BOUNDARIES 明确：`sources=["research"]` 只适合**研报来源的原始文章检索**；**结构化券商研报**（报告卡 / 目标价 / rating_action / thesis / catalysts / caveats）属 `metrics(categories=["fundamentals"])` | **两者都用**：`news(sources=["research"])` 取原始文章（quota=0），`metrics` 取结构化报告字段供输出模板使用（红线 12、N-19、N-21）|
 | signal 分类 | 编排里按类显式传 `categories` | 2026-10-01 实测：**省略 `categories` 不再 fanout**——只传 ticker 返回空（`no_match`），`query="consensus"` 只返 kol_call 一类；显式列出多类一次调用**仍只计 1 额度**（N-113，取代 2026-07-24 的 N-4）| **与官方一致：一律显式传 `categories`**，需要多类就在数组里列全；多类调用不带 `time_range`（13F 带窗口被拒，喊单只覆盖 24h）|
 | news 的 asset_type | 约定层统一写 tradfi/crypto | 2026-10-01 实测：`news()` 搜索模式传 `asset_type="tradfi"` / `"crypto"` 正常返回，`sources` 数组与 `sort_by` 也可用（N-112）；7 月"传了返 0 results"的上游 bug 不再复现 | **与官方一致：news 也显式传 asset_type**（旧红线 1 的 news 例外已撤销）|
-| 入参形态 | 编排里写 `metrics(["market"])` 这类数组 | 2026-10-01 实测：`keywords` / `categories` / `sources` 数组全部可用；`*USD` 商品代码写进 `query` 串整批返空且不报错（N-105 / N-106）| **标的放 `keywords` 数组、意图词放 `query`**；query 串只作客户端不接受数组时的回退 |
+| 入参形态 | 编排里写 `metrics(["market"])` 这类数组 | 2026-10-01 实测：`keywords` / `categories` / `sources` 数组全部可用；`*USD` 商品代码写进 `query` 串会被静默丢掉、不报错，整批都是 `*USD` 时直接返空（N-105 / N-106）| **标的放 `keywords` 数组、意图词放 `query`**；query 串只作客户端不接受数组时的回退 |
 
-完整调用红线与已知问题登记见 [`followin-mcp-caveats.md`](./followin-mcp-caveats.md)——那份文件是本仓库
+按工具分组的现行用法与已知问题登记见 [`followin-mcp-caveats.md`](./followin-mcp-caveats.md)——那份文件是本仓库
 Skill 行为的单一事实源，本文件是它的上游参照。

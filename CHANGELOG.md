@@ -5,6 +5,13 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-10-12 — caveats 全量复核与重组
+
+- **复核**：生产端逐条实测 248 条：仍成立 117 / 部分变化 73 / 已修复 33 / 原结论有误 3；另补内部报告已确认、未收录的 36 条，订正 11 处与后续报告的矛盾。
+- **重组**：`references/followin-mcp-caveats.md` 改成三层——「现行用法」（按工具写现在怎么调、怎么读，取代 12 条调用红线）+「问题登记」（按主题分组，编号全部保留，约 20 组重复合并成「→ 见 N-yy」存根）+「归档」。新增附表 B（旧「红线 N」编号对照）和 N-190（subscription 未读数）。新号从 N-191 起。21.8 万 → 14.7 万字符。
+- **关键订正**：数组参数已正式支持，N-8 归档（Claude Code 会丢掉 `["null","array"]` 联合类型，照传数组）；原油 `CLUSD` / `BZUSD` 走数组可取；「全面分析」只返 5 块；财报日历带不带 `country` 都会漏大票（N-17 回归，主条改为 N-22）；衍生品四叶已上生产（N-104 归档）；`tg_category` 不做过滤闸；内部人申报行会来回变；trader_position 组汇总随 `limit` 翻向（N-171）。
+- **Skill 同步**：Earnings Screener / r3 / sweep-check 改财报日历依据；r1 闸 3 同季确认改看 `fiscal_period`；r3 `time_std` 降级表补 7 个取值；Base 01 补内部人数据会来回变；trend-scout 的 `tg_category` 只当参考；Trader Diligence 订正 N-59k / N-59l；README 与 routing primer 改称「现行用法」。
+
 ## 2026-10-09 — 盘后报价实测（17:13 ET）
 
 - **结论**：NVDA / MU / TSLA / SPY 带 `extendedHoursQuote`，`timestamp` 在 1 分钟内、价差 ≤0.05%；QQQ / DIA（盘前两只都有）、PTC / PCVX 与三大指数不带。盘后 `extendedHoursQuote.volume` 是含常规时段的全天累计，与盘前口径不同。
