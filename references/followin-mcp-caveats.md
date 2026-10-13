@@ -125,7 +125,7 @@
 - **搜索**：query 用英文、2~3 个核心名词，不写「影响 / 解读 / 分析」这类词。专有名词和多词短语用 `search_depth:"quick"`，默认 standard 会被语义相近的内容淹没（N-101、N-26）。
 - **`asset_type`**：搜索模式不传（传 tradfi 会改变召回结果）；趋势模式（空 query）可以传（N-145、N-1）。
 - 🔴 **查不到时不返回空，返回不相关的兜底内容**，`entity_filter_applied:true` 也一样。所有「报道数 ≤ N」的判断，都要逐条判断相关后再计数（N-35）。
-- **撞名**：`$BEN` 会匹配到 Ben Affleck 和 Franklin Resources；像普通词的代码要加上公司名（N-103）。
+- **撞名**：`$BEN` 会匹配到 Ben Affleck 和 Franklin Resources；像普通词的代码要加上公司名。英文术语和公司名相同时（oracle→ORCL），加 `asset_type` 也挡不住，改用中文术语（N-103）。
 - **条数**：`limit=N` 返回 N 篇文章加 N 条社交，含 Telegram 时最多 3N（N-25）。
 - **排序**：默认按时间，热门事件看不到首发报道；要首发用 `sort_by="relevance"` 或缩小窗口（N-167）。
 - **来源**：`sources=["media"]` 会混进研究类来源；`sources=["research"]` 是公开媒体和独立研究，不是券商研报（N-167、N-68）。
@@ -1138,9 +1138,10 @@ N-122 是 N-106 的范围扩大版（query 串里的 `*USD` 代码一律被丢�
 - **①** cashtag 撞人名和同名股票：10-12 `$BEN`（quick，`entity_filter_applied:true`）20 条里 0 条在讲 meme 币，有 Ben Affleck、Ben Shapiro、Ben-Gvir 等，还有 Franklin Resources（美股代码 BEN）的稿。链上 symbol 短而常见（BEN / CTO / MOO / PONS），撞名概率远高于股票代码。
 - **②** 多词短语里像代码的词被锁成实体：「Groq 3 LPX」召回 Louisiana-Pacific；「strategic bitcoin reserve bill」用 quick 时 bitcoin 被解析成 BTC，吞掉整个短语；「AI chip export controls」结果与 `query="AI"` 逐条相同；「SWIFT tokenized deposits pilot …」里 pilot 被锁成实体，召回的全是飞行员新闻；`ONE` 撞英文单词 one，`MSTR` 被展开成普通词 strategy。这些都显示 `entity_filter_applied:true`；结果行没有 `matched_by` 一类字段，看不出是怎么命中的（09-16 起，10-12 复现）。
 - **③** 用 SPAC 原名查新闻几乎全无关，用合并对象名才准（10-03，原第 444 行）。
-- **怎么读**：`entity_filter_applied:true` 不代表相关。含产品型号或多词话题的查询，逐条核正文是否含完整短语；公司名是常用词（Strategy、ONE）时用全称 + ticker 再逐条核；链上币逐条核是否在讲代币（含 CA / 链名 / meme 语境），不按 raw count 计热度。
+- **④** 英文领域术语撞公司名：「oracle manipulation liquidation exploit thin liquidity price feed attack」（本意是预言机）20 条全是 Oracle 公司（ORCL）的稿，`entity_filter_applied:true`；同一 query 加 `asset_type="crypto"` 结果不变（与 N-145「crypto 只是后置标签过滤」一致）；改写成「DeFi price oracle manipulation exploit lending protocol」仍混进 ORCL；去掉 oracle 改写成「price feed manipulation flash loan …」，loan 又召回房贷车贷。改用中文「预言机 喂价 操纵 清算 攻击」后 `entity_filter_applied:false`，加 `sort_by="relevance"`：3 天窗口第 1 条即命中预言机操纵事件，2 个月窗口 8 条里 7 条相关（10-13）。
+- **怎么读**：`entity_filter_applied:true` 不代表相关。英文领域术语和公司名相同时（oracle / pilot），`asset_type` 挡不住，改用中文术语查询。含产品型号或多词话题的查询，逐条核正文是否含完整短语；公司名是常用词（Strategy、ONE）时用全称 + ticker 再逐条核；链上币逐条核是否在讲代币（含 CA / 链名 / meme 语境），不按 raw count 计热度。
 - 历史：红线 5 原例「"CPI" 被 CPI Card 劫持」10-12 未复现（20 条都在讲通胀，`4983e44a…`），撞名现象本身仍在。
-- **依据**：09-07 `c02f3116…`；10-09 `81e49939…`；10-12 `d5ab528f…` / `8d09e9b2…` / `3c371907…`
+- **依据**：09-07 `c02f3116…`；10-09 `81e49939…`；10-12 `d5ab528f…` / `8d09e9b2…` / `3c371907…`；④ 10-13 `a60a85ba…` / `b45c17d6…`（+crypto）/ `a1366d9e…` / `7032cdf6…` / `b3f14001…`（中文 + relevance）
 
 ### N-146 news 趋势榜（空 query）：时间是刷新时间、没有信源、池子很小 〔C·已文档化〕
 - **①** `published_ts` 是话题刷新时间，不是事件时间：10-05 PTC、PCVX 两条相同到毫秒；10-09 Orca 显示 10 小时前，首报在 29.5 小时前；10-12 RSR 条目时间 05:00，首报「Upbit 将上线 RSR」早 8 小时（合并原 N-189⑤）。
