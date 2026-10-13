@@ -5,6 +5,12 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-10-13 — N-187 内部人申报行修复后复测
+
+- **结论**：服务端修复后，抽查 8 只票、20 多份申报逐份对照 SEC 原件，绝大多数逐行对上（MU CEO 8/21 27 行 / 40,000 股、7/24 两份都在；SNDK CEO 9/17 授予 + 15 行 / 33,841 股；NVDA、META Cox、ONDS、NBIS、AAPL 缺的行都回来了）。
+- **残留**：同一份申报里股数、价格相同的两行只剩一行（META Olivan 9/16、9/23 各少 82 股）；没有分页，大申报超过 `limit=50` 拿不全。
+- **caveats**：N-187 改为「10-13 基本修复」，现行用法补「最后一行仍在窗口内时合计写至少」；N-180②、N-184① 存根补 10-13 状态。以前修好过又退回，10-15 前后再复测，稳定到 10-20 再考虑归档；各 Skill 的持股差核对和「结论仅供参考」提示暂不撤。
+
 ## 2026-10-12 — caveats 全量复核与重组
 
 - **复核**：生产端逐条实测 248 条：仍成立 117 / 部分变化 73 / 已修复 33 / 原结论有误 3；另补内部报告已确认、未收录的 36 条，订正 11 处与后续报告的矛盾。
