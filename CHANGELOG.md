@@ -5,6 +5,13 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-10-15 — 接口问题登记表同步复测结论
+
+- **N-187**：补 10-13 修复后 10-13 / 10-14 / 10-15 三次复测无回退，以及四处残留（同价不同账户行被去重、4/A 与原申报并存、超 50 行拿不全、时间窗 `partial`）；MRVL 7/15 卖出日期待 Dev 核对；10-20 再复测后决定撤兜底。
+- **N-180**：① Dev 判定非问题，客户端照旧 ETF 不查内部人；③ 根因（正文截在约 280 字）10-15 已修，拆票效果待长帖样本验证。
+- **N-181 / N-183**：① Dev 改排序不改分层（见 N-142）；③ `by_name` 缺本标的行仍未修，新增伯恩斯坦 10-12 一例。
+- 「现行用法」与风险速览同步：研报两层混排要翻页分层、目标价动作看提及层。
+
 ## 2026-10-15 — r1 / r2 翻页上限与 c3 去重口径（用户拍板）
 
 - **r1 / r2**：研报每只票最多翻页由 5 页改为 10 页（额度 r1 3–12、r2 1–10）；满 10 页仍照写"只覆盖到 <日期>"。MU 实测 10 页覆盖 64 天，满 90 天约需 14 页。
