@@ -652,14 +652,15 @@ N-122 是 N-106 的范围扩大版（query 串里的 `*USD` 代码一律被丢�
 - 历史：07-29 原记「榜面 23~25 家，钻取去重只见 3 家」，是 10 篇死顶加去重叠出来的，08-12 可翻页后不再成立。
 - **依据**：07-29 `555d5409…` / `be2c7554…`；10-12 `a0eea254…` / `66ec98b3…` / `80362788…`
 
-### N-142 分页：subject 优先、各层按日期倒序；不传窗口时首页可能全是旧报告 〔C〕
-- **现状**（10-12 复测）：卡片流先排 subject、再排 mention，层内按 `report_date` 倒序（工具描述写了 subject 优先）。首页一出现 mention，subject 就已见尽。不传窗口时首页可能全是旧 subject：10-12 NVDA 首页 subject 10 / mention 0，最新 09-28（距今 14 天），同期 7d 榜 NVDA 有 30 篇提及、最新 10-09。
+### N-142 分页：10-15 起跨层按日期倒序（此前 subject 优先） 〔C〕
+- **现状**（10-15 复测，正式端与测试端一致）：卡片流**不再 subject 优先**，subject 与 mention 混排、统一按 `report_date` 倒序。AMD 30d 首页 10 张全是 mention（10-13→10-09），标的层到第 4 页才出现（花旗 09-28）；MU、NVDA 30d 首页同样 0 张 subject，而两只 30 天内都有标的层报告（`55ffc7ef…` / `bbd130d8…` / `81643993…`）。这是 Dev 对 N-181① 的处理：按新到旧读，最先碰到的目标价就是最新的；分层本身未改。**「首页一出现 mention 就说明 subject 已见尽」不再成立**——要数标的层报告必须按日期翻到窗口下限或 `has_more:false`。
+- **旧现状**（10-12 复测，已失效）：卡片流先排 subject、再排 mention，层内按 `report_date` 倒序（工具描述写了 subject 优先）。首页一出现 mention，subject 就已见尽。不传窗口时首页可能全是旧 subject：10-12 NVDA 首页 subject 10 / mention 0，最新 09-28（距今 14 天），同期 7d 榜 NVDA 有 30 篇提及、最新 10-09。
 - 翻页游标在 `meta.pagination["fundamentals.research_reports"]`（键名含点），回传时其余参数一字不改（含 `verbosity`）。单标的 detail 一页约 83–106K 字符，会超工具输出上限落盘（另见 N-188⑤）。
-- **怎么读**：模板写明报告日期跨度与 `time_scope`；最新 subject 距今 >21 天时领读先声明。不要为找 subject 翻页；mention 层翻页按日期止损（N-188④）。用脚本按字段解析。
+- **怎么读**：模板写明报告日期跨度与 `time_scope`；最新 subject 距今 >21 天时领读先声明。**不依赖排序**：按 `next_cursor` 翻页、逐张按 `match_type` 分层，翻到卡片日期早于窗口下限或 `has_more:false` 为止；同一机构按新到旧第一次出现的目标价即最新价。用脚本按字段解析。
 - **依据**：10-05 `495a1d17…` / `286fe916…` / `68660816…`；10-12 `9447b962…` / `f40a4669…`
 
 ### N-66 subject 与 mention 共享一页名额，跨标的关系数据主要在 mention 卡 〔C·已文档化〕
-- **现状**（10-12 复测）：一页 10 卡由 subject 和 mention 共享、subject 优先（工具描述已写明）。跨标的关系数据（`revision_summary.by_name` 里的他标的行、`mention_context`）几乎只在 mention 卡里——07-29 统计 30 篇 subject 的 `by_name` 恒为 1 行（标的自己）。专题覆盖多的票首页可能没有关系边：07-29 台积电首页 10/0、关系边 0；10-12 2330.TW 30d 窗口首页 7/3（`225df57e…`），不带窗口时 10/0（N-143）。
+- **现状**（10-12 复测；10-15 起不再 subject 优先，见 N-142）：一页 10 卡由 subject 和 mention 共享、subject 优先（工具描述已写明）。跨标的关系数据（`revision_summary.by_name` 里的他标的行、`mention_context`）几乎只在 mention 卡里——07-29 统计 30 篇 subject 的 `by_name` 恒为 1 行（标的自己）。专题覆盖多的票首页可能没有关系边：07-29 台积电首页 10/0、关系边 0；10-12 2330.TW 30d 窗口首页 7/3（`225df57e…`），不带窗口时 10/0（N-143）。
 - **怎么读**：做产业链分析先读 `mention_report_returned_count`；为 0 时翻页取 mention（N-81），不要写成「该票没有产业链」。不要按榜单排名挑产业链分析的标的。
 - **依据**：07-29 四标的对照（NVDA / INTC / GOOGL / 2330.TW）；10-12 `225df57e…`
 

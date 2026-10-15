@@ -5,6 +5,16 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-10-15 — 研报排序改为跨层按日期倒序后的适配
+
+- **接口变化**：研报卡片流不再 subject 优先，subject 与 mention 混排、按 `report_date` 倒序（Dev 对 N-181① 的处理；分层本身未改）。AMD / MU / NVDA 30d 首页都是 0 张 subject。caveats N-142 / N-66 更新。
+- **P0 修复（不依赖排序）**：按 `next_cursor` 翻页、逐张按 `match_type` 分层，翻到窗口下限或 `has_more:false`；同一机构按新到旧第一次出现的目标价即最新价。
+  - **c3**：选标的不再靠首页；落选票翻过 21 天线没见专题就停，入选票翻到底；作废「首页见尽」与第五轮「按最早专题日期止损」。实跑 Top 5 首页全是 0 篇专题，按旧规则一只都选不出，新规则选出 NVDA / AAPL / AMD / MU；额度 21→42。
+  - **r0**：配角判定逐页翻，见到第一张 subject 即判主角（NVDA 第 3 页才出现，旧写法会误判配角）；预检 3→8 额度。
+  - **r1 / r2**：按日期翻到窗口下限，默认最多 5 页（旧写法 r2 查 MU 只翻 1 页、审计对象为空；r1 查 AMD 会误出「近期无专题研究」）。
+  - **r4**：停翻看每页最旧一张卡、不分层。**r3**：时效闸改为取本批 subject 的最大日期。**01**：排序描述更新，⑰ 只有 old≠new 才算动作。
+- 热度榜没有分层计数字段，不能代替翻页；30d 榜篇数 ÷10 可预估页数。
+
 ## 2026-10-12 — caveats 全量复核与重组
 
 - **复核**：生产端逐条实测 248 条：仍成立 117 / 部分变化 73 / 已修复 33 / 原结论有误 3；另补内部报告已确认、未收录的 36 条，订正 11 处与后续报告的矛盾。

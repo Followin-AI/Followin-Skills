@@ -83,7 +83,7 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 > 🔴 **每篇只返回前 2 条催化剂**（2026-10-05 实测，生产端与 followdao-test 一致；`limit` 调到 1/2/10、query 写成 "research report catalysts" 都解不开，且该字段**没有 `truncated` 标记**）。真实条数看 `detail_sections.catalysts`——实测 MU 首页可见 20 条 / 报告内共 81 条，AVGO 20 / 57。同一响应里 `key_points`(3) / `risks`(2) / `data_points`(3) / `caveats`(1) 也被同样截断。
 > 产出必须写"可见 X 条 / 报告内共 Y 条"，**任何"近期没有节点"的结论都要加上"在可见样本内"**。X / Y 一律在 **N-3 报告去重（机构+标题+日期）之后**计——同一份报告双 `event_id` 会把两个数都抬高（2026-10-05 实测 NVDA 去重前 20 / 54、去重后 18 / 49）；系列版本（v2 / v3）不在这里扣，因为各版本露出的条目不同（见步骤 4）。
 
-> ⚠️ **时效闸（2026-10-05 实测）**：不传窗口时首页 subject 整层在前、各层按日期倒序，最新 subject 可能已是一个多月前（实测 NVDA 首页 08-17~08-27，距今 39 天；同时刻 `time_range="30d"` 的 subject 为 0）；研报库本身也会停更（最新入库停在 09-28，状态字段全正常）。
+> ⚠️ **时效闸**：2026-10-15 起卡片流 subject 与 mention 混排、统一按 `report_date` 倒序（N-142；此前 subject 整层在前，2026-10-05 实测 NVDA 首页全是 08-17~08-27 的旧 subject）。现在首页是最新的卡片，但不一定有 subject——「最新 subject 距今」取本批 `subject_reports` 的最大 `report_date`，本批没有 subject 就写「本批无专题报告」，不往后翻页去找；研报库本身也会停更（2026-09-28 那周最新入库停住，状态字段全正常）。
 > 最新 subject 距今 **>21 天**时，【领读】第一句写"本时间线基于 <日期> 前的报告"；来源行写明本批报告日期跨度与研报库最新入库日（取本批最大 `report_date`）。⛔ 不要把一批财报前的报告排出来的"前瞻"当成当下的前瞻。
 
 单条结构（实测）：

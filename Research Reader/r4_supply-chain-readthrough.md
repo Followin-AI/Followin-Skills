@@ -72,9 +72,9 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 > ① ⛔ **禁止用 `research_reports[0]` 取数**　② 逐块比对 `query_ticker` == 本次标的，**只认相等的块**　③ ⛔ **禁止用 `meta.total` 判条数**（它数的是块）
 
 同 r1 步骤 1 的全部铁律（红线 12 研报意图词 ／ N-38 部分修复：`time_range` 已于 2026-08-03 生效可传，`limit` 单页仍被 10 硬顶，但 **2026-08-12 起返回体带 `meta.pagination["fundamentals.research_reports"].next_cursor`，可翻页枚举完**（N-81 销案）——**没翻页才需要把家数标下界** ／ N-21 假阴性警告别重试）。
-🔴 **本 Skill 尤其要翻页**：产业链读穿依赖 mention 层，而 mention 常被 subject 挤到首页之外。
+🔴 **本 Skill 尤其要翻页**：产业链读穿依赖 mention 层，一页只有 10 张，被大量提及的票一周就有几十张。10-15 起卡片流跨层按 `report_date` 倒序（N-142），**逐张按 `match_type` 分层**，不要按数组位置或"subject 在前"去推。
 
-> ⚠️ **加 30 天窗口**（2026-10-08 用户拍板）：不加窗口时旧 subject 排在最前、白占页数——实测 NVDA subject 21 篇里 19 篇早于 30 天前，占掉第 1、2 页；同时刻加 `time_range="30d"` 首页即为 subject 2 + mention 8。代价是 30 天前的 mention 不再取（旧写法实测 TSM 26 篇跨 06-30~09-22，22 篇早于 9 月）。
+> ⚠️ **加 30 天窗口**（2026-10-08 用户拍板；10-15 起排序已改为跨层按日期倒序，下面"旧 subject 排在最前"的现象不再发生，窗口的作用变为由服务端截住日期下限）：不加窗口时旧 subject 排在最前、白占页数——实测 NVDA subject 21 篇里 19 篇早于 30 天前，占掉第 1、2 页；同时刻加 `time_range="30d"` 首页即为 subject 2 + mention 8。代价是 30 天前的 mention 不再取（旧写法实测 TSM 26 篇跨 06-30~09-22，22 篇早于 9 月）。
 > 表头仍写报告日期跨度，每条边、每条修正都标 `report_date`，催化剂按步骤 4 分「未来 / 已过期」。
 
 > ⚠️ **`verbosity="detail"` 不能省**（2026-10-08 实测 NVDA）：`concise` 下整个 `detail` 块不返回（没有 `catalysts`），`revision_summary.by_name` 还会被截短（Bernstein《AI Value Chain》detail 7 行、concise 5 行，无截断标记）。每页约 83–96K 字符，会落盘，用脚本按字段解析。
@@ -84,10 +84,10 @@ metrics(keywords=["<TICKER>"], query="research reports", verbosity="detail", ass
 **先看 `mention_report_returned_count` 与 `meta.pagination["fundamentals.research_reports"].has_more`**（⚠️ 键名本身含点，不是 `meta.pagination.has_more`——N-142；2026-10-08 实测 AVGO 同）：
 
 - **还有下一页**（`has_more: true`）→ 带 `cursor=<同一对象里的 next_cursor>` 原参数重查，**每页 1 额度**（实测 TSM 3 页到尽头 = 3 额度）。mention 为 0 时也先翻，不要直接降级
-- **停翻条件（按日期下限，先到者为准）**：① `has_more: false`（到尽头）；② 本页 mention 最旧一篇的 `report_date` **早于今天 − 30 天**；③ **已满 5 页**。只看 mention 的日期——subject 排在前面，不能拿它判断（N-142）；**本页没有 mention 时 ② 不适用，接着翻**（2026-10-08 实测 NVDA：前 2 页全是 subject、日期 08-27~07-08，拿 subject 日期判 ② 会在第 1 页就误停）
+- **停翻条件（按日期下限，先到者为准）**：① `has_more: false`（到尽头）；② 本页最旧一张卡（**不分层**）的 `report_date` **早于今天 − 30 天**；③ **已满 5 页**。10-15 起 subject 与 mention 混排按日期倒序（N-142），任一张卡的日期都能用；带了 `time_range="30d"` 时服务端已截掉更早的卡，② 实际不会触发，留作漏传窗口时的兜底。（旧写法「只看 mention 日期、本页没有 mention 时 ② 不适用」是 subject 优先排序下的补丁，已作废）
 - **翻到尽头（或到页数上限）后 mention 仍为 0** → 走**降级分支**（见步骤 5），只能从 subject 报告的 `detail.catalysts[]` 里捞跨标的节点，产出很少。照实说明，并写明是「近 30 天无 mention」。
 - **mention ≥ 1** → 正常流程。口径声明写「已翻 P 页 / 共 N 篇」；因 ② 停的写「已翻 P 页，mention 已覆盖近 30 天」，因 ③ 停的写「已翻 5 页，未到尽头，mention 只覆盖近 N 天（<最早 mention 日期> 之后）」——被大量提及的票接受这个结果，照实写
-- ⚠️ **没翻到尽头时，缺的是更早的 mention**：分页是 subject 全部排完、再按日期倒序排 mention（N-142）。2026-10-08 实测 AVGO：首页 subject 6 + mention 4，3 页拿到 mention 24 篇、只覆盖 09-18~10-05，第 3 页仍 `has_more: true`——旧的 3 页上限对被大量提及的票只够两周半，所以改成按日期下限。口径声明写明 mention 的日期下限
+- ⚠️ **没翻到尽头时，缺的是更早的报告——mention 和 subject 都缺**：10-15 起跨层按日期倒序（N-142），没翻到的是窗口内更早日期的全部卡，【本标的单家读数】里的 subject 篇数也是下界。2026-10-15 实测 NVDA（30d）：5 页 50 张只覆盖 10-07~10-13（subject 1：UBS 10-09 TP 300；mention 49），第 5 页仍 `has_more:true`（`fedc5731` … `1c3b2625`，5 额度）。旧情形（10-15 前 subject 全部排完再排 mention）：2026-10-08 实测 AVGO：首页 subject 6 + mention 4，3 页拿到 mention 24 篇、只覆盖 09-18~10-05，第 3 页仍 `has_more: true`——旧的 3 页上限对被大量提及的票只够两周半，所以改成按日期下限。口径声明写明 mention 的日期下限
 - ⚠️ **加了窗口，被大量提及的票 5 页仍到不了 30 天前**（2026-10-08 实测 NVDA）：不加窗口时 5 页拿到 mention 29 篇、只覆盖 09-28~10-07；加窗口能省出约 2 页 subject，但单 09-24~09-27 就有 ≥10 篇 mention，近 30 天估计 80 篇以上。按 ③ 停，写「mention 只覆盖近 N 天」，**不要写成"近 30 天"**
 
 ### 步骤 1.5 · 自身别名集（SELF）
