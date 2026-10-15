@@ -5,6 +5,11 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-10-15 — r1 / r2 翻页上限与 c3 去重口径（用户拍板）
+
+- **r1 / r2**：研报每只票最多翻页由 5 页改为 10 页（额度 r1 3–12、r2 1–10）；满 10 页仍照写"只覆盖到 <日期>"。MU 实测 10 页覆盖 64 天，满 90 天约需 14 页。
+- **c3**：两只入选票是否重复，改为比各自带目标价的专题报告（按机构+标题+日期，重合 ≥2/3），不再比首页 `event_id`——新排序下首页多为同一批行业报告，NVDA–MU 已到 5/10，会误合并；按专题比基本只在同一公司不同代码（TSM / 2330.TW）时触发。
+
 ## 2026-10-15 — 研报排序改为跨层按日期倒序后的适配
 
 - **接口变化**：研报卡片流不再 subject 优先，subject 与 mention 混排、按 `report_date` 倒序（Dev 对 N-181① 的处理；分层本身未改）。AMD / MU / NVDA 30d 首页都是 0 张 subject。caveats N-142 / N-66 更新。
