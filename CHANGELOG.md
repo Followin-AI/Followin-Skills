@@ -5,6 +5,12 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-10-19 — N-187 稳定性复测
+
+- 无回退：MU / SNDK / NVDA / META Cox / ONDS / NBIS / MSFT / AMZN 与 SEC 原件一致，MU 隔 6 分钟两次结果相同。
+- 接口新增 `filing`（按申报编号读整份）、`paginate` / `cursor`、`revision_view`；4/A 与原申报并存、超 50 行拿不全两处已修（MRVL CEO 7/15 的 7,500 股卖出读到了，撤回 10-15「我方可能记错日期」）。
+- 仍在：Olivan 同价不同账户行被去重（各少 82 股）；每次返回带 `insider_revision_incomplete`；时间窗不生效。caveats N-187 更新，「持股差只当提示」兜底保留。
+
 ## 2026-10-15 — 接口问题登记表同步复测结论
 
 - **N-187**：补 10-13 修复后 10-13 / 10-14 / 10-15 三次复测无回退，以及四处残留（同价不同账户行被去重、4/A 与原申报并存、超 50 行拿不全、时间窗 `partial`）；MRVL 7/15 卖出日期待 Dev 核对；10-20 再复测后决定撤兜底。
