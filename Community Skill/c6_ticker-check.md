@@ -17,7 +17,7 @@ args: ticker(必填)
 
 两个场景走同一份调用序列与备忘模板，不分叉：场景①是运营看到群里在热聊某标的，想知道值不值得追；场景②是运营准备写 c1/c3/c4/c5 任一模块前，先摸底一个标的的基本面再决定要不要写。
 
-## 1. 调用序列（≈2 点/次）
+## 1. 调用序列（常规摸底 ≈1 点/次；热议标的加跑步骤 3 + 3a 时 ≈3-7 点/次）
 
 调用序列：
 
@@ -25,9 +25,11 @@ args: ticker(必填)
 |---|---|---|
 | 1 | `metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_type="tradfi", limit=20)` 快照 + 分析师共识（中位/最高/最低目标价；家数由 `analyst_grades` 近 180 天去重估算，N-16，口径见第 2 节） | 1 |
 | 2 | `news(query="<TICKER> <公司名>", time_range="7d", limit=5)` 近期新闻要点（公司名取步骤 1 快照 `name`） | 0（实测） |
-| 3 | （可选，热议标的才加）`signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading"], asset_type="tradfi", limit=50, verbosity="concise")` 内部人/喊单温度 | 1 |
+| 3 | （可选，热议标的才加）`signal(keywords=["<TICKER>"], categories=["kol_call"], asset_type="tradfi", limit=50, verbosity="concise")` 喊单温度 | 1 |
+| 3a | （随步骤 3 一起跑）`signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", paginate=true, limit=50, verbosity="concise")` 内部人单独一路，按 `next_cursor` 翻页，**最多 5 页**，做法同 c4 第 1 节「步骤 2a」 | 每页 1 |
+| 3b | （按需，只在跑了步骤 3a 且信号面要写卖出股数 / 金额时）`signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", filing="<申报编号>", limit=50, verbosity="concise")` 读整份申报，做法同 c4 第 1 节「步骤 2b」 | 每页 1 |
 
-步骤 3 只在标的是"热议标的"时才加跑，判定是客观的，**满足任一即跑**：① 场景①（触发本次速查正是因为群里在热聊它）；② 步骤 2 的 social 桶里，48 小时内含 `$<TICKER>` 的条目 ≥3 条；③ 步骤 1 的 `analyst_grades` 在 7 天内有 `upgrade` / `downgrade`。三条都不满足（多见于场景②的常规摸底）就只跑两步（≈1 点），信号面整段省略。不加价格条件（2026-10-08 拍板维持现状：实测 ARGX 当日 −14.8% 三条都不满足，补跑信号面对照也只有议员行、喊单无，没漏信息）。（2026-10-05 实测：MU 命中②；HUBG 命中③——10/1 Stifel Sell→Hold。）
+步骤 3（连同内部人的步骤 3a）只在标的是"热议标的"时才加跑，判定是客观的，**满足任一即跑**：① 场景①（触发本次速查正是因为群里在热聊它）；② 步骤 2 的 social 桶里，48 小时内含 `$<TICKER>` 的条目 ≥3 条；③ 步骤 1 的 `analyst_grades` 在 7 天内有 `upgrade` / `downgrade`。三条都不满足（多见于场景②的常规摸底）就只跑两步（≈1 点），信号面整段省略。不加价格条件（2026-10-08 拍板维持现状：实测 ARGX 当日 −14.8% 三条都不满足，补跑信号面对照也只有议员行、喊单无，没漏信息）。（2026-10-05 实测：MU 命中②；HUBG 命中③——10/1 Stifel Sell→Hold。）
 
 本文件里所有"7 天内"按日期计、含第 7 天：`date ≥ 今天 − 7`。`analyst_grades.date`、`earnings_surprise.report_date` 只有日期没有时刻，不定端点会两可（2026-10-08 实测 HUBG：Stifel 上调与 `report_date` 都是 10-01，恰好落在端点上，算进与不算进分别得出"📌 并入 c3"和"🚫 資料缺口"两种结论；2026-10-08 拍板：维持含端点）。🔥 判据用的"48 小时内"同理：带时刻的字段（news 的 `published_ts`）按精确 48 小时算；只有日期的字段按 `date ≥ 今天 − 2` 算，含端点。这里的"今天"一律取**美东日期**，不取运营本地日期——`analyst_grades.date`、`filingDate` 都是美东日期，台北上午（美东前一晚）跑时本地日期已经进到下一天，窗口会整体少一天（2026-10-08 实测 PTC：BMO、Oppenheimer 两家下调都记在 10-06，美东 10-08 跑在 48 小时窗口内，按台北 10-09 上午的日期算就掉出去）。
 
@@ -53,14 +55,26 @@ args: ticker(必填)
    # meta.warnings 出现 asset_type_no_matching_keyword（"all keywords resolved to other families (crypto)"）时直接按召回失败处理，不必换写法重试（2026-10-05 实测 HUBG 换 5 种写法、7d/30d 均失败）。这条 warning 只是充分条件：2026-10-08 实测 HUBG 两次搜索（含 `sort_by="relevance"` 加行业词）都没带任何 warning，10 条仍 0 条相关——不出 warning 也要逐条判相关
    # 相关但不算叙事条目的三类（N-174 ⑨、N-167）：律所"调查 / 集体诉讼 / fair deal"稿、Seeking Alpha 的电话会 slideshow 这类模板页、Zacks 一类模板稿——不能拿来当近期叙事，也不能撑 🔥 ① 的"48 小时内"。2026-10-08 实测 PTC：48 小时内的 3 篇相关 articles 是 2 篇律所稿（10/6、10/7）和 1 篇 SA 并购电话会 slideshow，真正讲收购的原文只在 social 里，且已在 48 小时外
 
-3. signal(keywords=["<TICKER>"], categories=["kol_call","insider_trading"], asset_type="tradfi", limit=50, verbosity="concise")
-   # 可选，仅热议标的才加：内部人/喊单两类钻取，做法同 c4 步骤 2
+3. signal(keywords=["<TICKER>"], categories=["kol_call"], asset_type="tradfi", limit=50, verbosity="concise")
+   # 可选，仅热议标的才加：喊单钻取，做法同 c4 步骤 2；内部人另走步骤 3a
    # 不拉 trader_position（2026-10-09 用户拍板，同 c4：美股实盘持仓三轮实测全空）
-   # limit=50 必带（N-151，同 c4 步骤 2）：limit 按类分别生效、默认 10 行，加大仍只计 1 点。2026-10-08 实测 MU：默认 10 行里 kol_call 只有 3 行 MU（另 6 行是一条不提 MU 的多票帖拆出来的），数成"3 帖／1 位 KOL"；limit=50 是"6 帖／3 位 KOL"。内部人默认 10 行只到 8/21，漏掉 8/18 高管卖出与 7/24 CEO 一串卖出——90 天内若有 P-Purchase 也可能被挤掉，🔥 ② 的内部人一条就判不准
-   # limit=50 也可能不够，截断自检同 c4 第 1 节：最旧一条公司内部人行（不带 `_chamber`）的 `transactionDate` 晚于 90 天窗口起点，就是没回溯完——信号面改写实际覆盖起点（如「內部人 9/25 以來只有賣出」），不写「近 90 天」。2026-10-09 实测 CBRS：COO 一份 9/29 的 Form 4 拆成 19 行，50 行只回溯到 9/25
+   # limit=50 必带（N-151，同 c4 步骤 2）：limit 按类分别生效、默认 10 行，加大仍只计 1 点。2026-10-08 实测 MU：默认 10 行里 kol_call 只有 3 行 MU（另 6 行是一条不提 MU 的多票帖拆出来的），数成"3 帖／1 位 KOL"；limit=50 是"6 帖／3 位 KOL"
    # 不拉 institutional（2026-10-05 起）：备忘信号面不用 13F，且 13F 是返回里体积最大的一块；实测还有两种脏数据——HUBG 选到尚未申报的 report_period 2026-09-30、holders 为空但 status 仍是 ok；MU 同一 CIK（Susquehanna）出现两行、股数不同。去掉后仍只计 1 点
    # 不带 time_range（喊单上游本来就只覆盖最近 24 小时；多类合并带窗口会让整类消失，N-118）；kol_call 行按 symbol == <TICKER> 自行筛（实测会混入别的标的）
-   # kol_call 同样：近 24 小时没有该标的喊单时整类缺席、status 仍为 ok（2026-10-08 实测 HUBG、PTC 均只返回 insider_trading 一类）——缺席 = 无喊单，不重试
+   # 内部人类本来就不认 time_range：2026-10-19 实测 MU 单查 insider_trading 带 time_range="3m"，返回 parameter_partial、filters_applied 里没有 time_range、行与不带时相同——窗口一律客户端按 transactionDate 过滤
+   # kol_call：近 24 小时没有该标的喊单时整类缺席（2026-10-08 实测 HUBG、PTC 合查时只返回 insider_trading 一类；单独调时带 no_match warning）——缺席 = 无喊单，不重试
+
+3a. signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", paginate=true, limit=50, verbosity="concise")
+   # 随步骤 3 一起跑；内部人单独一路（翻页只认 insider_trading 一类、1 个代码、不传 sort_by）
+   # 2026-10-19 起申报行不再合并：MU limit=50 一页只覆盖 10-13~10-15 三天，只看首页的「只有賣出 / 無買入」实际只基于几天数据，🔥 ② 的内部人一条就判不准
+   # has_more:true 时把 meta.pagination.insider_trading.next_cursor 填进 cursor、其余参数不变续翻，到最旧一条公司内部人行（不带 `_chamber`）的 transactionDate 早于 90 天窗口起点、或 has_more:false 为止；最多 5 页，每页 1 点（2026-10-19 实测 MU 翻 4 页回到 07-01，4 点）
+   # 截断自检同 c4 第 1 节：翻满 5 页仍晚于 90 天窗口起点，信号面改写实际覆盖起点（如「內部人 10/13 以來只有賣出」），不写「近 90 天」，买卖写「至少」
+
+3b. signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", filing="<申报编号>", limit=50, verbosity="concise")
+   # 按需：信号面要写卖出股数 / 金额时，逐份读整份申报（2026-10-19 起可用，不受步骤 3a 翻页边界切开大申报的影响；N-187）
+   # 申报编号取行内 url 末段（如 .../0001242654-26-000015-index.htm → 0001242654-26-000015），带横线或 18 位纯数字都收
+   # 只放 insider_trading 一类、1 个代码、不传 sort_by；filing 隐含 paginate=true；has_more:true 时同参数加 cursor="<next_cursor>" 续读，每页 1 点
+   # filing 读取默认 revision_view="history"：被 4/A 取代的原申报行带 superseded_by，不计入；步骤 3a 默认 effective 已隐藏
 ```
 
 ## 2. 备忘模板：内部速查（≤300 字）
@@ -170,7 +184,7 @@ spec 逐字 4 条：
 
   > N-6：insider/congress 行无视 time_range（7d 返回 2020 年记录）；客户端按 transactionDate 过滤强制（实测 2026-07-22）。
 
-  步骤 3 若命中内部人数据，必须客户端按 transactionDate 过滤（不能相信 time_range 参数已经帮忙筛过），**只取近 90 天**，且只认 S-Sale（卖出）、P-Purchase（买入）两种类型，F-InKind/M-Exempt/A-Award 及 `transactionType` 为空的 Form 3 行剔除——做法同 c1/c4 对应条目。议员交易行（带 `_chamber` 字段）的类型字段是 `type`，取值以 "Purchase" / "Sale" 开头（2026-10-08 实测 PTC 有 `"Sale (Full)"`），不是 S-Sale/P-Purchase，按上面的类型过滤会被静默丢掉：这类行按 `disclosureDate` 取近 90 天，单列一句或略去，不并入内部人计数（2026-10-05 实测 MU 返回里混有 2 条议员行）。返回里一条 Form 4 行都没有、只剩议员行时，多半是外国私人发行人（名称带 SE / N.V. / plc、或以 ADS 挂牌），这类公司不报 Form 4——信号面写「內部人：外國發行人無 Form 4」，不写"無買入"，🔥 ② 的内部人一项按"判不了"处理，不当成"没有买入"（2026-10-08 实测 ARGX：argenx SE 只返回 2 条议员行）。信号面写到卖出股数时先核对，做法同 c4 第 2 节內部人動向行（N-187）：同一申报人、同一 `securityName`、同一 `directOrIndirect` 前后两份申报的 `securitiesOwned` 之差大于申报行股数，就是持股变化与申报行不符——多数是申报行被截短（2026-10-09 实测 MU CEO 8/21 只显示 258 股，持股 313,218 → 264,503），也可能是申报之外的转出或接口缺了一份申报（同日实测 MU CBO 8/18 那行本身完整，持股差多 1.8 万股，Followin 里两份申报之间没有这位申报人的任何行，原因查不出），单凭接口分不清；持股差也不当卖出股数（对照 SEC 原件 8/21 实卖 40,000 股），写成「8/21 申報後持股較上一份申報減少約 4.9 萬股（持股變化與申報行不符，原因未明）」，不写「賣出 N 股」；持股差小于申报行股数或持股反增是中间有归属入账，照申报行写。信号面写到内部人卖出结论时（含「只有賣出」），句末加「內部人資料來自接口，近期發現缺行（N-187），結論僅供參考」——上一份申报整份缺失、或卖出行整份消失时，持股差核对查不出来。
+  步骤 3a 若命中内部人数据，必须客户端按 transactionDate 过滤（不能相信 time_range 参数已经帮忙筛过），**只取近 90 天**，且只认 S-Sale（卖出）、P-Purchase（买入）两种类型，F-InKind/M-Exempt/A-Award 及 `transactionType` 为空的 Form 3 行剔除——做法同 c1/c4 对应条目。议员交易行（带 `_chamber` 字段）的类型字段是 `type`，取值以 "Purchase" / "Sale" 开头（2026-10-08 实测 PTC 有 `"Sale (Full)"`），不是 S-Sale/P-Purchase，按上面的类型过滤会被静默丢掉：这类行按 `disclosureDate` 取近 90 天，单列一句或略去，不并入内部人计数（2026-10-05 实测 MU 返回里混有 2 条议员行）。返回里一条 Form 4 行都没有、只剩议员行时，多半是外国私人发行人（名称带 SE / N.V. / plc、或以 ADS 挂牌），这类公司不报 Form 4——信号面写「內部人：外國發行人無 Form 4」，不写"無買入"，🔥 ② 的内部人一项按"判不了"处理，不当成"没有买入"（2026-10-08 实测 ARGX：argenx SE 只返回 2 条议员行）。信号面写到卖出股数 / 金额时，先用步骤 3b 的 `filing` 读整份申报再加总，带 `superseded_by` 的行不计入；持股差只当提示，只比同一账户，做法同 c4 第 2 节內部人動向行（N-187）：同一申报人、同一 `securityName`、同一 `directOrIndirect` 前后两份申报的 `securitiesOwned` 之差（两份都先用 `filing` 读全再取，默认视图截断会误触发）大于申报行股数，就是持股变化与申报行不符——可能是申报之外的转出，也可能是接口缺了一份申报或缺行（同价不同账户的行仍会被接口当重复丢掉，2026-10-19 仍在；2026-10-09 实测 MU CBO 8/18 那行本身完整，持股差多 1.8 万股，Followin 里两份申报之间没有这位申报人的任何行，原因查不出），单凭接口分不清；持股差也不当卖出股数，写成「8/21 申報後持股較上一份申報減少約 4.9 萬股（持股變化與申報行不符，原因未明）」（写法示例，数字取自 2026-10-09 接口缺行时的 MU 返回；2026-10-19 用 `filing` 读全后 MU CEO 8/21 实卖 40,000 股、与持股差一致，不再触发），不写「賣出 N 股」；持股差小于申报行股数或持股反增是中间有归属入账，照申报行写。信号面写到内部人卖出结论时（含「只有賣出」），句末加「內部人資料來自接口，近期發現缺行（N-187），結論僅供參考」——同价不同账户的行仍会被接口丢掉、接口也自标修正版核对不完整（`revision_complete=false`），持股差核对查不出来。
 
 ## 4. 发前自检 + 额度哨兵
 
@@ -178,7 +192,7 @@ c6 是内部工具，S-12 对外发布向的自检清单（繁体/大白话/名�
 
 - **数据可回溯✓**：行情位置、机构共识（家数/中位/分歧幅度）、近期叙事若提到具体涨跌幅，都必须能指向本次调用（步骤 1-3）返回值，不能凭记忆或旧查询结果补数字——呼应 S-7 铁律 2（原文：当前价/涨跌幅只引本次 MCP 返回值；新闻与 KOL 转述的百分比是二手，必经快照核实）。
 - **简繁纪律✓**：备忘产出本身（T-4 模板与样例、非美股正股短路模板）用繁体中文，与 S-1 对外语言规则一致；本 skill 文件里的说明文字、判据展开一律用简体书写，两者不得混排。
-- **内部人卖出股数已按持股差核对✓**（只在跑了步骤 3 且信号面写到股数时）：持股减少量大于申报行股数的，写成「申報後持股較上一份申報減少約 N 股（持股變化與申報行不符，原因未明）」，没有把持股差写成卖出股数；写到内部人卖出结论的，句末带了「內部人資料來自接口，近期發現缺行（N-187），結論僅供參考」（第 3 节 N-6 条，N-187）。
+- **内部人卖出股数已用 `filing` 读整份、持股差只当提示✓**（只在跑了步骤 3a 且信号面写到股数时）：股数 / 金额来自步骤 3b 读整份后的加总（带 `superseded_by` 的行已剔除）；同一账户持股减少量大于申报行股数的，写成「申報後持股較上一份申報減少約 N 股（持股變化與申報行不符，原因未明）」，没有把持股差写成卖出股数；写到内部人卖出结论的，句末带了「內部人資料來自接口，近期發現缺行（N-187），結論僅供參考」（第 3 节 N-6 条，N-187）。
 
 额度哨兵（内部工具同样要检查，设计文档对应章节）：
 
