@@ -5,6 +5,10 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-10-19 — 盘前追踪内部人翻页上限 2→4 页（用户拍板）
+
+- 每只个股内部人最多翻 4 页（原 2 页），MU 这类申报密集的票 4 页才覆盖满 90 天；示例 watchlist 内部人一路 7→9 次调用，最多 20 次。
+
 ## 2026-10-19 — 内部人兜底规则按复测结论调整（用户拍板）
 
 - **撤**：「同一申报人同一天只有 1 行就当作可能被合并」——10-13 修复后四次复测未再出现跨申报合并。
