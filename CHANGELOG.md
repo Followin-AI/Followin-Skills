@@ -5,6 +5,14 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-10-19 — 内部人兜底规则按复测结论调整（用户拍板）
+
+- **撤**：「同一申报人同一天只有 1 行就当作可能被合并」——10-13 修复后四次复测未再出现跨申报合并。
+- **新增**：精确股数 / 金额用 `filing=<申报编号>`（取行内 `url` 末段）读整份申报，不受 50 行限制；被 4/A 取代的原申报默认隐藏，带 `superseded_by` 的行不计入。
+- **新增（P0）**：申报行不再合并后，MU 单查一页只覆盖约 3 天。01 / c4 / c6 / 盘前追踪的内部人改为单只票单独查、`paginate=true` 翻到 90 天起点或尽头，上限 01 / c4 / c6 5 页、盘前每只 2 页；到上限没到 90 天就写实际覆盖起点（如「10/13 以来」）。盘前追踪原先 5 只合查共用 50 行、且无截断自检，排在后面的票可能一行都没有。实测 MU 4 页到 07-01 覆盖满 90 天；盘前示例 watchlist 内部人一路 7 次调用。
+- **保留**：持股差只当提示、只比同一账户；内部人卖出结论末尾的「仅供参考」提示（Olivan 那类同价不同账户行被去重仍在，且持股差检测抓不到）。
+- 写明 `time_range` 在内部人查询上不生效；caveats「现行用法」与 N-187 同步；Community README 额度表同步。
+
 ## 2026-10-19 — N-187 稳定性复测
 
 - 无回退：MU / SNDK / NVDA / META Cox / ONDS / NBIS / MSFT / AMZN 与 SEC 原件一致，MU 隔 6 分钟两次结果相同。
