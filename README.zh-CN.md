@@ -16,7 +16,7 @@
 |---|---|---|
 | **[`Base Skill/`](./Base%20Skill/)** | 6 个 Skill | 个人交易者 / 分析师 —— 宏观看盘、财报分析、背离扫描、多 Agent 决策 |
 | **[`Community Skill/`](./Community%20Skill/)** | 6 个 Skill | 社群运营 —— 面向美股新手社群的可直接发布贴文（繁体中文产出）|
-| **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 个独立 Skill | 财报季发现器——不属于任何 bundle，可单独取用（含[目录 README](./Earnings%20Screener/)：方法论映射 + 被否决方案） |
+| **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 个独立 Skill | 财报季发现器——不属于任何 bundle，可单独取用（含[目录 README](./Earnings%20Screener/)：用途说明、安装与用法、参数） |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 个独立 Skill | 美股盘前自选追踪——按自选股、持仓和时区创建周期报告或即时盘前分析 |
 | **[`Crypto Watchlist Tracker/`](./Crypto%20Watchlist%20Tracker/)** | 1 个独立 Skill | 币圈自选每日跟踪——每天 09:00/21:00 更新事件、行情技术面、KOL 与交易员仓位 |
 | **[`Feed Manager/`](./Feed%20Manager/)** | 1 个 Skill | **读你自己关注的那些股票账号，让你不再刷完就忘。**每天把他们的推文变成一份简报，再按标的和板块归进累积笔记——"三周前谁在 $85 说的多"五秒能查到。你报的每笔交易自动记一条决策日志，带到期回顾提醒。三道检查防静默遗漏：有账号没拉、有推文没拉全、拉到了却没写进文件。**没有出处的数字一律不写**（含[目录 README](./Feed%20Manager/)）|

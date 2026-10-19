@@ -16,7 +16,7 @@ Skills trigger in both **Chinese and English**, and answer in whichever language
 |---|---|---|
 | **[`Base Skill/`](./Base%20Skill/)** | 6 skills | Individual traders / analysts — multi-agent analysis, earnings, divergence scans, macro dashboards |
 | **[`Community Skill/`](./Community%20Skill/)** | 6 skills | Community operators — ready-to-post briefs, weeklies, hot-takes for a retail US-stock community (Traditional Chinese output) |
-| **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own (incl. a [folder README](./Earnings%20Screener/): methodology mapping + rejected alternatives) |
+| **[`Earnings Screener/`](./Earnings%20Screener/)** | 1 standalone skill | Earnings-season discovery — belongs to no bundle, usable on its own (incl. a [folder README](./Earnings%20Screener/): what it does, setup & usage, parameters) |
 | **[`Trader Diligence/`](./Trader%20Diligence/)** | 1 skill | Live perp positions of tracked traders — **who is actually long/short with real money, and can you trust their record**. Six gates against the most misleading fields (stale/ghost positions, duplicate names, net direction, win rate, profit factor, unpriced exposure). Does not compute returns (incl. a [folder README](./Trader%20Diligence/)) |
 | **[`Premarket Tracker/`](./Premarket%20Tracker/)** | 1 standalone skill | US-stock premarket watchlist tracking — scheduled or immediate reports based on tickers, positions, and timezone |
 | **[`Crypto Watchlist Tracker/`](./Crypto%20Watchlist%20Tracker/)** | 1 standalone skill | Twice-daily crypto watchlist tracking — events, market/technical data, KOL calls, and trader positions at 09:00/21:00 |
