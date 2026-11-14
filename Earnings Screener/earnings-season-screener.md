@@ -14,7 +14,7 @@ args: days, top, watchlist
 
 > **版本**：v1.8 ｜ **调用写法、字段名实测于 2026-10-01，2026-10-03、2026-10-08 实跑修订**
 >
-> MCP 的行为会变——v1.5（7 月底）到 v1.6 之间就变了五处：返回字段改名、财报日历从不可用变成可用、数组入参从被拒变成推荐写法、一批"解析不了"的 ticker 恢复、逐字稿正文被截断到 2000 字符。**隔一段时间再用，先花几分钟跑下面 4 条自查**，哪条对不上就以实测为准：
+> MCP 的行为会变（字段名、财报日历可用性、入参写法、ticker 解析、逐字稿截断都变过）。**隔一段时间再用，先花几分钟跑下面 4 条自查**，哪条对不上就以实测为准：
 > ① `metrics(keywords=["AAPL"], asset_type="tradfi", limit=1)` → 最新季的超预期数据是否仍在 `fundamentals.concise[].fiscal_quarters[0].earnings_surprise`
 > ② `metrics(query="earnings calendar", asset_type="tradfi", date_from=<7 天前>, date_to=<今天>, limit=50)`（不传 country）→ 返回里是否有无后缀的美股代码、且带 `revenueActual`；再看 ACN、MDT、LIN 这类外国注册的美股在财报日是否出现；最后看**末行的 `date` 走到了窗口里的哪一天**（2026-10-08 实测只走到第 2 天，见 Step 1 腿①）
 > ③ `metrics(keywords=["MU"], query="earnings call transcript", asset_type="tradfi", verbosity="detail", limit=1)` → `transcript[0].content_truncated` 是否仍为 `true`。截断来自 `verbosity` 的设计上限（detail 档 2000 字符），所以更该看的是 metrics 工具说明里有没有新增分页或全文参数；有的话 **Step 3 来源 B** 回到第一位
@@ -48,8 +48,8 @@ args: days, top, watchlist
 | 背离扫描、没新闻却大涨 | ❌ 转 `Base Skill/03_us-stock-divergence-scan` |
 | 宏观早报、今日市场 | ❌ 转 `Base Skill/06_macro-morning-brief` |
 
-> 🔗 **已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文与登记表冲突时，以日期更新的一方为准。
-> 📐 **每个参数的实测依据与历次被否决的方案**：见 [`CHANGELOG.md`](../CHANGELOG.md)（目录 README 已改为纯用户视角，不再收录）。
+> 🔗 **已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。与登记表冲突时以登记表为准（它是单一事实源）；发现本文比登记表更新，在输出里注明冲突，事后先改登记表、再同步本文。
+> 📐 **每个参数的实测依据与历次被否决的方案**：见 [`CHANGELOG.md`](../CHANGELOG.md)（目录 README 只写用户视角，不收录这些）。
 
 ## 调用约定（2026-10-03 实测）
 

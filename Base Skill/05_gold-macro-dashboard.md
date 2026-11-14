@@ -17,7 +17,7 @@ tools: WebSearch, WebFetch, Bash
 
 ---
 
-> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文的调用写法于 **2026-10-03 实跑验证**，v1 阈值与权重改版后于 **2026-10-08 端到端复跑**（35 分）；与登记表冲突时，以日期更新的一方为准。
+> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文的调用写法于 **2026-10-03 实跑验证**，v1 阈值与权重改版后于 **2026-10-08 端到端复跑**（35 分）；与登记表冲突时以登记表为准（它是单一事实源）；发现本文比登记表更新，在输出里注明冲突，事后先改登记表、再同步本文。
 
 ## 调用约定（2026-10-03 实测）
 
@@ -40,7 +40,7 @@ tools: WebSearch, WebFetch, Bash
 | 50 日均线 | `metrics(keywords=["DXUSD","USDJPY"], query="均线 指标", period=50, limit=1, asset_type="tradfi")`——取 `indicator=="ema"` |
 | 金、银近一月日线 | `metrics(keywords=["GCUSD","SIUSD"], query="历史走势", time_range="1m", limit=25, asset_type="tradfi")` |
 | 经济日历 | `metrics(query="economic calendar", country="US", sort_by="hot", …)`——query 里不要写"本周"，也不要写指标名 |
-| 央行购金、GLD 持仓、上海金溢价、FedWatch | Web 检索（World Gold Council；State Street；上海金溢价见 ⑩ 说明；CME）。实测 CME FedWatch 页面会超时、State Street 页面由脚本渲染取不到持仓数——取不到就按缺失处理，不估算。GLD 持仓首选 SPDR 官方逐日持仓存档 `https://api.spdrgoldshares.com/api/v1/historical-archive?product=gld&exchange=NYSE`（xlsx，2004 年至今，2026-10-08 实跑实测可下载、可解析，需要能跑脚本，见 ⑨ 的取数）；取不到再搜中文快讯（金十数据、新华财经逐日播报"SPDR Gold Trust 持仓 X 吨"）。旧的官网 CSV 存档已 301 跳到金条清单，不再是持仓历史 |
+| 央行购金、GLD 持仓、上海金溢价、FedWatch | Web 检索（World Gold Council；State Street；上海金溢价见 ⑩ 说明；CME）。实测 CME FedWatch 页面会超时、State Street 页面由脚本渲染取不到持仓数——取不到就按缺失处理，不估算。GLD 持仓首选 SPDR 官方逐日持仓存档 `https://api.spdrgoldshares.com/api/v1/historical-archive?product=gld&exchange=NYSE`（xlsx，2004 年至今，2026-10-08 实跑实测可下载、可解析，需要能跑脚本，见 ⑨ 的取数）；取不到再搜中文快讯（金十数据、新华财经逐日播报"SPDR Gold Trust 持仓 X 吨"）。不用官网的 CSV 存档链接：它跳转到金条清单，不含持仓历史 |
 
 ---
 
