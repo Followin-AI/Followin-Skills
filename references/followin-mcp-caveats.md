@@ -203,7 +203,7 @@
 - **依据**：07-29 首记；10-01 `db29129d…` / `9a39d28c…`（原 N-116 后半）；10-12 `23ec6a57…` / `847ceb18…`。
 
 ### N-159 🔴 代码被静默改写成别的资产，退市代码照返旧报价 〔B〕
-- **①改写**：`ANTA`→`2020.HK`（安踏）；`NG`→`NG=F`（NovaGold 整行消失，`NG=F` 也没有行）；`CORN`→多出 `ZC=F` 占名额，把同批 `CL=F` 挤掉，`ZC=F` 本身也没有行，不传 `asset_type` 时 CORN 解析成加密 CORN（$0.0256）；`DX-Y.NYB`→`DXUSD`；`CL=F`→`CLUSD`；`USDJPY`→`USDJPY=X`。全部 `status:"ok"`、无改写提示（10-12 `59954294…`）。
+- **①改写**：`ANTA`→`2020.HK`（安踏）；`NG`→`NG=F`（NovaGold 整行消失，`NG=F` 也没有行）；`CORN`→多出 `ZC=F` 占名额，把同批 `CL=F` 挤掉，`ZC=F` 本身也没有行，不传 `asset_type` 时 CORN 解析成加密 CORN（$0.0256）；`DX-Y.NYB`→`DXUSD`；`CL=F`→`CLUSD`；`USDJPY`→`USDJPY=X`。全部 `status:"ok"`、无改写提示（10-12 `59954294…`）。反例：带交易所后缀的外国代码不改写，10-08 `005930.KS` / `2408.TW` / `285A.T` 直接放进 keywords 均原样返回（01 自定同业实跑）。
 - **②** `asset_type_no_matching_keyword` 会误报「全部解析成加密」，而返回的数据照常是美股（10-08，10-12 未复测）。
 - **③退市 / 改名代码照返旧报价**（10-12 并入）：SOL→Emeren $1.94（`as_of` 2025-12-12）、SQ 停在 2025-02-13、ONE→Meta Data 停在 2022-05-02、`OIL`→iPath ETN（`as_of` 2023-06-08，`623f9c15…`），全部 `status:"ok"`、无过期标记，同一请求里只有部分行带 `_quote_snapshot_as_of`。别名错抓同类：`GOLD`→Gold.com $40.66（`f5135612…`），传 tradfi 也去不掉；服务端 `no_match` 提示里推荐的 `gold|oil|silver` 别名照做也会掉进来（`00a7d331…`）。
 - **怎么读**：逐个比对「请求代码 vs 返回 `symbol`」，对不上的记为取不到；快照逐行读 `as_of`，距今超过 5 个交易日的不当现价；改名代码用新代码（SQ→XYZ）；商品用具体代码（GCUSD / CLUSD / BZUSD），不用 GOLD / OIL 别名。上述 warning 只作参考。
@@ -306,24 +306,24 @@ query 串批量静默丢 ticker（07-22 ONDS 连续两次被跳过）已拆成 N
 - **依据**：10-05 首记；10-09 `204ff42a…`（盘前）/ `9d1d2b34…`（盘后）；10-12 `7ed3d0a6…` / `bef3df49…`（盘后部分 10-12 未复测）
 
 ### N-157 `_quote_session` 随时段变，不能当时段判据 〔B〕
-- **现状**：盘前、盘后的个股和 ETF 带 `_quote_session:"regular_inactive"` + `_quote_cache:"last_regular"`（10-12 04:01 ET：NVDA / MU / PTC / PCVX / QQQ / DIA / FBTC）。指数、外汇、商品一直不带；部分小盘股（JBLU / CUBI / AEHR / WERN）盘前也不带。10-08 盘中实测，大盘股、指数、ETF 普遍不带，`extendedHoursQuote` 整个字段缺失。2330.TW 收盘后也不带（N-179⑤）。
+- **现状**：盘前、盘后的个股和 ETF 带 `_quote_session:"regular_inactive"` + `_quote_cache:"last_regular"`（10-12 04:01 ET：NVDA / MU / PTC / PCVX / QQQ / DIA / FBTC）。指数、外汇、商品一直不带；部分小盘股（JBLU / CUBI / AEHR / WERN）盘前也不带。10-08 盘中实测，大盘股（如 AVGO，01 盘中复跑）、指数、ETF 普遍不带，`extendedHoursQuote` 整个字段缺失。2330.TW 收盘后也不带（N-179⑤）。
 - 已退市代码照常返回旧报价、`status:ok`、无过期标记（SOL → Emeren，`as_of` 2025-12-12；GAP U2，主述见 N-159）。
 - **怎么读**：「实时 / 最近收盘」一律看 `as_of` 是否落在美东 9:30–16:00；`as_of` 距今超过 5 个交易日的不当当前价；盘前盘后价只在延长时段取（N-150）。
 - **历史**：10-03 N-139 原记「部分大盘股有」，10-08 订正为盘中普遍缺。10-12 复核时是盘前，盘中断言无法复测。
 - **依据**：10-08 `c0183352…` / `cf9b1fe3…`；10-12 `7ed3d0a6…` / `bef3df49…` / `570e9d70…`；U2 10-09 `05abcccc…`
 
 ### N-131 🔴 日线 `change` / `changePercent` 是收盘对开盘 〔A〕
-- **现状**（10-12 复测）：历史日线的 `change` / `changePercent` 是当日收盘对当日开盘，不是对前收。NVDA 10-09 字段 −1.95%（= 229.28 ÷ 233.84 − 1），对前收实为 −0.52%。商品日线同样（原 N-188①）：WTI 10-08 字段 +2.8%、自算 +3.64%；布伦特字段 +3.11%、自算 +4.07%。
+- **现状**（10-12 复测）：历史日线的 `change` / `changePercent` 是当日收盘对当日开盘，不是对前收。NVDA 10-09 字段 −1.95%（= 229.28 ÷ 233.84 − 1），对前收实为 −0.52%。商品日线同样（原 N-188①）：WTI 10-08 字段 +2.8%、自算 +3.64%；布伦特字段 +3.11%、自算 +4.07%。10-03 03 实跑：XRPN 同一天日线字段 +35.9%，涨幅榜为 +68.3%。
 - **怎么读**：涨跌幅、波动率一律用相邻两天的 `close` 自算。按字段算的 1 年波动率是 31.0%，按收盘算是 37.4%，用字段会把风控仓位上限算高。
 - **依据**：10-03 首记 `6d7e6511…`；10-12 `963de176…`（NVDA）/ `cbeb18a8…`（原油）
 
 ### N-132 1 年日线只有 250 行，凑不出第 252 个交易日 〔C〕
-- **现状**（10-12 复测）：`time_range="1y"`、`limit=365` 返回 250 行（2025-10-13~2026-10-09），约 5.2 万字符，可能超出工具输出上限而被写进本地文件。history 每只最多返回 `limit` 行，默认 10 行。tradfi 只传 `time_range`、不写历史意图（如 `query="daily price history"`）时只返回快照，没有 history。
+- **现状**（10-12 复测）：`time_range="1y"`、`limit=365` 返回 250 行（2025-10-13~2026-10-09；10-03 为 251 行），约 5.2 万字符，可能超出工具输出上限而被写进本地文件。history 每只最多返回 `limit` 行，默认 10 行。tradfi 只传 `time_range`、不写历史意图（如 `query="daily price history"`）时只返回快照，没有 history。`time_range="1m"` 每只 23 行（10-08 盘中 03 实跑：22 个完整交易日 + 当天未收盘行），`limit=25` 够用。
 - **怎么读**：1Y 涨幅用 `time_range="13m"` + `limit=290`，用脚本解析 `close`；不足 252 行时标「≈1Y（N 个交易日）」。取历史要写明历史意图，并按需要的根数设 `limit`。
 - **依据**：10-03 `95c6be82…`；10-12 `963de176…` / `07c573f2…`
 
 ### N-158 盘中的日线与技术指标含当天未收盘的一根 〔C〕
-- **现状**：交易日盘中，历史日线与技术指标都带 `date` 为今天的一根（close ≈ 实时价，成交量只有平日零头），不只周一；EMA / SMA 也把盘中价算了进去（10-08）。10-12 盘前 04:00 ET 的 1 小时线已含进行中的 04:00 那根（量 4,983）。商品 / 外汇日线在亚洲时段也有当日行，见 N-179③。
+- **现状**：交易日盘中，历史日线与技术指标都带 `date` 为今天的一根（close ≈ 实时价，成交量只有平日零头），不只周一；EMA / SMA 也把盘中价算了进去（10-08）。异动票反过来：10-08 盘中 PCRX 当天这根已有 1,575 万股，近一月日均去掉它约 56 万股、带上被拉到约 122 万股（03 实跑），算日均成交一律剔除。10-12 盘前 04:00 ET 的 1 小时线已含进行中的 04:00 那根（量 4,983）。商品 / 外汇日线在亚洲时段也有当日行，见 N-179③。
 - **怎么读**：多日涨跌可以用，但标「盘中」；SMA、波动率、最大回撤、周变动要剔除当天这根。
 - **依据**：10-08 `409fd524…` / `51d99884…` / `9962dd7e…`；10-12 `0810f8a3…`（日线盘中部分 10-12 无法复测）
 
@@ -338,7 +338,7 @@ query 串批量静默丢 ticker（07-22 ONDS 连续两次被跳过）已拆成 N
 - **①** 1 小时线含延长时段：每天 16 根（04:00–19:00 ET），时间戳为美东；`09:00` 那根跨盘前与盘中（10-09 量 1,508 万）；`limit` 按每只计。10-12 复现（`0810f8a3…`）。
 - **②** `^TNX` 未收盘那行 close 是三位小数，已收盘是两位，可以据此认出未收盘行（10-12 盘前无法复测）。
 - **③** → 见 N-161（经济日历按 High → Medium → Low 排，带预期值的 Medium 落到第 2 页；未来日期的 EIA 库存、MBA 利率行没有 estimate）。
-- **④** news `time_range="1d"` 是从调用时刻往回滚 24 小时，不按自然日（10-12 复现，`17998f13…`；属 news 主题）。
+- **④** news `time_range="1d"` 是从调用时刻往回滚 24 小时，不按自然日（10-12 复现，`17998f13…`；属 news 主题）。10-08 06 实跑：MU −2.1% 按公司名查 `1d`，3 条都是 10-07 的热门榜和看多文，没有当日原因。
 - **⑤** 财报当天基本面的更新时点因票而异；新季度初版数据缺项（折旧、利息为 0，资本开支符号反），财报 3 天内不引 EBITDA 与现金流。10-12 LW / RPM 已更新（`1a42225b…`）。财报字段时序见 N-149。
 - **⑥** → 见 N-168（`dcf["Stock Price"]`、估值比率盘中仍按前收；引用估值注明按前收）。
 - **⑦** 代码改写又见 `DX-Y.NYB` → `DXUSD`、`CL=F` → `CLUSD`（10-12 复现，`59954294…`），见 N-159；`stock_peers` 里的 SKHY 是 SK 海力士美股 ADR（报表韩元、报价美元），见 N-168。
@@ -473,7 +473,7 @@ N-122 是 N-106 的范围扩大版（query 串里的 `*USD` 代码一律被丢�
 - **②** `enterprise_values` 是上一财年末的快照：NVDA 停在 2026-01-25（股价 186.47）；当前值在 `key_metrics_ttm.enterpriseValueTTM`（5.57 万亿）。MU 的同类现象见 N-179①。
 - **③** `financial_statement.eps` 是基本 EPS，GAAP 稀释在 `epsDiluted`（NVDA 2.47 / 2.46）。报表 EPS 本身也会错：JPM `eps` 7.59、`epsDiluted` 7.57，财报原文稀释 EPS 7.70（GAP U23①，09-17 `c79f2995…`；10-12 数值未变，`a051bcb7…`）。
 - **④** `analyst_estimates` 可能缺当前财年，同一财年也会出两行：NVDA 只有 FY2028~FY2031，缺当前的 FY2027；MU 的 FY2029、FY2030 各两行，分析师数不同（同 N-179②）。
-- **⑤** `stock_peers` 不按业务挑：每行 `peer_symbol` / `companyName` / `mktCap` / `price`，按 `peer_symbol` 字母序排。FMP 的同业定义是「同交易所、同板块、市值相近」（GAP U25）。10-12 NVDA 的 10 家以半导体为主，但混入客户 CoreWeave、Corvex（MOVE，市值 3.1 亿）和股价 $0.97 的 Exascale Labs（XLAB）；MU 的 10 家是存储同业，但混外国代码，同一公司两地各一行（Gigadevice 3986.HK / 603986.SS），市值按当地货币计（Kioxia 28.7 万亿日元）。10-10 抽查 45 个同行只有 21 个是真对手，还有卡组织（SOFI→Visa/Mastercard）、BTC 财库公司（COIN→MSTR）。同行批量取数只回 `ratios_ttm`、没有 EV/EBITDA（10-03 记，未复测）。原 N-168④ 并入此处。Q4 已定从工具描述摘除同业榜，不再投入修复。
+- **⑤** `stock_peers` 不按业务挑：每行 `peer_symbol` / `companyName` / `mktCap` / `price`，按 `peer_symbol` 字母序排。FMP 的同业定义是「同交易所、同板块、市值相近」（GAP U25）。10-12 NVDA 的 10 家以半导体为主，但混入客户 CoreWeave、Corvex（MOVE，市值 3.1 亿）和股价 $0.97 的 Exascale Labs（XLAB）；MU 的 10 家是存储同业，但混外国代码，同一公司两地各一行（Gigadevice 3986.HK / 603986.SS），市值按当地货币计（Kioxia 28.7 万亿日元）。10-10 抽查 45 个同行只有 21 个是真对手，还有卡组织（SOFI→Visa/Mastercard）、BTC 财库公司（COIN→MSTR）。更早的 01 实跑：10-03 NVDA 名单为 AAPL、ADI、AVGO、ENTG、GOOGL、IMOS、MSFT、TER、TSM（混入 AAPL / GOOGL / MSFT）；10-08 MU 的 10 家里 6 家是 .TW / .T / .HK / .SS，GigaDevice 两地各一行，Kioxia 以 29.4 万亿日元排第一；10-08 AVGO 前 3 为 TXN / MRVL / ADI（TXN、ADI 是模拟芯片，AVGO 主营 AI 定制芯片与网络芯片），MU 前 3 为 SKHY / SNDK / STX（后两家 industry 为 Computer Hardware）。同行批量取数只回 `ratios_ttm`、没有 EV/EBITDA（10-03 记，未复测）；其中服务端 PEG 不可比（10-08 MRVL 为 0.03）。原 N-168④ 并入此处。Q4 已定从工具描述摘除同业榜，不再投入修复。
 - **⑥** 利润表 `incomeBeforeTax` / `incomeTaxExpense` 偶有错误（10-03 MU 营业利润 443 亿而税前 148 亿、所得税 −229 亿）。10-12 NVDA 正常，MU 未复测。
 - **⑦** 13F 的 `*_change_percent` 恒为 0，新建仓行为 100（如 DRAM，10-09 订正）。10-12 NVDA 持有人的 `*_change_percent` 全为 0，而 `shares_change` 不为 0（`ae1f335c…`）。13F 其他字段问题见 N-7 / N-152。
 - **⑧** `valuation_block.dcf` 在亏损期给出荒谬值，没有任何失效标注：INTC `dcf` 2.17 对 `Stock Price` 104.7，差 48 倍（07-29 是 2.95 对 86.57）；亏损公司还会给负值（IREN −109.22 对现价 42.62，GAP U23③，09-17 `f7c43fb6…`）。原为旧文件第 300 行未编号附注，本次并入。Q4 已定从工具描述摘除 DCF，不再投入修复。
@@ -495,7 +495,7 @@ N-122 是 N-106 的范围扩大版（query 串里的 `*USD` 代码一律被丢�
 - **依据**：10-12 `e25d719f…` `50d2dac5…` `e7715754…`
 
 ### N-135 一个 query 能合并多块 fundamentals；批量要带 categories 〔C〕
-- **现状**（10-12 复现）：`query="行情 公司简介 资产负债表 现金流 分析师评级 同行 DCF 营收增长率"`、`limit=20`、concise，一次返回快照、简介、两表、评级（20 行）、预期、同行、DCF、TTM 指标、`financial_growth`，只缺利润表（并进来会被挤掉，N-123）。不带 `categories` 时代码会误匹配到宏观日历：MU→坦桑尼亚节日「Mwalimu Julius Nyerere Day」，F→委内瑞拉节假日；带 `categories=["market","fundamentals"]` 就没有。
+- **现状**（10-12 复现）：`query="行情 公司简介 资产负债表 现金流 分析师评级 同行 DCF 营收增长率"`、`limit=20`、concise，一次返回快照、简介、两表、评级（20 行）、预期、同行、DCF、TTM 指标、`financial_growth`，只缺利润表（并进来会被挤掉，N-123）。不带 `categories` 时代码会误匹配到宏观日历：MU→坦桑尼亚节日「Mwalimu Julius Nyerere Day」，F→委内瑞拉节假日，同行代码 ADI→日本领先指数（10-03，01 同行路）；带 `categories=["market","fundamentals"]` 就没有。
 - **怎么读**：多块一次取，利润表单独一路；多标的批量必带 `categories`。
 - **依据**：10-03 `22092c55…` `820d6ef7…`；10-12 `af3ec652…` `bc833084…` `000dba41…`
 
@@ -1157,7 +1157,7 @@ N-122 是 N-106 的范围扩大版（query 串里的 `*USD` 代码一律被丢�
 
 ### N-103 news 实体撞名：cashtag 和多词短语里像代码的词被当实体 〔A〕
 - **①** cashtag 撞人名和同名股票：10-12 `$BEN`（quick，`entity_filter_applied:true`）20 条里 0 条在讲 meme 币，有 Ben Affleck、Ben Shapiro、Ben-Gvir 等，还有 Franklin Resources（美股代码 BEN）的稿。链上 symbol 短而常见（BEN / CTO / MOO / PONS），撞名概率远高于股票代码。
-- **②** 多词短语里像代码的词被锁成实体：「Groq 3 LPX」召回 Louisiana-Pacific；「strategic bitcoin reserve bill」用 quick 时 bitcoin 被解析成 BTC，吞掉整个短语；「AI chip export controls」结果与 `query="AI"` 逐条相同；「SWIFT tokenized deposits pilot …」里 pilot 被锁成实体，召回的全是飞行员新闻；`ONE` 撞英文单词 one，`MSTR` 被展开成普通词 strategy。这些都显示 `entity_filter_applied:true`；结果行没有 `matched_by` 一类字段，看不出是怎么命中的（09-16 起，10-12 复现）。
+- **②** 多词短语里像代码的词被锁成实体：「Groq 3 LPX」召回 Louisiana-Pacific；「strategic bitcoin reserve bill」用 quick 时 bitcoin 被解析成 BTC，吞掉整个短语；「AI chip export controls」结果与 `query="AI"` 逐条相同；「SWIFT tokenized deposits pilot …」里 pilot 被锁成实体，召回的全是飞行员新闻；`ONE` 撞英文单词 one，`MSTR` 被展开成普通词 strategy；地名同理：10-09 06 实跑 `"Michigan consumer sentiment"` 8 条全是密歇根州选举、诉讼新闻，0 条相关，去掉地名写 `"consumer sentiment"` 能带回 AAII 情绪调查、消费股等相关稿。这些都显示 `entity_filter_applied:true`；结果行没有 `matched_by` 一类字段，看不出是怎么命中的（09-16 起，10-12 复现）。
 - **③** 用 SPAC 原名查新闻几乎全无关，用合并对象名才准（10-03，原第 444 行）。
 - **④** 英文领域术语撞公司名：「oracle manipulation liquidation exploit thin liquidity price feed attack」（本意是预言机）20 条全是 Oracle 公司（ORCL）的稿，`entity_filter_applied:true`；同一 query 加 `asset_type="crypto"` 结果不变（与 N-145「crypto 只是后置标签过滤」一致）；改写成「DeFi price oracle manipulation exploit lending protocol」仍混进 ORCL；去掉 oracle 改写成「price feed manipulation flash loan …」，loan 又召回房贷车贷。改用中文「预言机 喂价 操纵 清算 攻击」后 `entity_filter_applied:false`，加 `sort_by="relevance"`：3 天窗口第 1 条即命中预言机操纵事件，2 个月窗口 8 条里 7 条相关（10-13）。
 - **怎么读**：`entity_filter_applied:true` 不代表相关。英文领域术语和公司名相同时（oracle / pilot），`asset_type` 挡不住，改用中文术语查询。含产品型号或多词话题的查询，逐条核正文是否含完整短语；公司名是常用词（Strategy、ONE）时用全称 + ticker 再逐条核；链上币逐条核是否在讲代币（含 CA / 链名 / meme 语境），不按 raw count 计热度。

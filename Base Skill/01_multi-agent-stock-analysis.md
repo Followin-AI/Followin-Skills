@@ -42,13 +42,13 @@ args: ticker
 
 `metrics` / `signal` 的入参分工是：**`keywords` 数组放标的，`query` 放意图词，`categories` 指定数据类别**。
 
-- **意图词用中文**。英文指标名写进 query 会被当成 ticker（实测 `"NVDA RSI 14"` 多带回一只代码为 RSI 的股票）。
+- **意图词用中文**。英文指标名写进 query 会被当成 ticker（N-69①）。
 - 所有 `metrics` / `signal` 调用带 `asset_type="tradfi"`。
 - 每次调用后读 `meta.warnings`；`default_fanout_fallback` 是提示不是错误，不要因它重试。
 - `signal()` **必须显式传 `categories`**——只传 ticker 返回空。
 - 如果客户端不接受数组入参（报 `-32602`），把 ticker 并进 query 串（`query="<T> 分析师评级 同行 DCF"`）。
 - 非交易时段，行情快照是上一个常规收盘（`_quote_session:"regular_inactive"`），不是盘后价；标"常规收盘"。
-- 盘中跑时快照是实时价，但可能没有 `_quote_session`（2026-10-08 实测 AVGO 盘中无此字段），按 `as_of` 判断并标"实时"。
+- 盘中跑时快照是实时价，但可能没有 `_quote_session`（N-157），按 `as_of` 判断并标"实时"。
 - `ratios_ttm` / `key_metrics_ttm` 的价格**不一定是表头价**：盘中按前收算，收盘后也可能还停在前一交易日（N-168①）。引用 P/E、P/S、P/B 前用"比率 × TTM 每股值"反推它用的价格，与表头价不同就用表头价自算，或写明"按 X 日收盘"。`dcf["Stock Price"]` 同样不可当表头价（N-168①、N-179①）。**DCF 安全边际一律用表头价自算**（`dcf ÷ 表头价 − 1`，表头价 = 实时价，非交易时段为常规收盘）：价格口径差几个点就可能跨过 ① 的 25% 线（N-168①）。
 
 ## 执行步骤
@@ -63,32 +63,31 @@ args: ticker
      fiscal_quarters（最新一季的 earnings_surprise + financial_statement）、eps_trend、balance_sheet、cash_flow（各 4 季）、
      profile_block（sector / industry / beta）、valuation_block（ratios_ttm / key_metrics_ttm / dcf）、consensus_price、
      next_earnings_estimate、analyst_grades、analyst_estimates、stock_peers、financial_growth（最近 4 个财年的年度同比）
-   （2026-10-03 实测这一个 query 能代替原来的三路调用；只缺利润表）
+   （一个 query 合并多块，只缺利润表，N-135）
 2. metrics(keywords=["<T>"], query="财报 利润表", categories=["fundamentals"], asset_type="tradfi", limit=4)
    → income_statement（4 季：revenue / grossProfit / operatingIncome / netIncome / R&D / eps / epsDiluted /
      incomeBeforeTax / totalOtherIncomeExpensesNet）
 3. 行业同行（必做）：第 1 路的 stock_peers 只有 companyName / mktCap / price，**没有行业字段，而且按代码字母序排列**
-   （不是按规模，也不是按业务——实测 NVDA 的名单是 AAPL、ADI、AVGO、ENTG、GOOGL、IMOS、MSFT、TER、TSM）。
-   先按公司名排除明显的非同业（如 NVDA 名单里的 AAPL / GOOGL / MSFT），剩下的按 mktCap 从大到小取前 3 家，合并一次。
-   名单里混有外国代码时（2026-10-08 实测 MU 的 10 家里 6 家是 .TW / .T / .HK / .SS，GigaDevice 两地各一行），
-   外国代码的 mktCap 是**当地货币**（Kioxia 29.4 万亿日元排第一），不能跨币种比大小：先按公司名去重，
+   （不是按规模，也不是按业务，N-134⑤）。
+   先按公司名排除明显的非同业，剩下的按 mktCap 从大到小取前 3 家，合并一次。
+   名单里混有外国代码、同一公司可能两地各一行时，
+   外国代码的 mktCap 是**当地货币**（N-134⑤），不能跨币种比大小：先按公司名去重，
    只在美股代码（`^[A-Z]{1,5}$`，含 ADR）里按 mktCap 排；美股代码不足 3 家时再用外国代码补位：
    metrics(keywords=[P1,P2,P3], categories=["market","fundamentals"], asset_type="tradfi", limit=1, verbosity="concise")
-   不带 categories 时同行代码会被宏观日历劫持（实测 ADI 多返回一条日本领先指数）。
+   不带 categories 时同行代码会被宏观日历劫持（N-135）。
    返回后核对每家的 profile_block.industry 与目标一致，不一致的在数据缺口注明。
-   这一路的估值只有 ratios_ttm（P/E、P/S、P/B、利润率），没有 key_metrics_ttm，同行的 EV/EBITDA 拿不到。
-   同行的服务端 PEG 不可比（2026-10-08 实测 MRVL 为 0.03），不引用；行业对比只用 P/E、P/S、P/B、利润率。
+   这一路的估值只有 ratios_ttm（P/E、P/S、P/B、利润率），没有 key_metrics_ttm，同行的 EV/EBITDA 拿不到（N-134⑤）。
+   同行的服务端 PEG 不可比（N-134⑤），不引用；行业对比只用 P/E、P/S、P/B、利润率。
    ADR 同行（如 TSM）的报表和 EPS 可能是本币，只引用比率
-   **自定同业（可选，+1 路）**：接口同行与目标同属一个 industry、但主营细分明显不同时（实测 AVGO 的接口同行前 3 是
-   TXN / MRVL / ADI，其中 TXN、ADI 是模拟芯片，AVGO 主营 AI 定制芯片与网络芯片），或接口同行的 industry 与目标不一致时
-   （实测 MU 的前 3 是 SKHY / SNDK / STX，后两家 industry 为 Computer Hardware），可另选**最多 3 只**同细分行业的同业，
+   **自定同业（可选，+1 路）**：接口同行与目标同属一个 industry、但主营细分明显不同时，或接口同行的 industry 与目标不一致时
+   （N-134⑤），可另选**最多 3 只**同细分行业的同业，
    按同样写法再调一次 metrics(keywords=[S1,S2,S3], categories=["market","fundamentals"], asset_type="tradfi", limit=1, verbosity="concise")。
    返回后同样核对 profile_block.industry。输出里标"自定同业"并逐只写选择理由，与接口同行**分开展示、分开算中位数**，不混成一组。
-   外国代码可以直接放进 keywords（2026-10-08 实测 005930.KS / 2408.TW / 285A.T 均未被改写），但报表与市值是当地货币，只引用比率
+   外国代码可以直接放进 keywords（不会被改写，N-159），但报表与市值是当地货币，只引用比率
 4. metrics(keywords=["<T>"], query="历史走势", asset_type="tradfi", time_range="13m", limit=290)
-   → 13 个月日线（必须传 limit；time_range="1y" 只返回 251 行，算不出 1Y 涨幅）。
-     返回约 5 万字符，用代码解析 close 序列。盘中跑时最后一行是**当天未走完的 K 线**（date = 今天、close ≈ 实时价，
-     2026-10-08 实测），处理方法见 Step 2
+   → 13 个月日线（必须传 limit；time_range="1y" 不足 252 行，算不出 1Y 涨幅，N-132）。
+     返回约 5 万字符，用代码解析 close 序列。盘中跑时最后一行是**当天未走完的 K 线**（date = 今天，N-158），
+     处理方法见 Step 2
 ```
 
 **Batch B：技术指标 + 信号**
