@@ -26,7 +26,7 @@ args: days
 | XX财报、XX earnings | ❌ 转 02 earnings-report |
 | 宏观日报、美股早报 | ❌ 转 06 morning-brief |
 
-> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文的调用写法和字段名于 **2026-10-03 实跑验证、2026-10-08 复跑**；与登记表冲突时，以日期更新的一方为准。
+> 🔗 **通用调用红线 + 已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文的调用写法和字段名于 **2026-10-03 实跑验证、2026-10-08 复跑**；与登记表冲突时以登记表为准（它是单一事实源）；发现本文比登记表更新，在输出里注明冲突，事后先改登记表、再同步本文。
 
 ## 调用约定（2026-10-03 实测）
 

@@ -48,7 +48,7 @@ args: days, top, watchlist
 | 背离扫描、没新闻却大涨 | ❌ 转 `Base Skill/03_us-stock-divergence-scan` |
 | 宏观早报、今日市场 | ❌ 转 `Base Skill/06_macro-morning-brief` |
 
-> 🔗 **已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。本文与登记表冲突时，以日期更新的一方为准。
+> 🔗 **已知问题登记**：`~/.claude/references/followin-mcp-caveats.md`（仓库内 `references/`）。与登记表冲突时以登记表为准（它是单一事实源）；发现本文比登记表更新，在输出里注明冲突，事后先改登记表、再同步本文。
 > 📐 **每个参数的实测依据与历次被否决的方案**：见 [`CHANGELOG.md`](../CHANGELOG.md)（目录 README 只写用户视角，不收录这些）。
 
 ## 调用约定（2026-10-03 实测）
