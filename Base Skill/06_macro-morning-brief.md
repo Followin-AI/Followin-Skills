@@ -78,14 +78,14 @@ args: watchlist
 10. news(query="stock market",    sources=["media"], time_range="1d", limit=8, sort_by="relevance")
 ```
 第 9 路的 query 按优先级取第一条满足的（都不满足就用 `"Federal Reserve"`）：
-1. "最近已发布数据"里有 High 级数据，且 `actual` 偏离 `estimate` 超过 20%（或方向与预期相反、且偏离 ≥ 3%；标"预期存疑"的行不算。方向按相对前值的变化比：预期较前值升、实际较前值降就算相反；偏离 = |实际 − 预期| ÷ |预期|，方向相反但偏离不到 3% 的不算，选题顺延到下一条——如初请预期升到 20 万、实际降到 19.7 万，方向相反但只差 1.5%，不算，选题顺延（2026-10-09 那次顺延后先由规则 2 的 10 年期日线 −5bp（取整后）命中，原油 WTI +3.6% / 布伦特 +4.1% 排在其后））→ 用事件主题词，如 `"nonfarm payrolls"` / `"CPI inflation"`
+1. "最近已发布数据"里有 High 级数据，且 `actual` 偏离 `estimate` 超过 20%（或方向与预期相反、且偏离 ≥ 3%；标"预期存疑"的行不算。方向按相对前值的变化比：预期较前值升、实际较前值降就算相反；偏离 = |实际 − 预期| ÷ |预期|，方向相反但偏离不到 3% 的不算，选题顺延到下一条——如初请预期升到 20 万、实际降到 19.7 万，方向相反但只差 1.5%，不算，选题顺延）→ 用事件主题词，如 `"nonfarm payrolls"` / `"CPI inflation"`
 2. `^TNX` 日变化绝对值 ≥ 5bp → `"treasury yield"`。**美东 16:00 至次日 09:30 跑时用日线、不用快照**（收盘后快照时间停在 14:58、前收与日线不符，N-179⑤）：`^TNX` 并进第 4 条的补查日线（同一次调用），剔掉未收盘行（未收盘行 close 三位小数、已收盘两位，N-175②），bp = 最近两根已收盘 `close` 之差 × 100，表里和选题都用这个数，bp 后注明"（取整后）"
 3. VIX > 25，或 VIX 日变化绝对值 > 10% → `"VIX volatility"`
 4. 原油日变化绝对值 > 3%（WTI 或布伦特任一超过即算）→ `"oil crude"`。**美东 16:00 至次日 09:30（美股收盘后到次日开盘前）跑时不用快照的日变化、也不跳过**：这时快照的原油日变化是夜盘值，不是上一交易日涨跌（见上方"运行时段"），改为补查 1 次日线取上一交易日涨跌：
    ```
    metrics(keywords=["CLUSD","BZUSD","^TNX"], query="历史走势", categories=["market"], time_range="1m", limit=5, asset_type="tradfi")   # 带 categories=["market"]、不带 interval 返回日 K（N-185②）；^TNX 供第 2 条用
    ```
-   先剔除未收盘行：返回按日期倒序，未收盘行排在每个代码的**最前**一行（`date` 晚于上一交易日、成交量远低于其后几行），`CLUSD` 和 `BZUSD` 都可能有（北京上午实测两个都多一根 10-09 行，成交量 7,746 / 1,190，前几行约 27 万 / 4.7 万；N-179③、N-185③）。再拿最近两根已收盘日 K 的 `close` 算涨跌（后一根 ÷ 前一根 − 1）——**不要用日线自带的 `change` / `changePercent`**，那是当日收盘对当日开盘（N-131）。所用数字写进输出的"数据缺口"（见输出模板），否则读者看到表里原油日变化很小、新闻却在讲油价大涨，会以为选题判错了（2026-10-09 美东 22:28 实测：表里 WTI 夜盘 −0.6%，而 10-08 收盘对 10-07 收盘 WTI +3.6%（91.49 / 88.28）、布油 +4.1%（104.28 / 100.20）；同一行的 `changePercent` 只有 +2.8% / +3.1%，上一轮记录的就是这个对开盘的数）
+   先剔除未收盘行：返回按日期倒序，未收盘行排在每个代码的**最前**一行（`date` 晚于上一交易日、成交量远低于其后几行），`CLUSD` 和 `BZUSD` 都可能有（N-179③）。再拿最近两根已收盘日 K 的 `close` 算涨跌（后一根 ÷ 前一根 − 1）——**不要用日线自带的 `change` / `changePercent`**，那是当日收盘对当日开盘（N-131）。所用数字写进输出的"数据缺口"（见输出模板），否则读者看到表里原油日变化很小、新闻却在讲油价大涨，会以为选题判错了（N-179③）。
 5. 未来 2 个交易日内有 High 级日历事件 → 事件主题词，**去掉地名 / 机构名**，只留指标本身（如 `Michigan Consumer Sentiment` 写 `"consumer sentiment"`）。2026-10-09 实测 `"Michigan consumer sentiment"` 返回的 8 条全是密歇根州选举、诉讼新闻，0 条相关；`"consumer sentiment"` 能带回 AAII 情绪调查、消费股、关税推高物价等相关稿
 
 `news()` 的 query 写 2-3 个核心名词，纯英文；不写"影响 / 解读 / 分析"这类词。
@@ -96,22 +96,22 @@ args: watchlist
 
 三张榜（涨幅 / 跌幅 / 活跃）的行**只有** symbol / name / price / change / changesPercentage 五个字段，没有市值也没有交易所，每张最多约 30 行、以小盘股为主。**榜单覆盖有限：跌幅不够极端的大盘股不会上榜**（实测 10-02 STX −10.2%、市值 1,904 亿美元，三张榜都没有），所以这一节只能叫"榜单内可见的大市值异动"。
 
-1. **先按名称剔基金类产品（含杠杆 / 反向）**：`name` 匹配 `(?i)\bETFs?\b|\bETNs?\b|ProShares|Direxion|Leverage Shares|GraniteShares|Tradr|Defiance|T-Rex|MicroSectors|iPath|SPDR|iShares|Vanguard|Invesco (QQQ|DB)|Grayscale|Teucrium|\b(Bitcoin|Ether(eum)?|Crypto|Gold|Silver|Platinum|Palladium|Oil|Gas|Gasoline|Agriculture|Commodity|Index) (Funds?|Trust|Shares)\b` 即剔（不区分大小写，与 c1 同一份名单）。后半段的发行商名和"商品 + Fund / Trust / Shares"用来接住名字里不带 ETF 的产品——TQQQ 叫 ProShares UltraPro QQQ，RWM 叫 ProShares - Short Russell2000，QQQ 叫 Invesco QQQ Trust。**旧版的 `Ultra|Leverag|\d+X|Bull|Bear|Daily|Short|Inverse|Target` 不再单独当剔除条件**：单独命中会误杀 Target Corp（TGT）、Ultra Clean（UCTT）、Daily Journal 这类正常公司；也不要放宽成 `Invesco`（误杀 Invesco Ltd 本身）或 `Fund|Trust`（误杀 Northern Trust 和名字带 Trust 的 REIT）。2026-10-08 实测三张榜里的 20 只基金类产品（PLTU / PLTA / PTIR / NRGU / CIFG / RIOX / SOXL / TQQQ / IBIT / BKLC 等）新名单全部剔中。
-   - **同时剔疑似合股的假涨幅**：`changesPercentage ≥ 200` 的行直接剔（等价于前收 < 现价 / 3，榜单行就能判，免得假涨幅占掉补市值名额）。2026-10-05 c1 实测涨幅榜前四 SCNX +2141%、VIVK +1501%、GUTS +984%、CMND +699% 全是合股前后价格拼出来的，现价都在 $3 以上，价格闸挡不住。
-   - **同时剔 SPAC 单位 / 权证 / 权利证**（口径同 c1 / 03，2026-10-09 用户定）：代码为 5 个字母且以 `U` / `W` / `R` 结尾，**并且**名称含 `Acquisition Corp` / `Merger Corp` / `Right` / `Unit` / `Warrant` 的剔掉。两个条件要同时满足：名称含 `Acquisition Corp` 但代码不符合的是 SPAC 普通股，留到第 4 步按 SPAC 标记。2026-10-08 实测 CCAQU（跌幅榜第 1，−40.7%，市值约 1.7 亿）、ALISU（Calisa Acquisition Corp Units，市值约 3,400 万）不剔会白占两个补市值名额。
+1. **先按名称剔基金类产品（含杠杆 / 反向）**：`name` 匹配 `(?i)\bETFs?\b|\bETNs?\b|ProShares|Direxion|Leverage Shares|GraniteShares|Tradr|Defiance|T-Rex|MicroSectors|iPath|SPDR|iShares|Vanguard|Invesco (QQQ|DB)|Grayscale|Teucrium|\b(Bitcoin|Ether(eum)?|Crypto|Gold|Silver|Platinum|Palladium|Oil|Gas|Gasoline|Agriculture|Commodity|Index) (Funds?|Trust|Shares)\b` 即剔（不区分大小写，与 c1 同一份名单）。后半段的发行商名和"商品 + Fund / Trust / Shares"用来接住名字里不带 ETF 的产品——TQQQ 叫 ProShares UltraPro QQQ，RWM 叫 ProShares - Short Russell2000，QQQ 叫 Invesco QQQ Trust。**不要把 `Ultra|Leverag|\d+X|Bull|Bear|Daily|Short|Inverse|Target` 单独当剔除条件**：单独命中会误杀 Target Corp（TGT）、Ultra Clean（UCTT）、Daily Journal 这类正常公司；也不要放宽成 `Invesco`（误杀 Invesco Ltd 本身）或 `Fund|Trust`（误杀 Northern Trust 和名字带 Trust 的 REIT）。（10-08 三张榜里的 20 只基金类产品，这份名单全部剔中。）
+   - **同时剔疑似合股的假涨幅**：`changesPercentage ≥ 200` 的行直接剔（等价于前收 < 现价 / 3，榜单行就能判，免得假涨幅占掉补市值名额）。这类假涨幅现价可以在 $3 以上，价格闸挡不住（N-111）。
+   - **同时剔 SPAC 单位 / 权证 / 权利证**（口径同 c1 / 03，2026-10-09 用户定）：代码为 5 个字母且以 `U` / `W` / `R` 结尾，**并且**名称含 `Acquisition Corp` / `Merger Corp` / `Right` / `Unit` / `Warrant` 的剔掉。两个条件要同时满足：名称含 `Acquisition Corp` 但代码不符合的是 SPAC 普通股，留到第 4 步按 SPAC 标记。（如 CCAQU、ALISU，不剔会白占补市值名额。）
    - **同时剔仙股**：`price < 5` 的行剔掉（低价大盘股如 GRAB 若因此漏掉，在数据缺口里写一句即可）。
-2. **挑候选**（跟 c1，2026-10-09 用户定）：三张榜预筛后合并去重，**先只留 `|changesPercentage| ≥ 3` 的行**（活跃榜里涨跌 1% 的高价股不该占名额），**再按 `price` 从高到低取前 20 只**补市值；排第 21 名起的没补到，在数据缺口里写"榜单候选 N 只、按股价取前 20 补市值，未补：……"。2026-10-08 回放：预筛后 28 只，前 20 名是 ARGX / PLTR / GKOS / MANE / HAE / INTC / RPGL / IREN / PCRX / URGN / CMG / BUUU / CIFR / SECZ / RZAI / CD / VNCE / ANGO / COE / NOK，其中 14 只过 5 亿美元；排第 21 的 GFUZ（市值约 6.9 亿、+13.7%）因此落选，要写进数据缺口。
+2. **挑候选**（跟 c1，2026-10-09 用户定）：三张榜预筛后合并去重，**先只留 `|changesPercentage| ≥ 3` 的行**（活跃榜里涨跌 1% 的高价股不该占名额），**再按 `price` 从高到低取前 20 只**补市值；排第 21 名起的没补到，在数据缺口里写"榜单候选 N 只、按股价取前 20 补市值，未补：……"（排在 20 名外的也可能过 5 亿美元，如 GFUZ 约 6.9 亿、+13.7%）。
 3. **补市值和交易所**，每批 5 个、最多 4 批，一轮并行发完：
    ```
    metrics(keywords=[<T1>…<T5>], query="行情", asset_type="tradfi")
    ```
-   快照行带 `marketCap` 和 `exchange`。涨跌幅沿用榜单行的 `changesPercentage`（**快照的 `change` 是美元变动量，不是百分比**）。
-4. **终筛**：先剔补快照后才看得出的合股 / 拆股——快照 `dayLow < price/3`（或第 1 步漏掉的 `previousClose < price/3`）的直接剔（SCNX 快照 `previousClose` 0.1771、`dayLow` 0.1358、`price` 3.97）。再留 `marketCap > 5 亿美元` 且 `exchange` 属于 NYSE / NASDAQ / AMEX 的行。`marketCap` 小于 100 万美元的是异常值（2026-10-08 实测 BBCI 返回 `marketCap: 8`），按缺失处理、写进数据缺口，不要当成小盘股悄悄剔掉。名称含 `Acquisition Corp` / `Merger Corp` 的 SPAC 普通股（借壳空壳公司）保留但在输出里标"SPAC"——它们的暴涨通常来自合并消息，不代表行业动向。
-   - **疑似收购单列**（口径同 03，2026-10-09 用户定）：涨幅 > 20%、过了市值闸，且同时满足 ① 快照的 `(dayHigh − dayLow) ÷ price < 0.5%`（股价被钉在收购价下方；用补市值那次快照的字段，**不用下面日线的 `high` / `low`**——2026-10-09 美东收盘后实测 PCRX 快照 36.27~36.405 振幅 0.37%，同日日线 36.27~36.46 振幅 0.52%，换数据源会翻判）② 成交倍数 ≥ 10。成交倍数要近一个月日均成交量，对这类票补一次日线（每批 ≤5 个）：
+   快照行带 `marketCap` 和 `exchange`。涨跌幅沿用榜单行的 `changesPercentage`（**快照的 `change` 是美元变动量，不是百分比**，N-47）。
+4. **终筛**：先剔补快照后才看得出的合股 / 拆股——快照 `dayLow < price/3`（或第 1 步漏掉的 `previousClose < price/3`）的直接剔（如 SCNX，N-111）。再留 `marketCap > 5 亿美元` 且 `exchange` 属于 NYSE / NASDAQ / AMEX 的行。`marketCap` 小于 100 万美元的是异常值（N-160），按缺失处理、写进数据缺口，不要当成小盘股悄悄剔掉。名称含 `Acquisition Corp` / `Merger Corp` 的 SPAC 普通股（借壳空壳公司）保留但在输出里标"SPAC"——它们的暴涨通常来自合并消息，不代表行业动向。
+   - **疑似收购单列**（口径同 03，2026-10-09 用户定）：涨幅 > 20%、过了市值闸，且同时满足 ① 快照的 `(dayHigh − dayLow) ÷ price < 0.5%`（股价被钉在收购价下方；用补市值那次快照的字段，**不用下面日线的 `high` / `low`**——两者不一致，在 0.5% 闸附近换数据源会翻判，N-179④）② 成交倍数 ≥ 10。成交倍数要近一个月日均成交量，对这类票补一次日线（每批 ≤5 个）：
      ```
      metrics(keywords=[<T1>…<T5>], query="历史走势", asset_type="tradfi", time_range="1m", limit=25)
      ```
-     日均**去掉当天那一行**（盘中那一行是开盘至今的累计量，N-158）。收盘后跑：成交倍数 = 快照 `volume` ÷ 近一月日均；盘中跑按已开盘时长折算：成交倍数 = 快照 `volume` ÷（近一月日均 × 已开盘分钟数 ÷ 390），已开盘分钟数从美东 9:30 算到快照的 `as_of`。命中的**不进"涨幅居前"**，放进输出里的"🤝 疑似收购"一节，写"疑似收购要约，待核实"。2026-10-08 实测 PCRX +44%，美东 11:09 快照振幅 0.17%（36.27~36.33）、成交 1,715 万股；按 03 同日测得的近一月日均约 56 万股、已开盘 99 分钟折算约 120 倍，两条都过。
+     日均**去掉当天那一行**（盘中那一行是开盘至今的累计量，N-158）。收盘后跑：成交倍数 = 快照 `volume` ÷ 近一月日均；盘中跑按已开盘时长折算：成交倍数 = 快照 `volume` ÷（近一月日均 × 已开盘分钟数 ÷ 390），已开盘分钟数从美东 9:30 算到快照的 `as_of`。命中的**不进"涨幅居前"**，放进输出里的"🤝 疑似收购"一节，写"疑似收购要约，待核实"。（例：PCRX +44%，振幅 0.17%，按已开盘 99 分钟折算成交约为近一月日均的 120 倍，两条都过。）
 5. **watchlist**（如果传了）每批 ≤5 个取快照；涨跌幅自己算 `change ÷ previousClose × 100`。对涨跌超过 2% 的每只，补一次 `news(query="<公司英文名>", sources=["media"], time_range="1d", limit=3, sort_by="relevance")` 找原因——只在两路宏观新闻里找会把大涨大跌的票误标成"无新闻"（实测 TSLA +4.7% 的交付超预期、MU −2.1% 的财报后报道都只能这样找到；2026-10-08 PEP +2.1% 的三季报超预期也是）。这一路返回的多是前一天的稿子或荐股稿时，写"未见当日直接原因"，不要拿旧稿凑原因（2026-10-08 实测 MU −2.1%，3 条都是 10-07 的热门榜和看多文）。
 
 ### Step 3: 分析与聚合
