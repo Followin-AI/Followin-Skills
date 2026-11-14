@@ -86,7 +86,7 @@ args: watchlist
    metrics(keywords=["CLUSD","BZUSD","^TNX"], query="历史走势", categories=["market"], time_range="1m", limit=5, asset_type="tradfi")   # 带 categories=["market"]、不带 interval 返回日 K（N-185②）；^TNX 供第 2 条用
    ```
    先剔除未收盘行：返回按日期倒序，未收盘行排在每个代码的**最前**一行（`date` 晚于上一交易日、成交量远低于其后几行），`CLUSD` 和 `BZUSD` 都可能有（N-179③）。再拿最近两根已收盘日 K 的 `close` 算涨跌（后一根 ÷ 前一根 − 1）——**不要用日线自带的 `change` / `changePercent`**，那是当日收盘对当日开盘（N-131）。所用数字写进输出的"数据缺口"（见输出模板），否则读者看到表里原油日变化很小、新闻却在讲油价大涨，会以为选题判错了（N-179③）。
-5. 未来 2 个交易日内有 High 级日历事件 → 事件主题词，**去掉地名 / 机构名**，只留指标本身（如 `Michigan Consumer Sentiment` 写 `"consumer sentiment"`）。2026-10-09 实测 `"Michigan consumer sentiment"` 返回的 8 条全是密歇根州选举、诉讼新闻，0 条相关；`"consumer sentiment"` 能带回 AAII 情绪调查、消费股、关税推高物价等相关稿
+5. 未来 2 个交易日内有 High 级日历事件 → 事件主题词，**去掉地名 / 机构名**，只留指标本身（如 `Michigan Consumer Sentiment` 写 `"consumer sentiment"`）：地名会被锁成实体，召回的是当地新闻（N-103②）
 
 `news()` 的 query 写 2-3 个核心名词，纯英文；不写"影响 / 解读 / 分析"这类词。
 
@@ -94,7 +94,7 @@ args: watchlist
 
 ### Step 2: 榜单过滤
 
-三张榜（涨幅 / 跌幅 / 活跃）的行**只有** symbol / name / price / change / changesPercentage 五个字段，没有市值也没有交易所，每张最多约 30 行、以小盘股为主。**榜单覆盖有限：跌幅不够极端的大盘股不会上榜**（实测 10-02 STX −10.2%、市值 1,904 亿美元，三张榜都没有），所以这一节只能叫"榜单内可见的大市值异动"。
+三张榜（涨幅 / 跌幅 / 活跃）的行**只有** symbol / name / price / change / changesPercentage 五个字段，没有市值也没有交易所，每张最多约 30 行、以小盘股为主。**榜单覆盖有限：跌幅不够极端的大盘股不会上榜**（N-138），所以这一节只能叫"榜单内可见的大市值异动"。
 
 1. **先按名称剔基金类产品（含杠杆 / 反向）**：`name` 匹配 `(?i)\bETFs?\b|\bETNs?\b|ProShares|Direxion|Leverage Shares|GraniteShares|Tradr|Defiance|T-Rex|MicroSectors|iPath|SPDR|iShares|Vanguard|Invesco (QQQ|DB)|Grayscale|Teucrium|\b(Bitcoin|Ether(eum)?|Crypto|Gold|Silver|Platinum|Palladium|Oil|Gas|Gasoline|Agriculture|Commodity|Index) (Funds?|Trust|Shares)\b` 即剔（不区分大小写，与 c1 同一份名单）。后半段的发行商名和"商品 + Fund / Trust / Shares"用来接住名字里不带 ETF 的产品——TQQQ 叫 ProShares UltraPro QQQ，RWM 叫 ProShares - Short Russell2000，QQQ 叫 Invesco QQQ Trust。**不要把 `Ultra|Leverag|\d+X|Bull|Bear|Daily|Short|Inverse|Target` 单独当剔除条件**：单独命中会误杀 Target Corp（TGT）、Ultra Clean（UCTT）、Daily Journal 这类正常公司；也不要放宽成 `Invesco`（误杀 Invesco Ltd 本身）或 `Fund|Trust`（误杀 Northern Trust 和名字带 Trust 的 REIT）。（10-08 三张榜里的 20 只基金类产品，这份名单全部剔中。）
    - **同时剔疑似合股的假涨幅**：`changesPercentage ≥ 200` 的行直接剔（等价于前收 < 现价 / 3，榜单行就能判，免得假涨幅占掉补市值名额）。这类假涨幅现价可以在 $3 以上，价格闸挡不住（N-111）。
@@ -112,7 +112,7 @@ args: watchlist
      metrics(keywords=[<T1>…<T5>], query="历史走势", asset_type="tradfi", time_range="1m", limit=25)
      ```
      日均**去掉当天那一行**（盘中那一行是开盘至今的累计量，N-158）。收盘后跑：成交倍数 = 快照 `volume` ÷ 近一月日均；盘中跑按已开盘时长折算：成交倍数 = 快照 `volume` ÷（近一月日均 × 已开盘分钟数 ÷ 390），已开盘分钟数从美东 9:30 算到快照的 `as_of`。命中的**不进"涨幅居前"**，放进输出里的"🤝 疑似收购"一节，写"疑似收购要约，待核实"。（例：PCRX +44%，振幅 0.17%，按已开盘 99 分钟折算成交约为近一月日均的 120 倍，两条都过。）
-5. **watchlist**（如果传了）每批 ≤5 个取快照；涨跌幅自己算 `change ÷ previousClose × 100`。对涨跌超过 2% 的每只，补一次 `news(query="<公司英文名>", sources=["media"], time_range="1d", limit=3, sort_by="relevance")` 找原因——只在两路宏观新闻里找会把大涨大跌的票误标成"无新闻"（实测 TSLA +4.7% 的交付超预期、MU −2.1% 的财报后报道都只能这样找到；2026-10-08 PEP +2.1% 的三季报超预期也是）。这一路返回的多是前一天的稿子或荐股稿时，写"未见当日直接原因"，不要拿旧稿凑原因（2026-10-08 实测 MU −2.1%，3 条都是 10-07 的热门榜和看多文）。
+5. **watchlist**（如果传了）每批 ≤5 个取快照；涨跌幅自己算 `change ÷ previousClose × 100`。对涨跌超过 2% 的每只，补一次 `news(query="<公司英文名>", sources=["media"], time_range="1d", limit=3, sort_by="relevance")` 找原因——只在两路宏观新闻里找会把大涨大跌的票误标成"无新闻"（如 10-03 TSLA、MU，10-08 PEP）。这一路返回的多是前一天的稿子或荐股稿时，写"未见当日直接原因"，不要拿旧稿凑原因（`1d` 从调用时刻往回滚 24 小时，会带回前一天的稿，N-175④）。
 
 ### Step 3: 分析与聚合
 
