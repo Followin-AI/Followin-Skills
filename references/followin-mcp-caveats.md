@@ -821,7 +821,7 @@ N-122 是 N-106 的范围扩大版（query 串里的 `*USD` 代码一律被丢�
 
 ### N-9 榜单行没有市值，要补快照后再过滤 〔B〕
 - **现状**（10-12 复测）：三张榜的行只有 6 个字段：`symbol` / `name` / `price` / `change` / `changesPercentage` / `provenance`，没有 `marketCap`、`exchange`、日期（原 N-110 的榜单行部分）。只覆盖美股。榜内混有杠杆产品（10-12 有 MRNX「Daily Target 2X Long」）。
-- **怎么读**：候选代码二次批量快照补 `marketCap` / `exchange`，取市值 ≥$1B；剔杠杆 ETF 用正则 `ETF|ETN|UltraPro|Ultra|Leveraged|\dX|Bull|Bear|Daily`，只判 "ETF" 会漏 TQQQ / SQQQ；不用「<$5 仙股闸」，会误杀 GRAB（10-12 $3.19，市值百亿美元级），价格闸只在拿不到市值时兜底。
+- **怎么读**：候选代码二次批量快照补 `marketCap` / `exchange` 再按市值过滤，门槛各 Skill 自定（c1 ≥$1B；03、06 >5 亿美元，03 部分信号 >10 亿）。剔基金类产品用 c1 / 06 那份名称正则（发行商名，加「品种词 + Fund / Trust / Shares」），只判 "ETF" 会漏 TQQQ / SQQQ；`Ultra` / `Leverag` / `\dX` / `Bull` / `Bear` / `Daily` 不要单独当剔除条件，会误杀 Target（TGT）、Ultra Clean（UCTT）、Daily Journal。不按股价剔除（「<$5 仙股闸」会误杀 GRAB，10-12 $3.19、市值百亿美元级）：股价只用来排补市值的先后，拿不到市值时才拿价格兜底。
 - **待复测**（GAP R4）：`most active` 是否真按成交量排。09-16 的单个样本里前两名与涨幅榜相同（`77e4470c…`），之后没有复测。
 - **历史**：07 月 trend-scout 记为「弃用涨跌榜，改用 most active」；10-01 N-111 撤销弃用；Q4 决定摘除。本条已并入红线 9 的事实部分。
 - **依据**：07-22 回归；10-12 `cdefd4e1…` / `46c264e8…`
