@@ -94,12 +94,12 @@ args: watchlist
 
 ### Step 2: 榜单过滤
 
-三张榜（涨幅 / 跌幅 / 活跃）的行**只有** symbol / name / price / change / changesPercentage 五个字段，没有市值也没有交易所，每张最多约 30 行、以小盘股为主。**榜单覆盖有限：跌幅不够极端的大盘股不会上榜**（N-138），所以这一节只能叫"榜单内可见的大市值异动"。
+三张榜（涨幅 / 跌幅 / 活跃）的行**只有** symbol / name / price / change / changesPercentage 五个数据字段（另有 `provenance`），没有市值也没有交易所；默认每张 30~40 行（剔掉 $1 以下后不补位，N-138），以小盘股为主。**榜单覆盖有限：跌幅不够极端的大盘股不会上榜**（N-138），所以这一节只能叫"榜单内可见的大市值异动"。
 
 1. **先按名称剔基金类产品（含杠杆 / 反向）**：`name` 匹配 `(?i)\bETFs?\b|\bETNs?\b|ProShares|Direxion|Leverage Shares|GraniteShares|Tradr|Defiance|T-Rex|MicroSectors|iPath|SPDR|iShares|Vanguard|Invesco (QQQ|DB)|Grayscale|Teucrium|\b(Bitcoin|Ether(eum)?|Crypto|Gold|Silver|Platinum|Palladium|Oil|Gas|Gasoline|Agriculture|Commodity|Index) (Funds?|Trust|Shares)\b` 即剔（不区分大小写，与 c1 同一份名单）。后半段的发行商名和"商品 + Fund / Trust / Shares"用来接住名字里不带 ETF 的产品——TQQQ 叫 ProShares UltraPro QQQ，RWM 叫 ProShares - Short Russell2000，QQQ 叫 Invesco QQQ Trust。**不要把 `Ultra|Leverag|\d+X|Bull|Bear|Daily|Short|Inverse|Target` 单独当剔除条件**：单独命中会误杀 Target Corp（TGT）、Ultra Clean（UCTT）、Daily Journal 这类正常公司；也不要放宽成 `Invesco`（误杀 Invesco Ltd 本身）或 `Fund|Trust`（误杀 Northern Trust 和名字带 Trust 的 REIT）。（10-08 三张榜里的 20 只基金类产品，这份名单全部剔中。）
-   - **同时剔疑似合股的假涨幅**：`changesPercentage ≥ 200` 的行直接剔（等价于前收 < 现价 / 3，榜单行就能判，免得假涨幅占掉补市值名额）。这类假涨幅现价可以在 $3 以上，价格闸挡不住（N-111）。
+   - **同时剔疑似合股的假涨幅**：`changesPercentage ≥ 200` 的行直接剔（等价于前收 < 现价 / 3，榜单行就能判，免得假涨幅占掉补市值名额）。这类假涨幅现价可以在 $3 以上，按股价挡不住（N-111）。
    - **同时剔 SPAC 单位 / 权证 / 权利证**（口径同 c1 / 03，2026-10-09 用户定）：代码为 5 个字母且以 `U` / `W` / `R` 结尾，**并且**名称含 `Acquisition Corp` / `Merger Corp` / `Right` / `Unit` / `Warrant` 的剔掉。两个条件要同时满足：名称含 `Acquisition Corp` 但代码不符合的是 SPAC 普通股，留到第 4 步按 SPAC 标记。（如 CCAQU、ALISU，不剔会白占补市值名额。）
-   - **同时剔仙股**：`price < 5` 的行剔掉（低价大盘股如 GRAB 若因此漏掉，在数据缺口里写一句即可）。
+   - **不按股价剔除**（N-9）：低价股在第 2 步按股价排序时自然排在后面，不单独剔，免得误杀 GRAB 这类低价大盘股。
 2. **挑候选**（跟 c1，2026-10-09 用户定）：三张榜预筛后合并去重，**先只留 `|changesPercentage| ≥ 3` 的行**（活跃榜里涨跌 1% 的高价股不该占名额），**再按 `price` 从高到低取前 20 只**补市值；排第 21 名起的没补到，在数据缺口里写"榜单候选 N 只、按股价取前 20 补市值，未补：……"（排在 20 名外的也可能过 5 亿美元，如 GFUZ 约 6.9 亿、+13.7%）。
 3. **补市值和交易所**，每批 5 个、最多 4 批，一轮并行发完：
    ```
