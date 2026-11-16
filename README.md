@@ -317,7 +317,7 @@ Similar-sounding requests go to different skills:
 | `run KOL watch` / `跑一下 KOL` | [Feed Manager](./Feed%20Manager/README.md) | Your own roster → daily brief + running archive. Market-wide KOL chatter routes to c4; real-money positions to Trader Diligence |
 | `CPI impact` / `CPI 影响` | *(no dedicated skill)* | Indicator interpretation is model-native — the model calls `metrics`+`news` directly; the FRED series dictionary lives in the caveats reference (Appendix A) |
 
-Each skill's frontmatter carries explicit `trigger` and `not_trigger` lists — that's what keeps neighbours from stealing each other's queries.
+In Claude Code, only a skill's `description` reaches the list the model picks from — `trigger` / `not_trigger` are not shown to it. So each `description` ends with its closest boundaries (`不用于：… (→ neighbour)`), which is what keeps neighbours from stealing each other's queries. The `trigger` / `not_trigger` lists stay in the frontmatter as the full reference for maintainers.
 
 ---
 

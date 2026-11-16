@@ -1,6 +1,6 @@
 ---
 name: Community Daily Brief (c1 — 社群美股早報·晨晚雙時段)
-description: 美股新手社群每日早報。晨報（台北早晨）=昨夜收盘复盘+今日看点六段结构；開盤前瞻（台北21:00前后）=盘前三段精简版；刷新=盘中增量补丁。产出直接可贴社群的繁体贴文。仅供运营使用。
+description: 美股新手社群每日早報。晨報（台北早晨）=昨夜收盘复盘+今日看点六段结构；開盤前瞻（台北21:00前后）=盘前三段精简版；刷新=盘中增量补丁。产出直接可贴社群的繁体贴文。仅供运营使用。不用于：宏观深度日报（→ Base 06）、热点速报（→ c5）、标的速查（→ c6）、週報（→ c2）。
 trigger: 早報、晨報、跑早报、社群早报、開盤前瞻、开盘前瞻、刷新、community daily brief
 not_trigger: 宏观深度日报（走 macro-morning-brief）、热点扫描（c5）、研报（c3）、温度计（c4）、标的速查（c6）、週報（c2）
 mcp: mcp__followin__metrics, mcp__followin__news, mcp__followin__signal

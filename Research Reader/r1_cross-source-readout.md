@@ -1,6 +1,6 @@
 ---
 name: Research Cross-Source Readout (r1 — 研报跨源印证读数卡)
-description: 单标的研报解读旗舰。把卖方研报的结论当「有偏候选」，再用 Followin 四维活数据（共识 / 市场 / KOL 与内部人 / 基本面）对撞印证，铸成一张校准后的读数卡。输出不是买卖建议，只回答三问：锚哪个价、背离什么性质、盯什么反向信号。必须点名标的才触发。
+description: 单标的研报解读旗舰。把卖方研报的结论当「有偏候选」，再用 Followin 四维活数据（共识 / 市场 / KOL 与内部人 / 基本面）对撞印证，铸成一张校准后的读数卡。输出不是买卖建议，只回答三问：锚哪个价、背离什么性质、盯什么反向信号。必须点名标的才触发。不用于：本周研报榜（→ Community c3）、单纯问目标价（→ Base 02）、催化剂日历（→ r3）、只看报告口径（→ r2）。
 trigger: 印证一下XX的研报、XX研报靠不靠谱、跨源印证、读数卡、研报校准、这个目标价能信吗、research readout、cross-source
 not_trigger: 研报榜/本周研报（→ Community c3）、单纯问目标价（→ Base 02）、催化剂日历（→ r3）、只想看报告口径（→ r2）、财报季扫描（→ Earnings Screener）、背离扫描（→ Base 03）
 mcp: mcp__followin__metrics, mcp__followin__signal, mcp__followin__news

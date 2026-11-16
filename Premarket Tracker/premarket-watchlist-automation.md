@@ -1,6 +1,6 @@
 ---
 name: US Stock Premarket Watchlist Automation
-description: 用 Followin MCP 创建或更新美股自选股盘前追踪自动化，按持仓状态生成盘前报告、异动与重大新闻提醒、条件化交易计划。适用于“每天盘前跟踪自选股”“监控我的美股持仓”“创建盘前自动化”“premarket watchlist”等请求；用户只需提供自选股和持仓状态。
+description: 用 Followin MCP 创建或更新美股自选股盘前追踪自动化，按持仓状态生成盘前报告、异动与重大新闻提醒、条件化交易计划。适用于“每天盘前跟踪自选股”“监控我的美股持仓”“创建盘前自动化”“premarket watchlist”等请求；用户只需提供自选股和持仓状态。不用于：宏观早报（→ Base 06）、社群开盘前瞻（→ Community c1）、单股财报分析（→ Base 02）、财报季扫描（→ Earnings Screener）。
 trigger: 美股盘前追踪、盘前自选、盘前自动化、每天盘前跟踪、自选股跟踪、监控我的持仓、美股盯盘、premarket watchlist、premarket tracker、daily stock watchlist、monitor my holdings
 not_trigger: 宏观早报、社群早报、開盤前瞻、开盘前瞻、财报季扫描、单股财报分析、多Agent深度分析、背离扫描、crypto morning brief、macro morning brief、earnings screener、earnings report、divergence scan
 mcp: mcp__followin__metrics, mcp__followin__news, mcp__followin__signal, mcp__followin__twitter, mcp__followin__subscription

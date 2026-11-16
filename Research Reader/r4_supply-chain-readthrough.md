@@ -1,6 +1,6 @@
 ---
 name: Research Supply-Chain Read-Through (r4 — 研报产业链读穿)
-description: 单标的产业链关联图。回答"这批研报把我的标的放在什么位置上、它的上下游谁在被改价、为什么被点名"。三层产出：关系边（为什么提到它）+ 同链修正（链上谁被改了目标价）+ 跨标的催化剂。数据来自 mention 报告，近 30 天窗口单独调用（不与 r1 共用）。
+description: 单标的产业链关联图。回答"这批研报把我的标的放在什么位置上、它的上下游谁在被改价、为什么被点名"。三层产出：关系边（为什么提到它）+ 同链修正（链上谁被改了目标价）+ 跨标的催化剂。数据来自 mention 报告，近 30 天窗口单独调用（不与 r1 共用）。不用于：这个目标价能不能信（→ r1）、研报口径（→ r2）、研报榜（→ Community c3）。
 trigger: 产业链、上下游、读穿、关联标的、谁受益、链上还有谁、被谁提到、供应链视角、supply chain、read-through
 not_trigger: 这个目标价能信吗（→ r1）、研报口径（→ r2）、催化剂时间线（→ r3）、研报榜（→ Community c3）、财报季扫描（→ Earnings Screener）
 mcp: mcp__followin__metrics
