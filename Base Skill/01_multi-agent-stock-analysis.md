@@ -1,6 +1,6 @@
 ---
 name: Multi-Agent Stock Analysis
-description: 多Agent美股深度分析 — 19位虚拟分析师（8位传奇投资者+5位现代大师+6位量化分析师）独立打分，风控经理约束仓位，组合经理LLM综合决策。对标ai-hedge-fund架构。必须指定具体美股代码，如"帮我全面分析AAPL"、"多维度看TSLA"、"NVDA值不值得买"。
+description: 多Agent美股深度分析 — 19位虚拟分析师（8位传奇投资者+5位现代大师+6位量化分析师）独立打分，风控经理约束仓位，组合经理LLM综合决策。对标ai-hedge-fund架构。必须指定具体美股代码，如"帮我全面分析AAPL"、"多维度看TSLA"、"NVDA值不值得买"。只看财报走 02，背离扫描走 03，宏观评分 / 早报走 04 / 05 / 06。
 trigger: 多维度分析、多角度分析、全面分析、深度分析、值不值得买、能不能买、该不该买、综合分析、multi-agent分析、AI分析、投资分析、全方位分析、帮我分析一下XX、XX怎么样、XX能买吗、multi-agent analysis、full analysis、comprehensive analysis、should I buy、deep dive、stock analysis、investment analysis
 not_trigger: 策略信号、KOL、喊单、热点、日报、背离扫描、财报速查、宏观指标、BTC宏观、黄金宏观、strategy、KOL calls、trending、daily brief、divergence、earnings report、macro、morning brief
 mcp: mcp__followin__metrics, mcp__followin__news, mcp__followin__signal

@@ -1,6 +1,6 @@
 ---
 name: Live Position Diligence (实盘尽调卡)
-description: 把 signal.trader_position 的实盘持仓读成"这单值不值得跟"。榜面最扎眼的三个数字——净方向、胜率、盈亏比——恰好最会骗人，本 Skill 的产品就是那六道闸（含一道必须最先跑的「幽灵仓」过滤）。两种模式：**①标的视角**（谁在做这只票 / 钱在挤哪）与**②交易员视角**（这个人在做什么、值不值得跟，跨标的聚合）。不算收益、不做账本、不承诺按人检索。
+description: 把 signal.trader_position 的实盘持仓读成"这单值不值得跟"。榜面最扎眼的三个数字——净方向、胜率、盈亏比——恰好最会骗人，本 Skill 的产品就是那六道闸（含一道必须最先跑的「幽灵仓」过滤）。两种模式：**①标的视角**（谁在做这只票 / 钱在挤哪）与**②交易员视角**（这个人在做什么、值不值得跟，跨标的聚合）。不算收益、不做账本、不承诺按人检索。不用于：KOL 喊单 / 嘴上怎么说（→ Community c4）、研报观点（→ Research Reader）。
 trigger: 谁在做XX、实盘持仓、跟单靠谱吗、这个交易员能跟吗、XX在做什么、他的仓位、某某值不值得跟、真金白银在买什么、钱在挤哪、实盘尽调、避雷卡、live positions、who is long
 not_trigger: KOL喊单/嘴上怎么说（→ signal kol_call，见 Community c4）、内部人交易（→ Base 03）、机构13F（→ institutional 只支持按标的查汇总统计，不支持按基金查持仓）、研报观点（→ Research Reader）、算跟单收益/建账本（→ 已否决，见 CHANGELOG 2026-07-30）
 mcp: mcp__followin__signal

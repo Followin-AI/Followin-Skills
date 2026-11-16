@@ -5,6 +5,12 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-11-16 — 路由边界并进 description
+
+- Claude Code 挑选 Skill 时只看得到 `description`，`trigger` / `not_trigger` 不进候选清单，写在 `not_trigger` 里的边界此前不起作用。
+- 18 个 Skill 的 `description` 末尾补一句最容易混的邻居（「不用于：…（→ 邻居）」）；03 / 04 / 财报季扫描原本已写，不动。`not_trigger` 列表保留作维护参考。
+- README 中英两处「`not_trigger` 防抢词」的说法改正。
+
 ## 2026-10-19 — 盘前追踪内部人翻页上限 2→4 页（用户拍板）
 
 - 每只个股内部人最多翻 4 页（原 2 页），MU 这类申报密集的票 4 页才覆盖满 90 天；示例 watchlist 内部人一路 7→9 次调用，最多 20 次。

@@ -308,7 +308,7 @@ cp -rn "Feed Manager/skills/"* ~/.claude/skills/
 | `跑一下 KOL` / `run KOL watch` | [Feed Manager](./Feed%20Manager/README.md) | 你自己名单的日报 + 累积档案；全网喊单走 c4、实盘仓位走实盘尽调 |
 | `CPI 影响` / `CPI impact` | *（无专门 Skill）* | 指标解读是模型自带能力——直接调 `metrics`+`news`；FRED 字典见 caveats 附表 A |
 
-每个 Skill 的 frontmatter 都带显式的 `trigger` 与 `not_trigger` 列表 —— 这是相邻 Skill 不互相抢词的关键。
+在 Claude Code 里，模型挑选 Skill 时只看得到 `description`，看不到 `trigger` / `not_trigger`。所以每个 Skill 的 `description` 末尾都写了最容易混的几条边界（「不用于：…（→ 邻居）」），相邻 Skill 不互相抢词靠的是这一句。frontmatter 里的 `trigger` / `not_trigger` 列表保留，作为维护者查阅的完整清单。
 
 ---
 

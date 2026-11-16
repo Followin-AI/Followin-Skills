@@ -1,6 +1,6 @@
 ---
 name: Community Weekly (c2 — 周报·简体)
-description: 面向美股社群的精简周报。使用可验证的 Followin MCP 市场、新闻与事件数据，输出可直接发布的简体中文内容；数据不足的段落自动略过。
+description: 面向美股社群的精简周报。使用可验证的 Followin MCP 市场、新闻与事件数据，输出可直接发布的简体中文内容；数据不足的段落自动略过。不用于：早报（→ c1）、热点速报（→ c5）、单一标的速查（→ c6）。
 trigger: 周报、週報、美股社群周报、本周看点、下周有什么、weekly
 not_trigger: 早报、盘前、热点快讯、研报榜、温度计、单一标的速查
 mcp: mcp__followin__metrics, mcp__followin__news
