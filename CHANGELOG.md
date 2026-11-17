@@ -5,6 +5,10 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-11-17 — 实盘尽调：内部人交易路由改指 c4 / c6
+
+- `not_trigger` 原写「内部人交易（→ Base 03）」，但 03 的内部人静默买入信号已于 2026-10-04 撤掉（#10），当时这条没同步。改指 `signal insider_trading`（Community c4 温度计 / c6 速查），`description` 的「不用于」同步补上。
+
 ## 2026-11-16 — 路由边界并进 description
 
 - Claude Code 挑选 Skill 时只看得到 `description`，`trigger` / `not_trigger` 不进候选清单，写在 `not_trigger` 里的边界此前不起作用。
