@@ -13,7 +13,7 @@ args: form(A=温度计 | B=讯号汇总，默认 A；说「汇总」「交易员
 
 | 形态 | 触发 | 产出 | 额度 | 何时用 |
 |---|---|---|---|---|
-| **A 温度计** | 「溫度計」「热议标的」 | 选 Top 3-5 标的，逐个两格交叉 | ≈7-31（内部人每只翻 1~5 页） | 想深挖少数标的时；要跨源打架叙事时 |
+| **A 温度计** | 「溫度計」「热议标的」 | 选 Top 3-5 标的，逐个两格交叉 | ≈7-31（内部人每只 1~5 次） | 想深挖少数标的时；要跨源打架叙事时 |
 | **B 讯号汇总** | 「訊號彙總」「交易员在说什么」「策略信号总结」 | 全市场喊单按标的聚合成一篇 | ≈2-3（截断时补钻取 +1） | 想给社群一份"这周大家在聊什么"的全景时 |
 
 两种形态共用同一批数据源与全部防坑规则（第 3 节），差别只在聚合粒度：A 是纵向深挖、B 是横向铺开。默认 A；触发短语含"汇总/总结/在说什么"路由到 B。
@@ -28,7 +28,7 @@ args: form(A=温度计 | B=讯号汇总，默认 A；说「汇总」「交易员
 |---|---|---|
 | 1 | `signal(categories=["kol_call"], query="consensus", asset_type="tradfi", time_range="24h")` 喊单聚合榜（总帖数 / 多空比 / top_calls；**必须带 24h**，见下） | 1 |
 | 2 | 对喊单榜 Top 3-5 逐个 `signal(keywords=["<TICKER>"], categories=["kol_call"], asset_type="tradfi", limit=50, verbosity="concise")` 钻取喊单（**不带 time_range**；**必须 limit=50**，见下；c4 不使用 13F 与 trader_position，不列 institutional / trader_position） | 各 1 |
-| 2a | 对同一批标的逐个 `signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", paginate=true, limit=50, verbosity="concise")` 单独一路查内部人，按 `next_cursor` 翻页，**每只最多 5 页**（见下「步骤 2a」；ETF 不调） | 每页 1 |
+| 2a | 对同一批标的逐个单独查内部人，**两段取数**：先 `signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", limit=50, verbosity="concise")` 取实时段，不够 90 天再加 `paginate=true` 翻存档，**每只最多 5 次**（见下「步骤 2a」；ETF 不调） | 每次 1 |
 | 2b | （按需）内部人動向行要写精确股数 / 金额、判超出归属量或疑似代扣时，对涉及的申报逐份 `signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", filing="<申报编号>", limit=50, verbosity="concise")` 读整份申报（见下「步骤 2b」） | 每页 1 |
 | 3 | （可选）`news(query="<TICKER> <公司名>", sources=["twitter"], time_range="24h")` 补推特层原文 | 0（实测） |
 
@@ -38,13 +38,18 @@ signal 工具有四个类别：kol_call（喊单）、trader_position（实盘�
 
 步骤 2 返回的 kol_call 行**不会按 ticker 过滤干净**（实测查 MU 混入 NBIS / NOW / CTKB 的帖子）——写作前必须按 `symbol == <TICKER>` 自行筛行。**c4 不再调用 trader_position（2026-10-09 用户拍板）**：美股实盘持仓三轮实测全空——2026-10-05 MU / SOFI / VST / CBRS / NKE、2026-10-08 早间 MU / SNDK、2026-10-08 晚间 MU / NBIS / VST / ONDS / SNDK 均不返回该类（`status` 仍是 `ok`），「真金白銀」格每次都只能写「樣本太薄」，因此删去该格。对外只保留一句「美股實盤持倉數據目前取不到」（形态 A 主体段末行、形态 B 阅读提醒第 ③ 条）。
 
-**步骤 2 为什么必须 limit=50（2026-10-05 实测）**：limit 对每一类分别生效，加大仍只计 1 额度。默认 10 行时会出两种截断：① kol_call——一条列了很多只票的帖子会拆成很多行，把目标票自己的行挤出去（实测 SOFI：默认 10 行全是同一条 11 只票清单帖拆出的 CRWV～UBER，按字母序截到第 10 行，`symbol=="SOFI"` 筛完为 0；limit=50 后出现 2 行 SOFI，其中一条带目标价）；② insider_trading——10 行只回溯到 3 周前，90 天窗口内的卖出被漏掉（实测 SOFI 漏了两笔 S-Sale；内部人现已改走步骤 2a 翻页，下面的截断自检用于判断翻完 5 页后是否覆盖满 90 天）。**截断自检**：公司内部人行按 `transactionDate` 倒序排（不是按申报日——迟报的 Form 4 也排回交易日的位置；2026-10-08 实测 NBIS 一份 09-21 才申报的 07-15 / 06-15 卖出排在最后），所以最旧一行就是覆盖起点。内部人返回里**最旧一条公司内部人行（不带 `_chamber` 的行）**的 `transactionDate` 若晚于 90 天窗口起点，说明还没回溯完，不能写「近 90 天只有这些」。议员行来自另一个子源、排在列表最后，不能拿来做自检（2026-10-08 实测 MU：最旧一行是 07-10 的议员买入，恰好落在窗口起点，但公司内部人其实只回溯到 07-24）。limit=50 也不一定够：高频分笔减持的公司，一份 Form 4 会按成交价拆成十几到二十几行（实测 MU CEO 08-21 一份申报 27 行、SNDK CEO 09-17 一份 15 行），50 行只够回溯 4-5 周；limit 已到上限，换 `sort_by="amount"` 也拉不到更早的（实测 SNDK 两种排序最旧的 Form 4 都停在 09-03），所以要靠步骤 2a 翻页。**翻满 5 页仍截断时对外改写实际覆盖范围**，如「10/13 以來」，不写「近 90 天」，买卖股数 / 金额写「至少」。要写精确股数时不靠这些行加总，走步骤 2b。
+**步骤 2 为什么必须 limit=50（2026-10-05 实测）**：limit 对每一类分别生效，加大仍只计 1 额度。默认 10 行时会出两种截断：① kol_call——一条列了很多只票的帖子会拆成很多行，把目标票自己的行挤出去（实测 SOFI：默认 10 行全是同一条 11 只票清单帖拆出的 CRWV～UBER，按字母序截到第 10 行，`symbol=="SOFI"` 筛完为 0；limit=50 后出现 2 行 SOFI，其中一条带目标价）；② insider_trading——10 行只回溯到 3 周前，90 天窗口内的卖出被漏掉（实测 SOFI 漏了两笔 S-Sale；内部人现已改走步骤 2a 翻页，下面的截断自检用于判断取满 5 次后是否覆盖满 90 天）。**截断自检**：公司内部人行按 `transactionDate` 倒序排（不是按申报日——迟报的 Form 4 也排回交易日的位置；2026-10-08 实测 NBIS 一份 09-21 才申报的 07-15 / 06-15 卖出排在最后），所以最旧一行就是覆盖起点。内部人返回里**最旧一条公司内部人行（不带 `_chamber` 的行）**的 `transactionDate` 若晚于 90 天窗口起点，说明还没回溯完，不能写「近 90 天只有这些」。议员行来自另一个子源、排在列表最后，不能拿来做自检（2026-10-08 实测 MU：最旧一行是 07-10 的议员买入，恰好落在窗口起点，但公司内部人其实只回溯到 07-24）。limit=50 也不一定够：高频分笔减持的公司，一份 Form 4 会按成交价拆成十几到二十几行（实测 MU CEO 08-21 一份申报 27 行、SNDK CEO 09-17 一份 15 行），50 行只够回溯 4-5 周；limit 已到上限，换 `sort_by="amount"` 也拉不到更早的（实测 SNDK 两种排序最旧的 Form 4 都停在 09-03），所以要靠步骤 2a 翻页。**翻满 5 页仍截断时对外改写实际覆盖范围**，如「10/13 以來」，不写「近 90 天」，买卖股数 / 金额写「至少」。要写精确股数时不靠这些行加总，走步骤 2b。
 
-**步骤 2a：内部人单独一路翻页（2026-10-19 起必做）**：10-19 起接口不再把申报行合并，单查 MU `limit=50` 一页只覆盖 10-13~10-15 三天（季度归属日几位高管的 M-Exempt / F-InKind / A-Award 就占满两页），只看首页的「近 90 天只有賣出 / 無買入」实际只基于几天数据。做法：`categories` 只放 `insider_trading`、`keywords` 只放 1 个代码、不传 `sort_by`、带 `paginate=true`；`meta.pagination.insider_trading.has_more` 为 `true` 时，把 `next_cursor` 原样填进 `cursor`、其余参数（含 `limit`）不变续翻，翻到本页最旧一条公司内部人行（不带 `_chamber`）的 `transactionDate` 早于 90 天窗口起点、或 `has_more:false` 为止，**每只最多 5 页**（每页 1 额度）。到 5 页仍没到窗口起点，按上面的截断自检改写覆盖起点。2026-10-19 实测 MU：第 1~2 页全是 10-13~10-15，第 3 页回到 08-18，第 4 页到 07-01（早于窗口起点 07-21）停，共 4 点。ETF（步骤 2 喊单行 `asset_sub_type` 为 `etf`）不调本步。
+**步骤 2a：内部人单独一路、两段取数（2026-11-17 起，N-195）**：10-19 起接口不再把申报行合并，单查 `limit=50` 一页常只覆盖几天到一个月（季度归属日几位高管的 M-Exempt / F-InKind / A-Award 就能占满一页），只看一页的「近 90 天只有賣出 / 無買入」实际只基于这段数据。翻页读的是存档，而存档 2026-11-07 起停更，只翻存档会看不到之后的申报（2026-11-17 实测 NVDA：翻页最新只到 10-09 申报，实时查询能读到董事 11-06 申报的赠股）。所以分两段：
+- **① 实时段**：`categories` 只放 `insider_trading`、`keywords` 只放 1 个代码、不传 `sort_by`、**不带 `paginate`**，`limit=50`，1 额度；拿到最新 50 行，不能翻页（2026-11-17 实测 MU：50 行回到 10-13）。
+- **② 存档段**（按需）：① 最旧一条公司内部人行（不带 `_chamber`）的 `transactionDate` 仍晚于 90 天窗口起点时，同样参数加 `paginate=true` 翻存档；`meta.pagination.insider_trading.has_more` 为 `true` 时，把 `next_cursor` 原样填进 `cursor`、其余参数（含 `limit`）不变续翻，翻到最旧一条公司内部人行早于窗口起点、或 `has_more:false` 为止。
+- **合并**：两段按 caveats 现行用法「内部人」一条的去重键合并，重复时以实时段为准；① 满 50 行、且其最旧一条公司内部人行晚于 ② 最新一条公司内部人行时，两段之间可能缺行，对外写「A~B 之間可能有漏」。
+- **上限**：两段合计**每只最多 5 次**（每次 1 额度）。到上限仍没到窗口起点，按上面的截断自检改写覆盖起点。ETF（步骤 2 喊单行 `asset_sub_type` 为 `etf`）不调本步。
 
 **步骤 2b：用 `filing` 读整份申报（2026-10-19 起可用，N-187）**：步骤 2a 翻到的是按交易日倒序的交易行，大申报会被翻页边界切开，同一份申报里的 F-InKind / M-Exempt 行也可能不在 50 行里（2026-10-19 实测 MU：默认 50 行只回溯到 10/13，首席法务官 10/14 卖出前一天的 F-InKind 扣税行不在其中，只看默认视图会把扣税后的卖出当成主动卖出）。所以内部人動向行要写进股数 / 金额、判超出归属量或疑似代扣时，按申报编号把相关申报读全再算：
 - **申报编号从行内 `url` 取**：返回行没有单独的申报编号字段，`url` 末段 `.../000124265426000015/0001242654-26-000015-index.htm` 里的 `0001242654-26-000015` 就是；带横线或 18 位纯数字都收（`meta.filters_applied.filing` 会规整成 18 位）。
 - **调用约束**：`categories` 只放 `insider_trading` 一类、`keywords` 只放 1 个代码、不传 `sort_by`（或传 `time`）；传 `filing` 即隐含 `paginate=true`，不用另传。
+- **只读存档**：`filing` 读的是 2026-11-07 起停更的存档，之后的申报读不到（2026-11-17 实测 NVDA 董事 11-06 那份返回 0 行、`no_match`）；这类申报的股数只能用步骤 2a 实时段的行加总，实时段满 50 行时写「至少」（N-195）。
 - **翻页**：`meta.pagination.insider_trading.has_more` 为 `true` 时，用同一组参数（含同一个 `limit`）加 `cursor="<next_cursor>"` 续读，直到 `has_more:false`；每页计 1 额度（2026-10-19 实测 MU 首席法务官 10/14 一份，limit=20 分两页 20 + 12 行）。
 - **修正版**：`filing` 读取默认 `revision_view="history"`（所有版本都显示），被 4/A 取代的原申报行带 `superseded_by`、修正版带 `amends`——**带 `superseded_by` 的行不计入**；步骤 2a 的翻页默认 `revision_view="effective"`，已隐藏被取代的原申报。
 - **实测**：MU CEO 8/21（`0001242654-26-000015`）一次读到 27 行、卖出合计 40,000 股、加权均价约 $969，与下文对外写法「8/21 共賣出 4 萬股、均價約 $969」一致（`has_more:false`）。
@@ -73,10 +78,12 @@ frontmatter 的 mcp 声明含 `mcp__followin__metrics`，但上表三步核心�
    # kol_call 行按 symbol == <TICKER> 自行筛，再按 source_url 去重、数独立帐号；要更完整的原帖可加 query="详细仓位"
    # Top 5 时按 SSE 红线单批 ≤4 路，拆成 4+1 两批并行
 
-2a. signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", paginate=true, limit=50, verbosity="concise")
-   # 同一批标的逐个查内部人（ETF 跳过），內部人動向格的素材出自这一步；不带 time_range
-   # has_more:true 时同参数加 cursor="<next_cursor>" 续翻，到最旧一条公司内部人行早于 90 天窗口起点或 has_more:false 为止，每只最多 5 页、每页 1 额度
-   # 翻满 5 页仍没到窗口起点 → 对外写实际覆盖起点（如「10/13 以來」），买卖写「至少」
+2a. signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", limit=50, verbosity="concise")
+   # ① 实时段：同一批标的逐个查内部人（ETF 跳过），內部人動向格的素材出自这一步；不带 paginate、不带 time_range
+   signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", paginate=true, limit=50, verbosity="concise")
+   # ② 存档段（按需）：① 最旧一条公司内部人行仍晚于 90 天窗口起点时才调；has_more:true 时同参数加 cursor="<next_cursor>" 续翻
+   # 存档 2026-11-07 起停更，只补 ① 之前的历史；两段去重合并，重复以 ① 为准；两段合计每只最多 5 次、每次 1 额度
+   # 取满 5 次仍没到窗口起点 → 对外写实际覆盖起点（如「10/13 以來」），买卖写「至少」；两段之间可能缺行时写「A~B 之間可能有漏」
 
 2b. signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", filing="<申报编号>", limit=50, verbosity="concise")
    # 按需：内部人動向行要写精确股数 / 金额、判代扣 / 超出归属量时，逐份读整份申报；申报编号取行内 url 末段
