@@ -43,7 +43,7 @@ signal 工具有四个类别：kol_call（喊单）、trader_position（实盘�
 **步骤 2a：内部人单独一路、两段取数（2026-11-17 起，N-195）**：10-19 起接口不再把申报行合并，单查 `limit=50` 一页常只覆盖几天到一个月（季度归属日几位高管的 M-Exempt / F-InKind / A-Award 就能占满一页），只看一页的「近 90 天只有賣出 / 無買入」实际只基于这段数据。翻页读的是存档，而存档 2026-11-07 起停更，只翻存档会看不到之后的申报（2026-11-17 实测 NVDA：翻页最新只到 10-09 申报，实时查询能读到董事 11-06 申报的赠股）。所以分两段：
 - **① 实时段**：`categories` 只放 `insider_trading`、`keywords` 只放 1 个代码、不传 `sort_by`、**不带 `paginate`**，`limit=50`，1 额度；拿到最新 50 行，不能翻页（2026-11-17 实测 MU：50 行回到 10-13）。
 - **② 存档段**（按需）：① 最旧一条公司内部人行（不带 `_chamber`）的 `transactionDate` 仍晚于 90 天窗口起点时，同样参数加 `paginate=true` 翻存档；`meta.pagination.insider_trading.has_more` 为 `true` 时，把 `next_cursor` 原样填进 `cursor`、其余参数（含 `limit`）不变续翻，翻到最旧一条公司内部人行早于窗口起点、或 `has_more:false` 为止。
-- **合并**：两段按 caveats 现行用法「内部人」一条的去重键合并，重复时以实时段为准；① 满 50 行、且其最旧一条公司内部人行晚于 ② 最新一条公司内部人行时，两段之间可能缺行，对外写「A~B 之間可能有漏」。
+- **合并**：两段按 caveats 现行用法「内部人」一条的去重键合并，重复时以实时段为准；只计 `include_in_effective:true` 的行；同一申报人、同一交易日、同一 `transactionType` 两段给出不同版本（修正版 4/A）时以存档段为准，不两份都计（caveats 现行用法「内部人」）；① 满 50 行、且其最旧一条公司内部人行晚于 ② 最新一条公司内部人行时，两段之间可能缺行，对外写「A~B 之間可能有漏」。
 - **上限**：两段合计**每只最多 5 次**（每次 1 额度）。到上限仍没到窗口起点，按上面的截断自检改写覆盖起点。ETF（步骤 2 喊单行 `asset_sub_type` 为 `etf`）不调本步。
 
 **步骤 2b：用 `filing` 读整份申报（2026-10-19 起可用，N-187）**：步骤 2a 翻到的是按交易日倒序的交易行，大申报会被翻页边界切开，同一份申报里的 F-InKind / M-Exempt 行也可能不在 50 行里（2026-10-19 实测 MU：默认 50 行只回溯到 10/13，首席法务官 10/14 卖出前一天的 F-InKind 扣税行不在其中，只看默认视图会把扣税后的卖出当成主动卖出）。所以内部人動向行要写进股数 / 金额、判超出归属量或疑似代扣时，按申报编号把相关申报读全再算：
@@ -82,7 +82,7 @@ frontmatter 的 mcp 声明含 `mcp__followin__metrics`，但上表三步核心�
    # ① 实时段：同一批标的逐个查内部人（ETF 跳过），內部人動向格的素材出自这一步；不带 paginate、不带 time_range
    signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", paginate=true, limit=50, verbosity="concise")
    # ② 存档段（按需）：① 最旧一条公司内部人行仍晚于 90 天窗口起点时才调；has_more:true 时同参数加 cursor="<next_cursor>" 续翻
-   # 存档 2026-11-07 起停更，只补 ① 之前的历史；两段去重合并，重复以 ① 为准；两段合计每只最多 5 次、每次 1 额度
+   # 存档 2026-11-07 起停更，只补 ① 之前的历史；两段去重合并，重复以 ① 为准；只计 include_in_effective:true 的行，同一笔两段版本不同（4/A）以 ② 为准；两段合计每只最多 5 次、每次 1 额度
    # 取满 5 次仍没到窗口起点 → 对外写实际覆盖起点（如「10/13 以來」），买卖写「至少」；两段之间可能缺行时写「A~B 之間可能有漏」
 
 2b. signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", filing="<申报编号>", limit=50, verbosity="concise")

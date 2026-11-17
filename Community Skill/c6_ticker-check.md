@@ -67,7 +67,7 @@ args: ticker(必填)
 3a. signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", limit=50, verbosity="concise")
    signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", paginate=true, limit=50, verbosity="concise")
    # 随步骤 3 一起跑；内部人单独一路，两段取数（2026-11-17 起，N-195）：先调第一行实时段（不带 paginate，含 11-07 以后的申报）；
-   # 实时段最旧一条公司内部人行仍晚于 90 天窗口起点时，再调第二行翻存档（存档 11-07 起停更，只补之前的历史）；两段去重合并，重复以实时段为准
+   # 实时段最旧一条公司内部人行仍晚于 90 天窗口起点时，再调第二行翻存档（存档 11-07 起停更，只补之前的历史）；两段去重合并，重复以实时段为准；只计 include_in_effective:true 的行，同一笔两段版本不同（4/A）以存档段为准
    # 只认 insider_trading 一类、1 个代码、不传 sort_by
    # 2026-10-19 起申报行不再合并：MU limit=50 一页只覆盖 10-13~10-15 三天，只看首页的「只有賣出 / 無買入」实际只基于几天数据，🔥 ② 的内部人一条就判不准
    # 存档段 has_more:true 时把 meta.pagination.insider_trading.next_cursor 填进 cursor、其余参数不变续翻，到最旧一条公司内部人行（不带 `_chamber`）的 transactionDate 早于 90 天窗口起点、或 has_more:false 为止；两段合计最多 5 次，每次 1 点

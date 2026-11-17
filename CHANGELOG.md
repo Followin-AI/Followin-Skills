@@ -5,6 +5,11 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-11-17 — 内部人两段合并补修正版规则；记录 NVDA / MU 试跑
+
+- 实时段不核修正链，同一笔的原申报和 4/A 可能一起返回，其中一行标 `include_in_effective:false`；存档段默认只留 4/A。两段版本相反（NVDA Parker 9/9），申报编号和股数都不同，去重键挡不住，会重复计数。改为只计 `include_in_effective:true` 的行，同一笔两段版本不同时以存档段为准。01 / c4 / c6 / 盘前追踪同步。
+- caveats N-195 记录 11-17 试跑：NVDA 实时段 1 次覆盖 90 天；MU 实时 1 次 + 存档 4 页到上限，两段重叠无缺口、去重正确，CEO 08-21 跨页合计 40,000 股与 SEC 原件一致。
+
 ## 2026-11-17 — 内部人改为两段取数（实时 + 存档）
 
 - signal 的公司内部人存档 2026-11-07 起停更，`paginate` / `cursor` / `filing` 都只读存档。01 / c4 / c6 / 盘前追踪 10-19 起只翻存档取内部人，11-07 以后的申报全部看不到（实测 NVDA：翻页最新只到 10-09 申报，实时查询能读到 11-06 申报）。
