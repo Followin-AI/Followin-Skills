@@ -5,6 +5,12 @@ All notable changes to Followin Skills are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are dated; the 1.x version numbers below the fold belonged to the retired npm package.
 
+## 2026-11-17 — 内部人改为两段取数（实时 + 存档）
+
+- signal 的公司内部人存档 2026-11-07 起停更，`paginate` / `cursor` / `filing` 都只读存档。01 / c4 / c6 / 盘前追踪 10-19 起只翻存档取内部人，11-07 以后的申报全部看不到（实测 NVDA：翻页最新只到 10-09 申报，实时查询能读到 11-06 申报）。
+- 改为两段取数：先不带 `paginate` 查实时（最新 50 行、不能翻页），不够 90 天再翻存档补历史；两段去重合并，重复以实时为准；接不上时写明「A~B 之间可能有漏」。每只调用上限不变（01 / c4 / c6 5 次、盘前 4 次）。
+- 11-07 以后的申报不能用 `filing` 读全，股数写「至少」。caveats 新增 N-195；N-192 / N-194 补 11-17 复测（均未修）。
+
 ## 2026-11-17 — 实盘尽调：内部人交易路由改指 c4 / c6
 
 - `not_trigger` 原写「内部人交易（→ Base 03）」，但 03 的内部人静默买入信号已于 2026-10-04 撤掉（#10），当时这条没同步。改指 `signal insider_trading`（Community c4 温度计 / c6 速查），`description` 的「不用于」同步补上。

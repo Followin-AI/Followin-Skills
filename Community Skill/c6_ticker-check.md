@@ -26,7 +26,7 @@ args: ticker(必填)
 | 1 | `metrics(keywords=["<TICKER>"], query="行情 分析师评级 目标价", asset_type="tradfi", limit=20)` 快照 + 分析师共识（中位/最高/最低目标价；家数由 `analyst_grades` 近 180 天去重估算，N-16，口径见第 2 节） | 1 |
 | 2 | `news(query="<TICKER> <公司名>", time_range="7d", limit=5)` 近期新闻要点（公司名取步骤 1 快照 `name`） | 0（实测） |
 | 3 | （可选，热议标的才加）`signal(keywords=["<TICKER>"], categories=["kol_call"], asset_type="tradfi", limit=50, verbosity="concise")` 喊单温度 | 1 |
-| 3a | （随步骤 3 一起跑）`signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", paginate=true, limit=50, verbosity="concise")` 内部人单独一路，按 `next_cursor` 翻页，**最多 5 页**，做法同 c4 第 1 节「步骤 2a」 | 每页 1 |
+| 3a | （随步骤 3 一起跑）内部人单独一路，**两段取数**：先 `signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", limit=50, verbosity="concise")` 取实时段，不够 90 天再加 `paginate=true` 翻存档，**最多 5 次**，做法同 c4 第 1 节「步骤 2a」 | 每次 1 |
 | 3b | （按需，只在跑了步骤 3a 且信号面要写卖出股数 / 金额时）`signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", filing="<申报编号>", limit=50, verbosity="concise")` 读整份申报，做法同 c4 第 1 节「步骤 2b」 | 每页 1 |
 
 步骤 3（连同内部人的步骤 3a）只在标的是"热议标的"时才加跑，判定是客观的，**满足任一即跑**：① 场景①（触发本次速查正是因为群里在热聊它）；② 步骤 2 的 social 桶里，48 小时内含 `$<TICKER>` 的条目 ≥3 条；③ 步骤 1 的 `analyst_grades` 在 7 天内有 `upgrade` / `downgrade`。三条都不满足（多见于场景②的常规摸底）就只跑两步（≈1 点），信号面整段省略。不加价格条件（2026-10-08 拍板维持现状：实测 ARGX 当日 −14.8% 三条都不满足，补跑信号面对照也只有议员行、喊单无，没漏信息）。（2026-10-05 实测：MU 命中②；HUBG 命中③——10/1 Stifel Sell→Hold。）
@@ -64,11 +64,14 @@ args: ticker(必填)
    # 内部人类本来就不认 time_range：2026-10-19 实测 MU 单查 insider_trading 带 time_range="3m"，返回 parameter_partial、filters_applied 里没有 time_range、行与不带时相同——窗口一律客户端按 transactionDate 过滤
    # kol_call：近 24 小时没有该标的喊单时整类缺席（2026-10-08 实测 HUBG、PTC 合查时只返回 insider_trading 一类；单独调时带 no_match warning）——缺席 = 无喊单，不重试
 
-3a. signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", paginate=true, limit=50, verbosity="concise")
-   # 随步骤 3 一起跑；内部人单独一路（翻页只认 insider_trading 一类、1 个代码、不传 sort_by）
+3a. signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", limit=50, verbosity="concise")
+   signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", paginate=true, limit=50, verbosity="concise")
+   # 随步骤 3 一起跑；内部人单独一路，两段取数（2026-11-17 起，N-195）：先调第一行实时段（不带 paginate，含 11-07 以后的申报）；
+   # 实时段最旧一条公司内部人行仍晚于 90 天窗口起点时，再调第二行翻存档（存档 11-07 起停更，只补之前的历史）；两段去重合并，重复以实时段为准
+   # 只认 insider_trading 一类、1 个代码、不传 sort_by
    # 2026-10-19 起申报行不再合并：MU limit=50 一页只覆盖 10-13~10-15 三天，只看首页的「只有賣出 / 無買入」实际只基于几天数据，🔥 ② 的内部人一条就判不准
-   # has_more:true 时把 meta.pagination.insider_trading.next_cursor 填进 cursor、其余参数不变续翻，到最旧一条公司内部人行（不带 `_chamber`）的 transactionDate 早于 90 天窗口起点、或 has_more:false 为止；最多 5 页，每页 1 点（2026-10-19 实测 MU 翻 4 页回到 07-01，4 点）
-   # 截断自检同 c4 第 1 节：翻满 5 页仍晚于 90 天窗口起点，信号面改写实际覆盖起点（如「內部人 10/13 以來只有賣出」），不写「近 90 天」，买卖写「至少」
+   # 存档段 has_more:true 时把 meta.pagination.insider_trading.next_cursor 填进 cursor、其余参数不变续翻，到最旧一条公司内部人行（不带 `_chamber`）的 transactionDate 早于 90 天窗口起点、或 has_more:false 为止；两段合计最多 5 次，每次 1 点
+   # 截断自检同 c4 第 1 节：取满 5 次仍晚于 90 天窗口起点，信号面改写实际覆盖起点（如「內部人 10/13 以來只有賣出」），不写「近 90 天」，买卖写「至少」
 
 3b. signal(keywords=["<TICKER>"], categories=["insider_trading"], asset_type="tradfi", filing="<申报编号>", limit=50, verbosity="concise")
    # 按需：信号面要写卖出股数 / 金额时，逐份读整份申报（2026-10-19 起可用，不受步骤 3a 翻页边界切开大申报的影响；N-187）
